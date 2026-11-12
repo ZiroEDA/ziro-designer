@@ -39,6 +39,10 @@ msgstr "\"%s\" är inte en länk till ett GitHub-förråd."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "\"%s\" har ställts in som aktivt färgtema för kretsscheman"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d WRL 3D-modell kunde inte matchas mot en motsvarande STEP-modell."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -86,6 +90,10 @@ msgstr "%s-material"
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
 msgid "%s must be between the minimum and maximum text size."
 msgstr "%s måste ligga mellan minsta och största textstorlek."
+
+#: common/remote_provider_utils.ts:121
+msgid "%s must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL."
+msgstr "%s måste använda HTTPS om inte allow_insecure_localhost är aktiverat för en loopback-URL."
 
 #: pcbnew/dialogs/panel_setup_layers.tsx:400
 msgid "%s name"
@@ -167,6 +175,22 @@ msgstr "%s: ta bort"
 msgid "%s: sort"
 msgstr "%s: sortera"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' är redan tilldelad '%s' i avsnittet '%s'. Båda bindningarna behålls, men bara en körs per tangenttryckning. Fortsätta?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' är inte en PADS Logic ASCII-fil."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(auto)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(behåll befintlig referensbeteckning)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(inga STEP-filer i projektet)"
@@ -174,6 +198,10 @@ msgstr "(inga STEP-filer i projektet)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(inga demor medföljer)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(namnlös grupp)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -191,13 +219,33 @@ msgstr "... (steg"
 msgid "1 other viewer"
 msgstr "1 annan som tittar"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D-visare — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "En fil med namnet “%s” finns redan.  Vill du ersätta den?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Ett bibliotek finns redan på '%s'; importerade fotavtryck lämnas olösta."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +259,43 @@ msgstr "En ny version av ZiroEDA är tillgänglig."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Ett positivt tal betyder att raden är anodisk (-) och kolumnen katodisk (+); kalla och varma färgtoner visar också radernas potential."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Ett unikt namn för den här zonen, som används för att identifiera den i DRC-regler"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Konto"
 
@@ -234,6 +318,10 @@ msgstr "Aktiv"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Lägg till 3D-modell"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Lägg till sökkatalog..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +354,10 @@ msgstr "Lägg till från dator..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Lägg till rutnät"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Lägg till grupp '%s' i grupp '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,9 +407,17 @@ msgstr "Lägg till variant"
 msgid "Add via delay override"
 msgstr "Lägg till via-fördröjningsåsidosättning"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Grupp '%s' lades till i grupp '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Förrådet \"%s\" har lagts till (%s paket)"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:73
+msgid "Alias"
+msgstr "Alias"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -334,6 +434,14 @@ msgstr "Tillåt webbplatsdata för den här sidan, eller ladda ned ditt projekt 
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Har du redan ett konto?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +479,21 @@ msgstr "Något annat?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Ändringar tillämpade: %s installerade, %s avinstallerade"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Layout för designblock tillämpades på %d av %d grupp(er)."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Tillämpa väntande ändringar ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Tillämpa designblockslayout på %d grupp(er)"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Tillämpa designblockslayouter på nya grupper"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -395,6 +515,10 @@ msgstr "Områdesgräns"
 msgid "Area name"
 msgstr "Områdesnamn"
 
+#: pcbnew/dialogs/dialog_board_statistics.tsx:203 designer/src/editors/calculator/panels/panel_cable_size.tsx:253
+msgid "Area:"
+msgstr "Yta:"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
 msgid "Arrow direction"
 msgstr "Pilens riktning"
@@ -411,6 +535,10 @@ msgstr "Tillhörande lager"
 msgid "Attenuation is 6 dB"
 msgstr "Dämpningen är 6 dB"
 
+#: eeschema/dialogs/dialog_label_properties_base.tsx:140 eeschema/project_settings.ts:135 eeschema/schematic_settings.ts:43 eeschema/schematic_settings.ts:58 eeschema/schematic_settings.ts:134 eeschema/schematic_settings.ts:136
+msgid "Auto"
+msgstr "Auto"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "Automatisk panoreringshastighet"
@@ -418,6 +546,18 @@ msgstr "Automatisk panoreringshastighet"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "Tilldela prioriteter automatiskt"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Migrera 3D-modellreferenser automatiskt"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Autoplacera arkpinnar"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Tilldela zonprioriteter automatiskt baserat på en konnektivitetsanalys av överlappande områden."
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +567,10 @@ msgstr "Tillgängliga fotavtryck"
 msgid "Available path substitutions"
 msgstr "Tillgängliga sökvägsersättningar"
 
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Förinställningar för BOM-formatering"
@@ -434,6 +578,26 @@ msgstr "Förinställningar för BOM-formatering"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "BOM-revision"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
+
+#: pcbnew/pcb_track.ts:3780
+msgid "Back Post-machining"
+msgstr "Efterbearbetning bak"
+
+#: pcbnew/pcb_track.ts:3835
+msgid "Back Post-machining Angle"
+msgstr "Vinkel för efterbearbetning bak"
+
+#: pcbnew/pcb_track.ts:3815
+msgid "Back Post-machining Depth"
+msgstr "Djup för efterbearbetning bak"
+
+#: pcbnew/pcb_track.ts:3792
+msgid "Back Post-machining Size"
+msgstr "Storlek för efterbearbetning bak"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +615,38 @@ msgstr "Tillbaka till projekthanteraren"
 msgid "Back to sign in"
 msgstr "Tillbaka till inloggning"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "Bakborrning"
+
+#: pcbnew/pad.ts:4449 pcbnew/pcb_track.ts:3614
+msgid "Backdrill Mode"
+msgstr "Läge för bakborrning"
+
+#: pcbnew/pad.ts:4076
+msgid "Backdrill Properties"
+msgstr "Egenskaper för bakborrning"
+
+#: pcbnew/padstack.ts:67
+msgid "Backdrill both"
+msgstr "Bakborra båda sidor"
+
+#: pcbnew/padstack.ts:65
+msgid "Backdrill bottom"
+msgstr "Bakborra underifrån"
+
+#: pcbnew/pcb_track.ts:1551
+msgid "Backdrill diameter is too small."
+msgstr "Bakborrningens diameter är för liten."
+
+#: pcbnew/padstack.ts:66
+msgid "Backdrill top"
+msgstr "Bakborra uppifrån"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "Bakborrning:"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "Baserat på platsen för"
@@ -462,6 +658,10 @@ msgstr "Bästa längd"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Bästa bredd"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:47 pcbnew/pcb_track.ts:3079
+msgid "Blind"
+msgstr "Blind"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -491,13 +691,37 @@ msgstr "Kantstil"
 msgid "Border width"
 msgstr "Kantbredd"
 
+#: pcbnew/pad.ts:4484 pcbnew/pcb_track.ts:3647 pcbnew/widgets/pcb_properties_panel.ts:446 pcbnew/widgets/pcb_properties_panel.ts:450
+msgid "Bottom Backdrill Must-Cut"
+msgstr "Bakborrning underifrån måste skära igenom"
+
+#: pcbnew/pad.ts:4461 pcbnew/pcb_track.ts:3627
+msgid "Bottom Backdrill Size"
+msgstr "Storlek för bakborrning underifrån"
+
+#: pcbnew/pad.ts:4355
+msgid "Bottom Post-machining"
+msgstr "Efterbearbetning underifrån"
+
+#: pcbnew/pad.ts:4375
+msgid "Bottom Post-machining Size"
+msgstr "Storlek för efterbearbetning underifrån"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
 msgid "Bottom backdrill must-cut"
 msgstr "Nedre baksidesborrning: måste skäras"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1595 pcbnew/dialogs/dialog_track_via_properties_base.tsx:775
+msgid "Bottom backdrill must-cut:"
+msgstr "Bakborrning underifrån måste skära igenom:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
 msgid "Bottom backdrill size"
 msgstr "Storlek på nedre baksidesborrning"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:401 pcbnew/dialogs/dialog_track_via_properties.tsx:1380 pcbnew/dialogs/dialog_track_via_properties_base.tsx:749
+msgid "Bottom backdrill size:"
+msgstr "Storlek för bakborrning underifrån:"
 
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
 msgid "Bottom margin"
@@ -531,9 +755,29 @@ msgstr "Bussalias"
 msgid "Bus members"
 msgstr "Bussmedlemmar"
 
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Avbröts efter %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Det går inte att skapa biblioteksmappen '%s'."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Kan inte registrera cache för importerade fotavtryck: ingen projektbibliotekstabell."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +787,25 @@ msgstr "Cellinnehåll"
 msgid "Center layer"
 msgstr "Mittlager"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Ändra %s 'Uteslut från positionsfiler' från '%s' till '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Chatta med oss (dra för att flytta)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Kontrollerar isolationsavstånd för kragförstärkningar..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Kontrollerar ditt konto"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Underordnade objekt kan inte grupperas separat från sitt överordnade objekt."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +826,18 @@ msgstr "Stäng 3D-visaren"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Om du stänger länken senare kan inga nya personer öppna den. Den som redan finns i listan behåller åtkomsten tills du tar bort dem."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +862,10 @@ msgstr "Färgtemafiler"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Vanliga material"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Slutfört på %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -627,6 +899,10 @@ msgstr "Bekräftar din e-postadress"
 msgid "Connected pin is not mapped to any footprint pad"
 msgstr "Det anslutna stiftet är inte kopplat till någon lödyta i fotavtrycket"
 
+#: pcbnew/pcb_io/allegro/allegro_builder.ts:3885
+msgid "Constructing caches"
+msgstr "Skapar cacher"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:507
 msgid "Coordinate format"
 msgstr "Koordinatformat"
@@ -634,6 +910,10 @@ msgstr "Koordinatformat"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "Kopierat"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Kopierad koppar har inget nät tilldelat. Tilldela nät för att ansluta den."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +967,22 @@ msgstr "Det gick inte att öppna %s: %s"
 msgid "Could not open this project: %s"
 msgstr "Det gick inte att öppna det här projektet: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Det gick inte att skriva över biblioteksfilen '%s'.\n"
+"Kontrollera att du har skrivbehörighet och försök igen."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Det gick inte att publicera cachen för importerade fotavtryck till '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Det gick inte att avstämma importerade fotavtrycksbibliotek: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Det gick inte att skriva biblioteksfilen '%s'."
@@ -698,6 +994,10 @@ msgstr "Det gick inte att läsa in dina dataantal. Försök igen för att se vad
 #: pcbnew/pcb_edit_frame_ui.tsx:7375
 msgid "Couldn’t open board:"
 msgstr "Det gick inte att öppna mönsterkortet:"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:371
+msgid "Coupled Stripline"
+msgstr "Kopplad stripline"
 
 #: designer/src/fs/FileChooser.tsx:709
 msgid "Create Folder"
@@ -727,6 +1027,14 @@ msgstr "Skapar konto..."
 msgid "Creating your account"
 msgstr "Skapar ditt konto"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Strömtäthet:"
@@ -735,9 +1043,25 @@ msgstr "Strömtäthet:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Strömmen överstiger strömbelastbarheten för den här tätheten."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Anpassade symbolformer måste ha minst 2 poster"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Anpassad skala"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1075,10 @@ msgstr "DRC-alternativ"
 msgid "DRC results"
 msgstr "DRC-resultat"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "Standardlinjebredd för DXF"
@@ -762,6 +1090,10 @@ msgstr "Standardenheter för DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Streckets längd"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -855,6 +1187,14 @@ msgstr "Härled från symbol"
 msgid "Design variant"
 msgstr "Designvariant"
 
+#: eeschema/dialogs/dialog_junction_props_base.tsx:66 eeschema/sch_junction.ts:398 pcbnew/dialogs/panel_setup_tracks_and_vias.tsx:332 pcbnew/pad.ts:2509
+msgid "Diameter"
+msgstr "Diameter"
+
+#: eeschema/dialogs/dialog_junction_props.tsx:39 eeschema/dialogs/dialog_junction_props_base.tsx:59 pcbnew/dialogs/dialog_pad_properties.tsx:1860 pcbnew/dialogs/dialog_pad_properties.tsx:1898 designer/src/editors/calculator/panels/panel_cable_size.tsx:249
+msgid "Diameter:"
+msgstr "Diameter:"
+
 #: designer/src/home/dialogs/dialog_template_selector.tsx:546
 msgid "Directory '%s/%s' already exists."
 msgstr "Katalogen '%s/%s' finns redan."
@@ -923,9 +1263,41 @@ msgstr "Borrmärken"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "På grund av hur vårt end-to-end-krypteringsprotokoll fungerar kan dina data inte dekrypteras utan ditt lösenord eller din återställningsnyckel."
 
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 föreslår en spänningsskillnad under 300 mV. Kända metoder använder en tredje gränsytmetall mellan huvudparet (t.ex. ENIG-ytbehandlingen)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1306,10 @@ msgstr "Kantkortskontakter"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Redigera bussingång"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Redigera beskrivning för '%s'"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1343,14 @@ msgstr "Redigera symbolfält"
 msgid "Edit Text Box"
 msgstr "Redigera textruta"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Redigera variantbeskrivning"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Redigera variantbeskrivning..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Redigera rutnät"
@@ -979,6 +1363,10 @@ msgstr "Redigera i en textvisare"
 msgid "Edit layer"
 msgstr "Redigera lager"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Redigera beskrivningen för en befintlig designvariant."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Redigera variantbeskrivning"
@@ -986,6 +1374,14 @@ msgstr "Redigera variantbeskrivning"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Förfluten tid:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Förfluten tid: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Förfluten tid: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1427,14 @@ msgstr "Ange en positiv resistivitet och en giltig temperatur."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Ange den återställningsnyckel du sparade när du skapade ditt konto och välj ett nytt lösenord."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Felinformation"
@@ -1065,6 +1469,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Fel vid sparande av projektets fotavtrycksbibliotekstabell."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1491,29 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Fel vid skrivning av cache för importerade fotavtryck '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Fel!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:212
+msgid "Excl. Board"
+msgstr "Utesl. kort"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Utesl. posfiler"
+
+#: eeschema/widgets/search_handlers.ts:210
+msgid "Excl. Sim"
+msgstr "Utesl. sim."
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1115,9 +1543,21 @@ msgstr "Tillverkningsinsticksprogram kör genereringsskript som kräver en sandl
 msgid "Fabrication property"
 msgstr "Tillverkningsegenskap"
 
+#: eeschema/tools/symbol_editor_control.ts:598
+msgid "Failed to flatten symbol"
+msgstr "Det gick inte att platta ut symbolen"
+
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "Det gick inte att läsa in kretsschemat:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Det gick inte att tolka PADS Logic-filen '%s'."
+
+#: eeschema/tools/symbol_editor_control.ts:605
+msgid "Failed to update library with flattened symbol"
+msgstr "Det gick inte att uppdatera biblioteket med den utplattade symbolen"
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1587,14 @@ msgstr "Fyllningstyp"
 msgid "Fill with color"
 msgstr "Fyll med färg"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Filtrera åtgärder"
+
+#: common/widgets/filter_combobox.tsx:231 eeschema/dialogs/dialog_lib_symbol_properties.tsx:944 eeschema/dialogs/dialog_lib_symbol_properties.tsx:966
+msgid "Filter:"
+msgstr "Filter:"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Första lediga nummer efter"
@@ -1158,6 +1606,10 @@ msgstr "Första lödytenummer"
 #: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
 msgid "First page option"
 msgstr "Alternativ för första sidan"
+
+#: eeschema/tools/sch_actions.ts:368
+msgid "Flatten Symbol"
+msgstr "Platta ut symbol"
 
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
 msgid "Footprint 3D model path"
@@ -1175,9 +1627,21 @@ msgstr "Fotavtryckskopplingsfiler"
 msgid "Footprint field"
 msgstr "Fotavtrycksfält"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Fotavtryckets objekt kan inte grupperas separat från sitt överordnade fotavtryck."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Fotavtryckstyp"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Fotavtryck kan inte spegelvändas. Använd Vänd för att flytta dem till andra sidan av kortet."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "För varje ny grupp som skapas från ett designblock tillämpas blockets sparade fotavtrycksplacering och ledningsdragning automatiskt."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1191,13 +1655,37 @@ msgstr "För frekvenser över 30 kHz försämras de dielektriska egenskaperna. I
 msgid "Forgot password?"
 msgstr "Glömt lösenordet?"
 
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:174 pcbnew/dialogs/dialog_gendrill_base.tsx:172 gerbview/gerber_file_image.ts:538
+msgid "Format"
+msgstr "Format"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
 msgid "Format presets"
 msgstr "Formatförinställningar"
 
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:166
+msgid "Format:"
+msgstr "Format:"
+
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
 msgstr "Frekvensenhet"
+
+#: pcbnew/pcb_track.ts:3706
+msgid "Front Post-machining"
+msgstr "Efterbearbetning fram"
+
+#: pcbnew/pcb_track.ts:3761
+msgid "Front Post-machining Angle"
+msgstr "Vinkel för efterbearbetning fram"
+
+#: pcbnew/pcb_track.ts:3741
+msgid "Front Post-machining Depth"
+msgstr "Djup för efterbearbetning fram"
+
+#: pcbnew/pcb_track.ts:3718
+msgid "Front Post-machining Size"
+msgstr "Storlek för efterbearbetning fram"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
 msgid "Front prefix"
@@ -1206,6 +1694,18 @@ msgstr "Prefix för framsida"
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:234
 msgid "Front reference start"
 msgstr "Referensstart för framsida"
+
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
 
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
@@ -1227,7 +1727,23 @@ msgstr "Skapar krypteringsnycklar..."
 msgid "Generating your encryption keys"
 msgstr "Skapar dina krypteringsnycklar"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_item.ts:902 pcbnew/pcb_generator.ts:195
+msgid "Generator"
+msgstr "Generator"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Komma igång med %s"
 
@@ -1243,6 +1759,10 @@ msgstr "Globala lödmaskens minimibredd och/eller marginal är inte inställda p
 msgid "Global unit delay"
 msgstr "Global enhetsfördröjning"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:106
+msgid "Global unit delay:"
+msgstr "Global enhetsfördröjning:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:196
 msgid "Graphic style"
 msgstr "Grafikstil"
@@ -1250,6 +1770,18 @@ msgstr "Grafikstil"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Rutnätsstorlek"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Grupper som innehåller fotavtryck eller andra objekt som inte kan spegelvändas hoppades över."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:287
+msgid "Hatch offset overrides:"
+msgstr "Åsidosättningar av skrafferingsförskjutning:"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1807,21 @@ msgstr "Överhoppsstorlek"
 msgid "Horizontal Any"
 msgstr "Horisontell valfri"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Snabbtangentskonflikt"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Vissa fall täcks dock inte av den här kalkylatorn:"
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1295,9 +1839,37 @@ msgstr "Jag förstår att detta raderar mitt konto och alla mina data."
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:717
+msgid "Iadj (typ/max):"
+msgstr "Iadj (typ/max):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Om"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Om detta är markerat behåller lagren KiCads standardnamn i stället för att döpas om till de importerade lagernamnen."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1903,14 @@ msgstr "Importera %s"
 msgid "Import Layer Mapping"
 msgstr "Importera lagerkoppling"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Importera icke-KiCad-mönsterkortsfil..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Importera icke-KiCad-kretsschema..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Importera vektorgrafik"
@@ -1343,6 +1923,18 @@ msgstr "Importera från"
 msgid "Import scale"
 msgstr "Importskala"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Importskalan måste vara ett positivt tal."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Importerade %d längdjusteringsmönster."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Det importerade fotavtrycket '%s' har motstridiga placerade definitioner; det första behålls."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Inaktiva lager (H):"
@@ -1354,6 +1946,14 @@ msgstr "Öka"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Öka med"
+
+#: pcb_calculator/galvanic_corrosion.ts:30
+msgid "Indium"
+msgstr "Indium"
+
+#: common/confirm_types.ts:45 common/confirm_ui.tsx:91 pcbnew/pcb_edit_frame_ui.tsx:7949
+msgid "Information"
+msgstr "Information"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1407,6 +2007,26 @@ msgstr "Knutpunktsprickens storlek"
 msgid "Junction size"
 msgstr "Knutpunktsstorlek"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Behåll befintlig"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Behåll KiCads lagernamn"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Behåll båda"
@@ -1439,6 +2059,10 @@ msgstr "KiCad-nätlistfiler (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "KiCad-insticksprogram är inbyggda Python-skript. I webbläsaren kräver de en webbkörmiljö i sandlåda, vilket är ett separat arbete."
 
+#: common/tool/action_toolbar_actions.ts:87 common/tool/actions.ts:492 pcbnew/toolbars_footprint_editor.ts:232
+msgid "Lasso"
+msgstr "Lasso"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "Lagerstandarder"
@@ -1446,6 +2070,10 @@ msgstr "Lagerstandarder"
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
 msgid "Layer filter"
 msgstr "Lagerfilter"
+
+#: pagelayout_editor/dialogs/design_inspector.ts:107
+msgid "Layout"
+msgstr "Layout"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
 msgid "Leader layer"
@@ -1467,6 +2095,10 @@ msgstr "Åtgärder vid vänsterklick (och drag) beror på 2 modifieringstangente
 msgid "Left margin"
 msgstr "Vänster marginal"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Inställningar för längdjustering"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Bibliotek och färgteman kan installeras och användas redan idag."
@@ -1486,6 +2118,10 @@ msgstr "Bibliotekslänk"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "Biblioteksnamn:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Bibliotekstabellen '%s' är skrivskyddad"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,9 +2163,49 @@ msgstr "Läser in %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Lokala och globala matningssymboler har samma namn"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Lägre"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
+#: pcb_calculator/galvanic_corrosion.ts:62
+msgid "Magnesium"
+msgstr "Magnesium"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:484 pcbnew/layer_pairs.ts:123
+msgid "Manual"
+msgstr "Manuell"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Tillverkarens artikelnummer"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:162
+msgid "Match any"
+msgstr "Matcha någon"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:133 pcbnew/board_tables/board_stackup_table.ts:72
+msgid "Material"
+msgstr "Material"
 
 #: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
 msgid "Maximum allowed deviation"
@@ -1547,9 +2223,29 @@ msgstr "Maximal ledarbredd"
 msgid "Maximum width"
 msgstr "Maximal bredd"
 
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:196
+msgid "Metadata"
+msgstr "Metadata"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Mikro-QR-kod"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Dra med mittenknappen"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Migrera 3D-modeller"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Migrera 3D-modeller..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Migrera 3D-modellreferenser"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2254,18 @@ msgstr "Minsta bredd"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Saknade 3D-modellreferenser"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Saknade 3D-modellreferenser:"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:3517
+msgid "Missing sheet file property"
+msgstr "Egenskapen för arkfil saknas"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:3514
+msgid "Missing sheet name property"
+msgstr "Egenskapen för arknamn saknas"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,13 +2283,33 @@ msgstr "Flytta rutnät nedåt"
 msgid "Move grid up"
 msgstr "Flytta rutnät uppåt"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Flytta längst ned"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Flytta längst upp"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Min anledning finns inte med"
 
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
 msgstr "Namntextens storlek"
+
+#: common/design_block_library_adapter.ts:82 common/dialogs/lib_table_panel.tsx:209 eeschema/libraries/symbol_library_adapter.ts:809
+msgid "Nested table '%s' not found."
+msgstr "Den kapslade tabellen '%s' hittades inte."
 
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
@@ -1623,13 +2351,29 @@ msgstr "Ny på ZiroEDA?"
 msgid "Next page"
 msgstr "Nästa sida"
 
+#: pcb_calculator/galvanic_corrosion.ts:37
+msgid "Nickel"
+msgstr "Nickel"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:396
 msgid "No %s match your search."
 msgstr "Inga %s matchar din sökning."
 
+#: pcbnew/padstack.ts:64
+msgid "No backdrill"
+msgstr "Ingen bakborrning"
+
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Inga designvarianter att redigera."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Inga fotavtrycksbibliotek inlästa."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Inga grupper med länkat designblock är markerade."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2390,10 @@ msgstr "Inga bibliotek"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Inga träffar"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Inga träffar hittades."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1667,6 +2415,14 @@ msgstr "Ingen fysisk lösning hittades för denna målimpedans."
 msgid "No recovery key?"
 msgstr "Ingen återställningsnyckel?"
 
+#: eeschema/remote_symbol_import_job.ts:342
+msgid "No symbol asset was available to place."
+msgstr "Ingen symbolresurs fanns tillgänglig att placera."
+
+#: eeschema/tools/symbol_editor_control.ts:586
+msgid "No symbol to flatten"
+msgstr "Ingen symbol att platta ut"
+
 #: cvpcb/cvpcb_mainframe_ui.tsx:1591
 msgid "No symbols, place and annotate symbols first."
 msgstr "Inga symboler, placera och numrera symboler först."
@@ -1674,6 +2430,10 @@ msgstr "Inga symboler, placera och numrera symboler först."
 #: designer/src/home/HomePage.tsx:728
 msgid "None of the files chosen is of the type %s."
 msgstr "Ingen av de valda filerna är av typen %s."
+
+#: common/dialogs/panel_common_settings.tsx:250 common/eda_text.ts:1062 eeschema/sch_label.ts:1605 eeschema/sch_tablecell.ts:123 eeschema/sch_text.ts:289 eeschema/sch_textbox.ts:237
+msgid "Normal"
+msgstr "Normal"
 
 #: eeschema/sch_edit_frame_ui.tsx:3966
 msgid "Not a .kicad_sch file: %s"
@@ -1699,9 +2459,41 @@ msgstr "Nummertextens storlek"
 msgid "Numbering step"
 msgstr "Numreringssteg"
 
+#: common/remote_provider_models.ts:75
+msgid "OAuth metadata must include authorization_endpoint and token_endpoint."
+msgstr "OAuth-metadata måste innehålla authorization_endpoint och token_endpoint."
+
+#: common/dialog_about/dialog_about.tsx:254 common/dialogs/dialog_book_reporter_ui.tsx:89 common/dialogs/dialog_color_picker.tsx:629 common/dialogs/dialog_grid_settings.tsx:219 common/dialogs/dialog_hotkey_list.tsx:54 common/dialogs/dialog_paste_special.tsx:140
+msgid "OK"
+msgstr "OK"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
+
+#: pcbnew/dialogs/dialog_offset_item.tsx:29
+msgid "Offset Item"
+msgstr "Förskjutningsobjekt"
+
+#: pcbnew/dialogs/dialog_offset_item.tsx:71 pcbnew/dialogs/dialog_offset_item.tsx:206 pcbnew/dialogs/dialog_position_relative.tsx:113 pcbnew/dialogs/dialog_position_relative.tsx:300 pcbnew/dialogs/dialog_text_properties.tsx:183 gerbview/dialogs/dialog_draw_layers_settings_ui.tsx:93
+msgid "Offset X:"
+msgstr "Förskjutning X:"
+
+#: pcbnew/dialogs/dialog_offset_item.tsx:72 pcbnew/dialogs/dialog_offset_item.tsx:207 pcbnew/dialogs/dialog_position_relative.tsx:114 pcbnew/dialogs/dialog_position_relative.tsx:301 pcbnew/dialogs/dialog_text_properties.tsx:184 gerbview/dialogs/dialog_draw_layers_settings_ui.tsx:94
+msgid "Offset Y:"
+msgstr "Förskjutning Y:"
 
 #: designer/src/mobile/DesktopGate.tsx:76
 msgid "On a tablet? Rotate to landscape, or connect a mouse."
@@ -1714,6 +2506,10 @@ msgstr "Endast inbjudna personer"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Öppna demoprojekt"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Öppna extern fil..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2531,14 @@ msgstr "Öppna ett projekt för att lägga till ett fotavtrycksbibliotek i det."
 msgid "Open from Computer..."
 msgstr "Öppna från dator..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Öppna dialogrutan Mönsterkortsinställningar"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Öppna dialogrutan Kretsschemainställningar"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "Öppna den plottade filen i en ny webbläsarflik efter en lyckad plottning (endast aktuell sida)"
@@ -1754,6 +2558,10 @@ msgstr "Öppnar det delade projektet..."
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
 msgstr "Valfritt kan upp till två ytterligare värden uteslutas om det finns problem med komponenttillgång."
+
+#: common/tool/action_toolbar_controls.ts:97
+msgid "Origin selector"
+msgstr "Origovalare"
 
 #: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
 msgid "Outline display"
@@ -1787,6 +2595,38 @@ msgstr "Utdatasökväg"
 msgid "Outset"
 msgstr "Utåtgående förskjutning"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:234 pcbnew/dialogs/dialog_pad_properties_base.tsx:595
+msgid "Oval"
+msgstr "Oval"
+
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "Mönsterkort"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF-utdataläge"
@@ -1794,6 +2634,22 @@ msgstr "PDF-utdataläge"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG-alternativ"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1851,6 +2707,10 @@ msgstr "Padstack-läge"
 msgid "Page number"
 msgstr "Sidnummer"
 
+#: pcb_calculator/galvanic_corrosion.ts:26
+msgid "Palladium"
+msgstr "Palladium"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "Panorera vid musrörelse med tangent"
@@ -1894,6 +2754,10 @@ msgstr "Klistra in din återställningsnyckel med 24 ord"
 #: designer/src/home/ShareButton.tsx:251
 msgid "People with access"
 msgstr "Personer med åtkomst"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
 
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
@@ -1963,6 +2827,26 @@ msgstr "Plottformat"
 msgid "Plugin options"
 msgstr "Alternativ för insticksprogram"
 
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:200 pcbnew/tools/edit_tool.ts:290 gerbview/gerber_draw_item.ts:697 pagelayout_editor/dialogs/properties_frame_ui.tsx:440
+msgid "Position"
+msgstr "Position"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:310 eeschema/dialogs/dialog_image_properties_base.tsx:63 eeschema/sch_bitmap.ts:261 eeschema/sch_group.ts:329 eeschema/sch_pin.ts:2286 eeschema/sch_shape.ts:614
+msgid "Position X"
+msgstr "Position X"
+
+#: eeschema/dialogs/dialog_field_properties.tsx:157 eeschema/dialogs/dialog_field_properties_base.tsx:298 eeschema/dialogs/dialog_image_properties.tsx:145 eeschema/dialogs/dialog_image_properties_base.tsx:56 pcbnew/dialogs/dialog_barcode_properties.tsx:380 pcbnew/dialogs/dialog_dimension_properties.tsx:476
+msgid "Position X:"
+msgstr "Position X:"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:339 eeschema/dialogs/dialog_image_properties_base.tsx:79 eeschema/sch_bitmap.ts:262 eeschema/sch_group.ts:330 eeschema/sch_pin.ts:2299 eeschema/sch_shape.ts:615
+msgid "Position Y"
+msgstr "Position Y"
+
+#: eeschema/dialogs/dialog_field_properties.tsx:160 eeschema/dialogs/dialog_field_properties_base.tsx:327 eeschema/dialogs/dialog_image_properties.tsx:146 eeschema/dialogs/dialog_image_properties_base.tsx:72 pcbnew/dialogs/dialog_barcode_properties.tsx:381 pcbnew/dialogs/dialog_dimension_properties.tsx:478
+msgid "Position Y:"
+msgstr "Position Y:"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "Positionsläge"
@@ -1971,9 +2855,25 @@ msgstr "Positionsläge"
 msgid "Position offset"
 msgstr "Positionsförskjutning"
 
+#: pcbnew/pcb_track.ts:3451
+msgid "Post-machining"
+msgstr "Efterbearbetning"
+
+#: pcbnew/pad.ts:4075
+msgid "Post-machining Properties"
+msgstr "Egenskaper för efterbearbetning"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Möjliga ersättare"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Möjliga ersättare:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2882,10 @@ msgstr "Fördefinierade ledarbredder"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Fördefinierade via-storlekar"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:277 pcbnew/dialogs/dialog_dimension_properties_base.tsx:265
+msgid "Prefix:"
+msgstr "Prefix:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2911,25 @@ msgstr "Projekt"
 msgid "Protection features"
 msgstr "Skyddsfunktioner"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Köa installation"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Höj"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2942,10 @@ msgstr "Intervall (spänningar)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Tjocklek på ratsnest-linjer"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Länkade om %d importerade fotavtryckstilldelning(ar) till biblioteket '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2979,10 @@ msgstr "Ritningshastighet"
 msgid "Reference filter"
 msgstr "Referensfilter"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Fyller om överlappande zoner..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "Uppdatera förhandsgranskning"
@@ -2074,6 +3002,66 @@ msgstr "Ladda om nu"
 #: designer/src/ui/ErrorBoundary.tsx:81
 msgid "Reload without saving"
 msgstr "Ladda om utan att spara"
+
+#: eeschema/remote_symbol_download_manager.ts:68
+msgid "Remote asset URL"
+msgstr "URL för fjärrresurs"
+
+#: eeschema/remote_symbol_download_manager.ts:81
+msgid "Remote asset URL origin must match the selected provider."
+msgstr "Fjärrresursens URL-ursprung måste matcha den valda leverantören."
+
+#: eeschema/remote_symbol_download_manager.ts:158
+msgid "Remote asset content type did not match the manifest."
+msgstr "Fjärrresursens innehållstyp matchade inte manifestet."
+
+#: eeschema/remote_symbol_download_manager.ts:177
+msgid "Remote asset digest did not match the manifest."
+msgstr "Fjärrresursens kontrollsumma matchade inte manifestet."
+
+#: eeschema/remote_symbol_download_manager.ts:144
+msgid "Remote asset exceeds the provider download limit."
+msgstr "Fjärrresursen överskrider leverantörens nedladdningsgräns."
+
+#: eeschema/remote_symbol_download_manager.ts:168
+msgid "Remote asset exceeds the remaining download limit."
+msgstr "Fjärrresursen överskrider den återstående nedladdningsgränsen."
+
+#: eeschema/remote_symbol_download_manager.ts:132
+msgid "Remote asset manifest declared an invalid size."
+msgstr "Fjärrresursens manifest angav en ogiltig storlek."
+
+#: eeschema/remote_symbol_download_manager.ts:137
+msgid "Remote asset manifest must declare sha256 for URL-based downloads."
+msgstr "Fjärrresursens manifest måste ange sha256 för URL-baserade nedladdningar."
+
+#: eeschema/remote_symbol_download_manager.ts:163
+msgid "Remote asset size did not match the manifest."
+msgstr "Fjärrresursens storlek matchade inte manifestet."
+
+#: eeschema/remote_symbol_download_manager.ts:153
+msgid "Remote download failed with HTTP %d."
+msgstr "Fjärrnedladdningen misslyckades med HTTP %d."
+
+#: common/remote_provider_models.ts:148
+msgid "Remote provider manifest failed schema validation: %s"
+msgstr "Fjärrleverantörens manifest klarade inte schemavalideringen: %s"
+
+#: common/remote_provider_metadata.ts:78
+msgid "Remote provider metadata failed schema validation: %s"
+msgstr "Fjärrleverantörens metadata klarade inte schemavalideringen: %s"
+
+#: common/remote_provider_metadata.ts:158
+msgid "Remote provider metadata must define session_bootstrap_url for oauth2."
+msgstr "Fjärrleverantörens metadata måste definiera session_bootstrap_url för oauth2."
+
+#: common/remote_provider_metadata.ts:148
+msgid "Remote provider metadata must enable direct_downloads_v1, inline_payloads_v1, or both."
+msgstr "Fjärrleverantörens metadata måste aktivera direct_downloads_v1, inline_payloads_v1 eller båda."
+
+#: common/remote_provider_metadata.ts:143
+msgid "Remote provider metadata must enable web_ui_v1."
+msgstr "Fjärrleverantörens metadata måste aktivera web_ui_v1."
 
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
@@ -2131,6 +3119,14 @@ msgstr "Ta bort via-fördröjningsåsidosättning"
 msgid "Rename variant"
 msgstr "Byt namn på variant"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Ersätt modeller"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Ersätt föråldrade WRL 3D-modellreferenser med aktuella STEP-modeller"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Ersätt med"
@@ -2167,9 +3163,21 @@ msgstr "Ändra storlek"
 msgid "Restore Project"
 msgstr "Återställ projekt"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Återställ version"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Återställa projektet till versionen från %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Återställer ditt projekt..."
+
+#: common/dialogs/dialog_page_settings.tsx:292
+msgid "Revision:"
+msgstr "Revision:"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2178,6 +3186,10 @@ msgstr "Dra med höger knapp"
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
 msgid "Right margin"
 msgstr "Höger marginal"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:302 pcbnew/footprint.ts:2628 pcbnew/pad.ts:2524 gerbview/gerber_draw_item.ts:711
+msgid "Rotation"
+msgstr "Rotation"
 
 #: pcbnew/dialogs/dialog_move_exact_base.tsx:134
 msgid "Rotation anchor"
@@ -2194,6 +3206,22 @@ msgstr "Avrunda platser till"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Linjalenheter"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2275,9 +3303,17 @@ msgstr "Välj en mall för att se vad den innehåller."
 msgid "Select body style"
 msgstr "Välj symbolform"
 
+#: pcbnew/tools/board_inspection_tool.ts:984
+msgid "Select first item for clearance resolution..."
+msgstr "Markera första objektet för upplösning av isolationsavstånd..."
+
 #: eeschema/dialogs/dialog_field_properties_base.tsx:154
 msgid "Select footprint"
 msgstr "Välj fotavtryck"
+
+#: pcbnew/tools/board_inspection_tool.ts:1693
+msgid "Select item for constraints resolution..."
+msgstr "Markera objekt för upplösning av begränsningar..."
 
 #: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
 msgid "Select unit to edit"
@@ -2298,6 +3334,10 @@ msgstr "Markera/färgmarkera objekt som motsvarar %s-markeringen"
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Markerade celler visas med systemets standardfärgval efter att tabellen fyllts på igen."
+
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Markeringen innehåller låsta objekt. Aktivera 'Åsidosätt lås' för att arbeta med dem."
 
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
@@ -2327,9 +3367,21 @@ msgstr "Ange färg för nät %s"
 msgid "Set color for the %s netclass"
 msgstr "Ange färg för nätklassen %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Ange attributet uteslut från positionsfiler"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Dela det här projektet"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Delade komponenter:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
@@ -2342,6 +3394,10 @@ msgstr "Shift och Ctrl"
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Visa 3D-navigator"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Visa alternativ"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3422,14 @@ msgstr "Värdesiffror (spänningar)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Loggar in..."
+
+#: common/tool/action_toolbar_actions.ts:130 eeschema/menubar.ts:289 eeschema/tools/sch_actions.ts:108 designer/src/dialogs/prefs/registry.ts:69 designer/src/dialogs/prefs/registry.ts:170
+msgid "Simulator"
+msgstr "Simulator"
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Hoppade över %d markerade objekt som inte är grupper länkade till ett designblock."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3471,10 @@ msgstr "Lösningar med upp till 4 komponenter anges."
 msgid "Solve for this parameter"
 msgstr "Lös för den här parametern"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Vissa markerade objekt kan inte grupperas."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Vissa ark kunde inte läsas in: %s"
@@ -2423,6 +3491,34 @@ msgstr "Alternativ för sortering och expandering"
 msgid "Sources"
 msgstr "Källor"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:436 eeschema/tools/sch_edit_tool.ts:229
+msgid "Standard"
+msgstr "Standard"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:257
+msgid "Standard (1,2,3)"
+msgstr "Standard (1,2,3)"
+
+#: gerbview/gerber_draw_item.ts:700
+msgid "Start"
+msgstr "Start"
+
+#: common/eda_shape.ts:3004 eeschema/sch_line.ts:1373 eeschema/sch_table.ts:613 eeschema/sch_tablecell.ts:416 pcbnew/pcb_shape.ts:1055 pcbnew/pcb_table.ts:1035
+msgid "Start X"
+msgstr "Start X"
+
+#: pcbnew/dialogs/dialog_track_via_properties.tsx:1369 pcbnew/dialogs/dialog_track_via_properties_base.tsx:352
+msgid "Start X:"
+msgstr "Start X:"
+
+#: common/eda_shape.ts:3018 eeschema/sch_line.ts:1374 eeschema/sch_table.ts:624 eeschema/sch_tablecell.ts:417 pcbnew/pcb_shape.ts:1056 pcbnew/pcb_table.ts:1046
+msgid "Start Y"
+msgstr "Start Y"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Startlager"
@@ -2431,17 +3527,41 @@ msgstr "Startlager"
 msgid "Start reference designator"
 msgstr "Startreferensbeteckning"
 
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:65 pcbnew/pad.ts:2453 pcbnew/pcb_barcode.ts:596 pcbnew/pcb_dimension.ts:807 pcbnew/pcb_group.ts:430 pcbnew/pcb_shape.ts:434
+msgid "Status"
+msgstr "Status"
+
 #: pcbnew/dialogs/panel_edit_options_base.tsx:322
 msgid "Step for rotate commands"
 msgstr "Steg för roteringskommandon"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: designer/src/editors/calculator/panels/transline_ident.ts:389
+msgid "Stripline"
+msgstr "Stripline"
+
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Supportchatt"
 
 #: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
 msgid "Swap layers"
 msgstr "Byt lager"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:1319
+msgid "Switching to non-circular hole will disable backdrills and post-machining. Continue?"
+msgstr "Byte till icke-cirkulärt hål inaktiverar bakborrning och efterbearbetning. Fortsätta?"
+
+#: common/eda_item.ts:942 common/eda_item.ts:948 eeschema/dialogs/dialog_import_symbol_select.tsx:511 eeschema/dialogs/dialog_import_symbol_select.tsx:591 eeschema/symbol_editor/symbol_editor.ts:335
+msgid "Symbol"
+msgstr "Symbol"
+
+#: eeschema/tools/sch_inspection_tool.ts:301
+msgid "Symbol %s"
+msgstr "Symbol %s"
+
+#: eeschema/sch_symbol.ts:3039
+msgid "Symbol %s [%s]"
+msgstr "Symbol %s [%s]"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
 msgid "Symbol filter"
@@ -2459,6 +3579,14 @@ msgstr "Symboltyp"
 msgid "Symbol unit notation"
 msgstr "Notation för symbolenheter"
 
+#: eeschema/symbol_editor/menubar_symbol_editor.ts:195 eeschema/symbol_editor/menubar_symbol_editor.ts:206
+msgid "Symbol..."
+msgstr "Symbol..."
+
+#: pcbnew/dialogs/dialog_footprint_associations.tsx:84
+msgid "Symbol:"
+msgstr "Symbol:"
+
 #: designer/src/home/HomePage.tsx:2760
 msgid "Syncing cloud projects..."
 msgstr "Synkroniserar molnprojekt..."
@@ -2466,6 +3594,30 @@ msgstr "Synkroniserar molnprojekt..."
 #: designer/src/editors/calculator/panels/panel_transline.tsx:596
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Syntes är inte tillgänglig för rektangulära vågledare."
+
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Målregelområdet delar komponenter med referensområdet"
 
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
@@ -2475,9 +3627,25 @@ msgstr "Målområden"
 msgid "Target impedance"
 msgstr "Målimpedans"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "T"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
 msgstr "Temperaturökning (ΔT):"
+
+#: pcbnew/pcb_track.ts:1565
+msgid "Tertiary backdrill diameter is too small."
+msgstr "Den tertiära bakborrningens diameter är för liten."
+
+#: common/drawing_sheet/ds_data_item.ts:425 common/drawing_sheet/ds_draw_item.ts:183 common/eda_item.ts:903 common/eda_item.ts:904 common/eda_item.ts:933 common/eda_text.ts:1598
+msgid "Text"
+msgstr "Text"
+
+#: common/drawing_sheet/ds_draw_item.ts:747
+msgid "Text '%s'"
+msgstr "Text '%s'"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
 msgid "Text color"
@@ -2487,9 +3655,17 @@ msgstr "Textfärg"
 msgid "Text frame"
 msgstr "Textram"
 
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Text eller grafik på lagret Edge.Cuts"
+
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
 msgstr "Textstorlek"
+
+#: common/dialogs/panel_grid_settings.tsx:101 common/dialogs/panel_grid_settings.tsx:107 common/dialogs/panel_grid_settings.tsx:114 common/dialogs/panel_grid_settings.tsx:119 common/dialogs/panel_grid_settings.tsx:129 eeschema/dialogs/dialog_text_properties_base.tsx:177
+msgid "Text:"
+msgstr "Text:"
 
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:99
 msgid "The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets dissolved metals plated onto it but stays protected."
@@ -2498,6 +3674,10 @@ msgstr "Anoden i ett elektrokemiskt par oxideras och fräts bort, medan lösta m
 #: designer/src/auth/delete_account_form.ts:19
 msgid "The app or a certain feature does not behave as I think it should"
 msgstr "Appen eller en viss funktion beter sig inte som jag förväntar mig"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:259 pcbnew/dialogs/dialog_track_via_properties_base.tsx:786
+msgid "The backdrill must pass through this layer"
+msgstr "Bakborrningen måste gå igenom det här lagret"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:312
 msgid "The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm)."
@@ -2523,6 +3703,10 @@ msgstr "Det styrande värdet visas med fet stil."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Nedladdningen misslyckades. Kopiera felet nedan och rapportera det, ladda inte om, ditt arbete kan fortfarande återställas från den här fliken."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Följande grupper kunde inte bearbetas:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Formeln, från IPC 2221, är"
@@ -2539,6 +3723,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Syftet med IEC60664-1 är att ge vägledning för utformning av isolering för produkter som är anslutna till elnätet."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Bibliotekstabellen är av fel typ"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Det begärda värdet utesluts alltid från lösningsmängden."
@@ -2554,6 +3742,10 @@ msgstr "Texthöjden måste ligga mellan %s."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Textbredden måste ligga mellan %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Enhetsnamnet '%s' används redan."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3819,10 @@ msgstr "Den här inställningssidan är inte implementerad ännu."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Den här tabellen visar skillnaden i elektrokemisk potential mellan olika metaller och legeringar. Galvanisk korrosion påverkar olika metaller i kontakt och under vissa förhållanden."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Det här målregelområdet väljer samma komponenter som referensområdet. Upprepad layout kan inte kopiera ett regelområde till sig självt. Ge varje placeringsregelområde ett eget ark, en egen komponentklass eller grupp."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Med det här verktyget kan du konstruera en ledarsäkring, men det ska bara användas som en uppskattning."
@@ -2635,17 +3831,45 @@ msgstr "Med det här verktyget kan du konstruera en ledarsäkring, men det ska b
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "För att välja ett värde, börja med det beräknade målvärdet och avrunda det till 2 värdesiffror för E24 eller lägre, eller 3 värdesiffror för E48 och högre. Hitta sedan det värde i tabellen som ligger närmast de återstående värdesiffrorna och ersätt dem med det."
 
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Växla attributet uteslut från positionsfiler"
+
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
 msgstr "Verktygsfältsobjekt"
+
+#: pcbnew/pad.ts:4529 pcbnew/pcb_track.ts:3686 pcbnew/widgets/pcb_properties_panel.ts:447 pcbnew/widgets/pcb_properties_panel.ts:451
+msgid "Top Backdrill Must-Cut"
+msgstr "Bakborrning uppifrån måste skära igenom"
+
+#: pcbnew/pad.ts:4506 pcbnew/pcb_track.ts:3666
+msgid "Top Backdrill Size"
+msgstr "Storlek för bakborrning uppifrån"
+
+#: pcbnew/pad.ts:4260
+msgid "Top Post-machining"
+msgstr "Efterbearbetning uppifrån"
+
+#: pcbnew/pad.ts:4280
+msgid "Top Post-machining Size"
+msgstr "Storlek för efterbearbetning uppifrån"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
 msgid "Top backdrill must-cut"
 msgstr "Övre baksidesborrning: måste skäras"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1587 pcbnew/dialogs/dialog_track_via_properties_base.tsx:729
+msgid "Top backdrill must-cut:"
+msgstr "Bakborrning uppifrån måste skära igenom:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:717
 msgid "Top backdrill size"
 msgstr "Storlek på övre baksidesborrning"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:400 pcbnew/dialogs/dialog_track_via_properties.tsx:1379 pcbnew/dialogs/dialog_track_via_properties_base.tsx:709
+msgid "Top backdrill size:"
+msgstr "Storlek för bakborrning uppifrån:"
 
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
 msgid "Top margin"
@@ -2654,6 +3878,10 @@ msgstr "Övre marginal"
 #: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
 msgid "Track Width and Via Size"
 msgstr "Ledarbredd och via-storlek"
+
+#: pcbnew/drc/drc_item.ts:564
+msgid "Track connected to post-machined or backdrilled layer"
+msgstr "Ledare ansluten till efterbearbetat eller bakborrat lager"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
 msgid "Track layer"
@@ -2703,6 +3931,34 @@ msgstr "Två symbolstift är kopplade till samma lödyta i fotavtrycket"
 msgid "Type to search"
 msgstr "Skriv för att söka"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Det går inte att dra bågledare på %.1f grader eller mer."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Det gick inte att läsa in bibliotekstabellen."
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "Det gick inte att tolka fjärrleverantörens manifest: %s"
+
+#: common/remote_provider_metadata.ts:136
+msgid "Unable to parse remote provider metadata: %s"
+msgstr "Det gick inte att tolka fjärrleverantörens metadata: %s"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Det gick inte att spara den nedladdade symbolen: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Visningsnamn för enheter"
@@ -2723,6 +3979,10 @@ msgstr "Låser upp dina krypterade projekt"
 msgid "Unpin (allow updates)"
 msgstr "Lossa (tillåt uppdateringar)"
 
+#: common/remote_provider_metadata.ts:120
+msgid "Unsupported provider capability '%s'."
+msgstr "Leverantörsfunktionen '%s' stöds inte."
+
 #: common/dialogs/git/panel_git_repos.tsx:68
 msgid "Update interval"
 msgstr "Uppdateringsintervall"
@@ -2739,9 +3999,33 @@ msgstr "Namn på användarlager"
 msgid "User layers"
 msgstr "Användarlager"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Använder %s av %s. Ladda ned ditt projekt och radera sedan gamla projekt från startskärmen för att frigöra utrymme."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: common/dialog_about/dialog_about.tsx:113
+msgid "Version"
+msgstr "Version"
+
+#: common/dialog_about/dialog_about.tsx:184 pcbnew/dialogs/dialog_export_2581_base.tsx:193
+msgid "Version:"
+msgstr "Version:"
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2750,6 +4034,14 @@ msgstr "Hörnpunktsredigerare"
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
 msgid "Vertical %s"
 msgstr "Vertikal %s"
+
+#: common/eda_item.ts:910 pcbnew/board_statistics_report.ts:664 pcbnew/board_statistics_report.ts:774 pcbnew/dialogs/dialog_board_statistics.tsx:276 pcbnew/widgets/search_handlers.ts:751
+msgid "Via"
+msgstr "Via"
+
+#: pcbnew/router/router_tool.ts:204
+msgid "Via %s"
+msgstr "Via %s"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
@@ -2766,6 +4058,10 @@ msgstr "Via-storlek"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
 msgid "Via type"
 msgstr "Via-typ"
+
+#: pcbnew/toolbars_pcb_editor.ts:500
+msgid "Via: %s (%s)"
+msgstr "Via: %s (%s)"
 
 #: pcbnew/pcb_edit_frame_ui.tsx:7089
 msgid "Via: %s / %s mm (%s / %s mils)"
@@ -2786,6 +4082,30 @@ msgstr "Tittare"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Visningsfönster (Shift+Tab):"
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Överträdelsernas allvarlighetsgrad kan också redigeras i Mönsterkortsinställningar"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Överträdelsernas allvarlighetsgrad kan också redigeras i Kretsschemainställningar"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:691
+msgid "Vref (min/typ/max):"
+msgstr "Vref (min/typ/max):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +4139,10 @@ msgstr "Vid användning av konformt skydd eller gjutmassa som skydd mot föroren
 msgid "Who's here"
 msgstr "Vem är här"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Ledningsstil"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Tråd-/bussbredd"
@@ -2835,6 +4159,10 @@ msgstr "X-position"
 msgid "X scale factor"
 msgstr "X-skalfaktor"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y-position"
@@ -2842,6 +4170,10 @@ msgstr "Y-position"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y-skalfaktor"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +4203,22 @@ msgstr "Ditt projekt finns fortfarande i minnet. Ladda ned det innan du laddar o
 msgid "Your recovery key"
 msgstr "Din återställningsnyckel"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA stötte på ett oväntat fel"
@@ -2886,6 +4234,20 @@ msgstr "ZiroEDA behöver en större skärm"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA-supportchatt"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Zonprioritet"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Zonfyllningarna kan vara felaktiga: den iterativa ifyllnaden konvergerade inte efter %d omgångar.\n"
+"\n"
+"Det kan hända med komplexa överlappande zoner. Överväg att förenkla dina zoner."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2903,9 +4265,29 @@ msgstr "Zonnamn"
 msgid "Zone previews"
 msgstr "Zonförhandsgranskningar"
 
+#: common/dialogs/panel_mouse_settings.tsx:55 common/eda_draw_frame_submenus.ts:117 common/tool/zoom_menu.ts:38 pcbnew/pcb_edit_frame_ui.tsx:7159 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:54
+msgid "Zoom"
+msgstr "Zoom"
+
 #: common/dialogs/panel_mouse_settings.tsx:215
 msgid "Zoom speed"
 msgstr "Zoomhastighet"
+
+#: common/dialogs/panel_mouse_settings.tsx:349
+msgid "Zoom:"
+msgstr "Zoom:"
+
+#: common/settings/zoom_settings.ts:95 common/tool/zoom_menu.ts:59
+msgid "Zoom: %.2f"
+msgstr "Zoom: %.2f"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "vinkeldelta noll med %ld objekt"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
 
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
@@ -2919,17 +4301,61 @@ msgstr "kan redigera"
 msgid "can view"
 msgstr "kan visa"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "kunde inte läsa in designblockets layout"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "streckad: krypavstånd"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "designblocket innehåller inga objekt att tillämpa"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "designblocket har ingen sparad mönsterkortslayout"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "designblocket finns inte i de inlästa biblioteken"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "synkroniserades inte:"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:319 pcbnew/dialogs/dialog_pad_properties.tsx:320 gerbview/dialogs/dialog_draw_layers_settings.ts:48
+msgid "dummy"
+msgstr "dummy"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "gruppen är tom"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "har ett konto är en återställningslänk på väg. Öppna den på den här enheten för att välja ett nytt lösenord."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "horisontell delta noll med %ld objekt"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:65 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:100 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:104 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:125 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:129 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:148
+msgid "in"
+msgstr "in"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +4389,98 @@ msgstr "är tjockleken (höjden) i mil"
 msgid "is width in mils"
 msgstr "är bredden i mil"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "kopiering av layout misslyckades"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:547
+msgid "max"
+msgstr "max"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:38
+msgid "meter"
+msgstr "meter"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: common/remote_provider_metadata.ts:197
+msgid "session_bootstrap_url must share the same origin as panel_url."
+msgstr "session_bootstrap_url måste ha samma ursprung som panel_url."
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "heldragen: isolationsavstånd"
@@ -2970,6 +4488,38 @@ msgstr "heldragen: isolationsavstånd"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "till dess smältpunkt samt den energi som krävs för fasomvandlingen."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:546
+msgid "typ"
+msgstr "typ"
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "vertikal delta noll med %ld objekt"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:59
+msgid "~20% (Level L)"
+msgstr "~20% (nivå L)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:60
+msgid "~37% (Level M)"
+msgstr "~37% (nivå M)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:61
+msgid "~55% (Level Q)"
+msgstr "~55% (nivå Q)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:62
+msgid "~65% (Level H)"
+msgstr "~65% (nivå H)"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

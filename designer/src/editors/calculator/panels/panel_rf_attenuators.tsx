@@ -62,7 +62,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
       <br />
       <V>
         {_('Z')}
-        <sub>{_('in')}</sub>
+        <sub>in</sub>
       </V>{' '}
       {_('is desired input impedance in Ω')}
       <br />
@@ -76,7 +76,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
   const kl = (
     <>
       <V>
-        K = V<sub>{_('I')}</sub>/V<sub>O</sub> = 10<sup>a/20</sup>
+        K = V<sub>I</sub>/V<sub>O</sub> = 10<sup>a/20</sup>
       </V>
       <br />
       <V>
@@ -97,11 +97,11 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         </p>
         <p>
           <V>
-            R2 = (L−1) / 2·√(Z<sub>{_('in')}</sub> · Z<sub>out</sub> / L)
+            R2 = (L−1) / 2·√(Z<sub>in</sub> · Z<sub>out</sub> / L)
           </V>
           <br />
           <V>
-            R1 = 1 / (A/Z<sub>{_('in')}</sub> − 1/R2)
+            R1 = 1 / (A/Z<sub>in</sub> − 1/R2)
           </V>
           <br />
           <V>
@@ -122,11 +122,11 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         </p>
         <p>
           <V>
-            R2 = 2·√(L · Z<sub>{_('in')}</sub> · Z<sub>out</sub>) / (L−1)
+            R2 = 2·√(L · Z<sub>in</sub> · Z<sub>out</sub>) / (L−1)
           </V>
           <br />
           <V>
-            R1 = Z<sub>{_('in')}</sub> · A − R2
+            R1 = Z<sub>in</sub> · A − R2
           </V>
           <br />
           <V>
@@ -145,7 +145,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
           <br />
           <V>
             {_('Z')}
-            <sub>{_('in')}</sub>
+            <sub>in</sub>
           </V>{' '}
           {_('is desired input impedance in Ω')}
           <br />
@@ -157,7 +157,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
           <br />
           <V>
             {_('Z')}
-            <sub>0</sub> = Z<sub>{_('in')}</sub> = Z<sub>out</sub>
+            <sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
           </V>
         </p>
         <p>
@@ -185,7 +185,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         <br />
         <V>
           {_('Z')}
-          <sub>{_('in')}</sub>
+          <sub>in</sub>
         </V>{' '}
         {_('is desired input impedance in Ω')}
         <br />
@@ -197,7 +197,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         <br />
         <V>
           {_('Z')}
-          <sub>0</sub> = Z<sub>{_('in')}</sub> = Z<sub>out</sub>
+          <sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
         </V>
       </p>
       <p>

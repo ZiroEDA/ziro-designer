@@ -39,6 +39,10 @@ msgstr "\"%s\" không phải là liên kết đến kho GitHub."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "Đã đặt \"%s\" làm giao diện màu sơ đồ mạch đang dùng"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "Không thể khớp %d mô hình WRL 3D với mô hình STEP tương đương."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: loại bỏ"
 msgid "%s: sort"
 msgstr "%s: sắp xếp"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' đã được gán cho '%s' trong mục '%s'. Cả hai phím gán đều được giữ lại, nhưng mỗi lần nhấn phím chỉ chạy một. Tiếp tục?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' không phải là tệp PADS Logic ASCII."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(tự động)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(giữ tham chiếu hiện có)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(không có tệp STEP trong dự án)"
@@ -174,6 +194,10 @@ msgstr "(không có tệp STEP trong dự án)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(không có bản trình diễn đi kèm)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(nhóm chưa đặt tên)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +211,53 @@ msgstr ". Vui lòng kiểm tra hộp thư (và thư rác) để hoàn tất xác
 msgid "... (step"
 msgstr "... (bước"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0.00 in / 0 mils / 0.0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "1 người xem khác"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "Trình xem 3D — %s"
 
+#: eeschema/erc/erc.ts:1460 eeschema/erc/erc.ts:1461 pcbnew/drc/drc_test_provider_copper_clearance.ts:214 pcbnew/drc/drc_test_provider_copper_clearance.ts:215 gerbview/gerber_draw_item.ts:736
+msgid "<no net>"
+msgstr "<no net>"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Đã có tệp tên “%s”. Bạn có muốn thay thế không?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Thư viện đã tồn tại tại '%s'; các dấu chân đã nhập được để lại chưa phân giải."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +271,43 @@ msgstr "Đã có phiên bản ZiroEDA mới."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Số dương cho biết hàng là anot (-) và cột là catot (+); các sắc màu lạnh và ấm cũng cho biết điện thế của hàng."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Tên duy nhất của vùng này, dùng để nhận diện nó trong các quy tắc DRC"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Tài khoản"
 
@@ -234,6 +330,10 @@ msgstr "Đang dùng"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Thêm mô hình 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Thêm thư mục tìm kiếm..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +366,10 @@ msgstr "Thêm từ máy tính..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Thêm lưới"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Thêm nhóm '%s' vào nhóm '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +419,10 @@ msgstr "Thêm biến thể"
 msgid "Add via delay override"
 msgstr "Thêm ghi đè độ trễ lỗ xuyên"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Đã thêm nhóm '%s' vào nhóm '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Đã thêm kho \"%s\" (%s gói)"
@@ -334,6 +442,14 @@ msgstr "Cho phép dữ liệu trang web cho trang này, hoặc tải dự án xu
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Đã có tài khoản?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +487,21 @@ msgstr "Còn gì khác không?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Đã áp dụng thay đổi: đã cài đặt %s, đã gỡ cài đặt %s"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Đã áp dụng bố cục khối thiết kế cho %d trên %d nhóm."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Áp dụng các thay đổi đang chờ ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Áp dụng bố cục khối thiết kế cho %d nhóm"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Áp dụng bố cục khối thiết kế cho các nhóm mới"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -419,6 +547,18 @@ msgstr "Tốc độ cuộn tự động"
 msgid "Auto-assign priorities"
 msgstr "Tự động gán mức ưu tiên"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Tự động di chuyển tham chiếu mô hình 3D"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Tự động đặt chân của tờ"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Tự động gán mức ưu tiên vùng dựa trên phân tích kết nối của các khu vực chồng lấn."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "Dấu chân khả dụng"
@@ -427,6 +567,14 @@ msgstr "Dấu chân khả dụng"
 msgid "Available path substitutions"
 msgstr "Các phép thay thế đường dẫn khả dụng"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Cài đặt sẵn định dạng BOM"
@@ -434,6 +582,10 @@ msgstr "Cài đặt sẵn định dạng BOM"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Bản sửa đổi BOM"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +603,14 @@ msgstr "Quay lại trình quản lý dự án"
 msgid "Back to sign in"
 msgstr "Quay lại đăng nhập"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "Khoan ngược"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "Khoan ngược:"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "Dựa trên vị trí của"
@@ -462,6 +622,10 @@ msgstr "Chiều dài tốt nhất"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Chiều rộng tốt nhất"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Ảnh bitmap"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -523,6 +687,10 @@ msgstr "Duyệt tìm ký hiệu"
 msgid "Browse for the new footprint"
 msgstr "Duyệt tìm dấu chân mới"
 
+#: eeschema/sch_bus_entry.ts:512
+msgid "Bus"
+msgstr "Bus"
+
 #: eeschema/dialogs/panel_setup_buses.tsx:331
 msgid "Bus aliases"
 msgstr "Bí danh bus"
@@ -531,9 +699,41 @@ msgstr "Bí danh bus"
 msgid "Bus members"
 msgstr "Thành viên bus"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcb_calculator/galvanic_corrosion.ts:56
+msgid "Cadmium"
+msgstr "Cadmi"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Đã hủy sau %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Không thể tạo thư mục thư viện '%s'."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Không thể đăng ký bộ nhớ đệm dấu chân đã nhập: không có bảng thư viện của dự án."
+
+#: pcbnew/pad.ts:2492
+msgid "Castellated"
+msgstr "Dạng lỗ viền"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +743,25 @@ msgstr "Nội dung ô"
 msgid "Center layer"
 msgstr "Lớp giữa"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Đổi %s 'Loại khỏi tệp vị trí' từ '%s' thành '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Trò chuyện với chúng tôi (kéo để di chuyển)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Đang kiểm tra khoảng cách giọt nước..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Đang kiểm tra tài khoản của bạn"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Không thể nhóm các mục con tách khỏi mục cha của chúng."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +782,26 @@ msgstr "Đóng trình xem 3D"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Đóng liên kết sau này sẽ ngăn người mới mở nó. Những người đã có trong danh sách vẫn giữ quyền truy cập cho đến khi bạn loại bỏ họ."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: gerbview/gerber_draw_item.ts:756 gerbview/gerbview_frame_ui.tsx:588
+msgid "Cmp:"
+msgstr "Cmp:"
+
+#: gerbview/gerber_draw_item.ts:743 gerbview/gerber_draw_item.ts:750
+msgid "Cmp: %s  Pad: %s"
+msgstr "Cmp: %s  Pad: %s"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +826,10 @@ msgstr "Tệp giao diện màu"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Vật liệu phổ biến"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Hoàn tất sau %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +870,10 @@ msgstr "Định dạng tọa độ"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "Đã sao chép"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Đồng đã sao chép chưa được gán net. Hãy gán net để kết nối."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +927,22 @@ msgstr "Không thể mở %s: %s"
 msgid "Could not open this project: %s"
 msgstr "Không thể mở dự án này: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Không thể ghi đè tệp thư viện '%s'.\n"
+"Hãy đảm bảo bạn có quyền ghi rồi thử lại."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Không thể công bố bộ nhớ đệm dấu chân đã nhập tới '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Không thể đối chiếu các thư viện dấu chân đã nhập: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Không thể ghi tệp thư viện '%s'."
@@ -727,6 +983,22 @@ msgstr "Đang tạo tài khoản..."
 msgid "Creating your account"
 msgstr "Đang tạo tài khoản của bạn"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Mật độ dòng điện:"
@@ -735,9 +1007,33 @@ msgstr "Mật độ dòng điện:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Dòng điện vượt quá khả năng chịu dòng cho mật độ này."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Kiểu thân tùy chỉnh phải có ít nhất 2 mục"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Tỷ lệ tùy chỉnh"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1047,10 @@ msgstr "Tùy chọn DRC"
 msgid "DRC results"
 msgstr "Kết quả DRC"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "Độ rộng nét mặc định của DXF"
@@ -762,6 +1062,10 @@ msgstr "Đơn vị mặc định của DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Độ dài nét gạch"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -923,9 +1227,49 @@ msgstr "Dấu khoan"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Do bản chất của giao thức mã hóa đầu cuối của chúng tôi, dữ liệu của bạn không thể được giải mã nếu không có mật khẩu hoặc khóa khôi phục."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 đề xuất chênh lệch điện áp dưới 300mV. Các thực hành đã biết dùng kim loại giao diện thứ ba giữa cặp chính (ví dụ lớp hoàn thiện bề mặt ENIG)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:143 pcbnew/dialogs/panel_setup_text_and_graphics.tsx:126 pcbnew/footprint_editor_settings.ts:108
+msgid "Edge Cuts"
+msgstr "Edge Cuts"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1278,10 @@ msgstr "Đầu nối cạnh thẻ"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Chỉnh sửa mục bus"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Sửa mô tả cho '%s'"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1315,14 @@ msgstr "Chỉnh sửa trường ký hiệu"
 msgid "Edit Text Box"
 msgstr "Chỉnh sửa hộp văn bản"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Sửa mô tả biến thể"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Sửa mô tả biến thể..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Chỉnh sửa lưới"
@@ -979,6 +1335,10 @@ msgstr "Chỉnh sửa trong trình xem văn bản"
 msgid "Edit layer"
 msgstr "Chỉnh sửa lớp"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Sửa mô tả của một biến thể thiết kế hiện có."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Chỉnh sửa mô tả biến thể"
@@ -986,6 +1346,14 @@ msgstr "Chỉnh sửa mô tả biến thể"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Thời gian đã trôi qua:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Đã trôi qua: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Đã trôi qua: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1399,14 @@ msgstr "Nhập điện trở suất dương và nhiệt độ hợp lệ."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Nhập khóa khôi phục bạn đã lưu khi tạo tài khoản và chọn mật khẩu mới."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Chi tiết lỗi"
@@ -1065,6 +1441,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Lỗi khi lưu bảng thư viện dấu chân của dự án."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1463,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Lỗi khi ghi bộ nhớ đệm dấu chân đã nhập '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Lỗi!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Loại khỏi tệp vị trí"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1119,6 +1511,10 @@ msgstr "Thuộc tính chế tạo"
 msgid "Failed to load schematic:"
 msgstr "Không tải được sơ đồ mạch:"
 
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Không thể phân tích tệp PADS Logic '%s'."
+
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
 msgstr "Lưới nhanh 1"
@@ -1126,6 +1522,10 @@ msgstr "Lưới nhanh 1"
 #: designer/src/editors/schematic/hotkeys.ts:307
 msgid "Fast Grid 2"
 msgstr "Lưới nhanh 2"
+
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:92 pcbnew/import_gfx/dialog_import_graphics.tsx:65
+msgid "Feet"
+msgstr "Feet"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
 msgid "Field name filter"
@@ -1146,6 +1546,10 @@ msgstr "Kiểu tô"
 #: eeschema/dialogs/dialog_shape_properties_base.tsx:206
 msgid "Fill with color"
 msgstr "Tô bằng màu"
+
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Lọc hành động"
 
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
@@ -1175,9 +1579,21 @@ msgstr "Tệp liên kết dấu chân"
 msgid "Footprint field"
 msgstr "Trường dấu chân"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Các mục của dấu chân không thể được nhóm tách khỏi dấu chân cha của chúng."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Loại dấu chân"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Không thể lật dấu chân. Hãy dùng Flip để chuyển chúng sang mặt kia của bảng mạch."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "Với mỗi nhóm mới tạo từ một khối thiết kế, tự động áp dụng cách đặt dấu chân và đi dây đã lưu của khối."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1623,25 @@ msgstr "Tiền tố mặt trước"
 msgid "Front reference start"
 msgstr "Bắt đầu tham chiếu mặt trước"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Độ dài khoảng hở"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1659,19 @@ msgstr "Đang tạo khóa mã hóa..."
 msgid "Generating your encryption keys"
 msgstr "Đang tạo khóa mã hóa của bạn"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Bắt đầu với %s"
 
@@ -1250,6 +1694,14 @@ msgstr "Kiểu đồ họa"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Kích thước lưới"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Các nhóm chứa dấu chân hoặc mục khác không thể lật đã bị bỏ qua."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1727,25 @@ msgstr "Kích thước nhảy qua"
 msgid "Horizontal Any"
 msgstr "Ngang bất kỳ"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Xung đột phím tắt"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Tuy nhiên một số trường hợp không được máy tính này bao quát:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1759,49 @@ msgstr "Tôi nhớ mật khẩu của mình"
 msgid "I understand this deletes my account and all its data."
 msgstr "Tôi hiểu rằng thao tác này sẽ xóa tài khoản và toàn bộ dữ liệu của tôi."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:717
+msgid "Iadj (typ/max):"
+msgstr "Iadj (typ/max):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Nếu"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Nếu chọn, các lớp sẽ giữ tên KiCad chuẩn thay vì bị đổi thành tên lớp đã nhập."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1835,14 @@ msgstr "Nhập %s"
 msgid "Import Layer Mapping"
 msgstr "Nhập ánh xạ lớp"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Nhập tệp bảng mạch không phải KiCad..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Nhập sơ đồ mạch không phải KiCad..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Nhập đồ họa vector"
@@ -1343,9 +1855,25 @@ msgstr "Nhập từ"
 msgid "Import scale"
 msgstr "Tỷ lệ nhập"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Tỷ lệ nhập phải là số dương."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Đã nhập %d mẫu căn chỉnh độ dài."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Dấu chân đã nhập '%s' có các định nghĩa đặt xung đột; giữ định nghĩa đầu tiên."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Các lớp không hoạt động (H):"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "Inch"
+msgstr "Inch"
 
 #: external/wx/spin_ctrl.tsx:137
 msgid "Increase"
@@ -1354,6 +1882,10 @@ msgstr "Tăng"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Tăng thêm"
+
+#: pcb_calculator/galvanic_corrosion.ts:30
+msgid "Indium"
+msgstr "Indi"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1407,6 +1939,26 @@ msgstr "Kích thước chấm điểm nối"
 msgid "Junction size"
 msgstr "Kích thước điểm nối"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Giữ lại hiện có"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Giữ tên lớp KiCad"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Giữ cả hai"
@@ -1439,6 +1991,14 @@ msgstr "Tệp netlist KiCad (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "Plugin KiCad là các tập lệnh Python gốc. Trong trình duyệt chúng cần môi trường chạy web hộp cát, là một công việc riêng."
 
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:145 pcbnew/dialogs/dialog_text_properties_base.tsx:216 pcbnew/pcb_barcode.ts:1172 pcbnew/pcb_dimension.ts:2401 pcbnew/pcb_dimension.ts:2429 pcbnew/pcb_dimension.ts:2469
+msgid "Knockout"
+msgstr "Khoét bỏ"
+
+#: common/tool/action_toolbar_actions.ts:87 common/tool/actions.ts:492 pcbnew/toolbars_footprint_editor.ts:232
+msgid "Lasso"
+msgstr "Chọn tự do"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "Mặc định của lớp"
@@ -1467,6 +2027,14 @@ msgstr "Các thao tác nhấp trái (và kéo) phụ thuộc vào 2 phím bổ t
 msgid "Left margin"
 msgstr "Lề trái"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Cài đặt căn chỉnh độ dài"
+
+#: cvpcb/display_footprints_frame.ts:322
+msgid "Lib: %s"
+msgstr "Lib: %s"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Thư viện và giao diện màu có thể cài đặt và hoạt động ngay hôm nay."
@@ -1486,6 +2054,10 @@ msgstr "Liên kết thư viện"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "Tên thư viện:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Bảng thư viện '%s' chỉ đọc"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2099,38 @@ msgstr "Đang tải %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Ký hiệu nguồn cục bộ và toàn cục có cùng tên"
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:90 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:140
+msgid "Loss Tan"
+msgstr "Loss Tan"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:66
+msgid "Loss Tan:"
+msgstr "Loss Tan:"
+
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Hạ xuống"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "P/N nhà sản xuất"
@@ -1547,9 +2151,29 @@ msgstr "Độ rộng đường mạch tối đa"
 msgid "Maximum width"
 msgstr "Độ rộng tối đa"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Kéo nút giữa"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Di chuyển mô hình 3D"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Di chuyển mô hình 3D..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Di chuyển tham chiếu mô hình 3D"
+
+#: common/tool/actions.ts:1444 eeschema/import_gfx/dialog_import_gfx_sch.tsx:95 pcbnew/dialogs/dialog_dimension_properties_base.tsx:255 pcbnew/dialogs/panel_setup_dimensions.tsx:90 pcbnew/dialogs/panel_setup_dimensions_base.tsx:100 pcbnew/import_gfx/dialog_import_graphics.tsx:68
+msgid "Mils"
+msgstr "Mils"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2182,10 @@ msgstr "Độ rộng tối thiểu"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Thiếu tham chiếu mô hình 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Thiếu tham chiếu mô hình 3D:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,13 +2203,33 @@ msgstr "Di chuyển lưới xuống"
 msgid "Move grid up"
 msgstr "Di chuyển lưới lên"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Chuyển xuống dưới cùng"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Move to Top"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Lý do của tôi không có trong danh sách"
 
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
 msgstr "Cỡ chữ tên"
+
+#: pcbnew/board_connected_item.ts:388 pcbnew/pcb_tablecell.ts:360 pcbnew/pcb_track.ts:900 pcbnew/tools/pcb_control.ts:1729 pcbnew/widgets/pcb_properties_panel.ts:469 pcbnew/widgets/pcb_properties_panel.ts:470
+msgid "Net"
+msgstr "Net"
 
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
@@ -1627,9 +2275,17 @@ msgstr "Trang sau"
 msgid "No %s match your search."
 msgstr "Không có %s nào khớp với tìm kiếm của bạn."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Không có biến thể thiết kế để sửa."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Chưa tải thư viện dấu chân nào."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Không có nhóm nào liên kết với khối thiết kế được chọn."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2302,10 @@ msgstr "Không có thư viện"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Không có kết quả khớp"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Không tìm thấy kết quả khớp."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2359,18 @@ msgstr "Cỡ chữ số"
 msgid "Numbering step"
 msgstr "Bước đánh số"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2386,10 @@ msgstr "Chỉ những người được mời"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Mở dự án trình diễn"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Mở tệp bên ngoài..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2411,14 @@ msgstr "Mở một dự án để thêm thư viện dấu chân."
 msgid "Open from Computer..."
 msgstr "Mở từ máy tính..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Mở hộp thoại Thiết lập bảng mạch"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Mở hộp thoại Thiết lập sơ đồ mạch"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "Mở tệp đã vẽ trong thẻ trình duyệt mới sau khi vẽ thành công (chỉ trang hiện tại)"
@@ -1750,6 +2434,10 @@ msgstr "Đang mở dự án..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "Đang mở dự án được chia sẻ..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "Option:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2475,34 @@ msgstr "Đường dẫn đầu ra"
 msgid "Outset"
 msgstr "Lùi ra"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "Chế độ đầu ra PDF"
@@ -1794,6 +2510,22 @@ msgstr "Chế độ đầu ra PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "Tùy chọn PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1851,6 +2583,10 @@ msgstr "Chế độ padstack"
 msgid "Page number"
 msgstr "Số trang"
 
+#: pcb_calculator/galvanic_corrosion.ts:26
+msgid "Palladium"
+msgstr "Paladi"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "Cuộn khi di chuyển chuột cùng phím"
@@ -1894,6 +2630,10 @@ msgstr "Dán khóa khôi phục 24 từ của bạn"
 #: designer/src/home/ShareButton.tsx:251
 msgid "People with access"
 msgstr "Những người có quyền truy cập"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
 
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
@@ -1963,6 +2703,10 @@ msgstr "Định dạng vẽ"
 msgid "Plugin options"
 msgstr "Tùy chọn plugin"
 
+#: pcbnew/board_stackup_manager/stackup_predefined_prms.ts:108
+msgid "Polyimide"
+msgstr "Polyimide"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "Chế độ vị trí"
@@ -1971,9 +2715,17 @@ msgstr "Chế độ vị trí"
 msgid "Position offset"
 msgstr "Độ lệch vị trí"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Các phương án thay thế tiềm năng"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Các lựa chọn thay thế khả dĩ:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2734,14 @@ msgstr "Độ rộng đường mạch định nghĩa trước"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Kích thước lỗ xuyên định nghĩa trước"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "PrePreg"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "Ép chặt"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2767,25 @@ msgstr "Dự án"
 msgid "Protection features"
 msgstr "Tính năng bảo vệ"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Xếp hàng cài đặt"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Nâng lên"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2798,10 @@ msgstr "Phạm vi (điện áp)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Độ dày đường ratsnest"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Đã liên kết lại %d phép gán dấu chân đã nhập với thư viện '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2054,6 +2834,10 @@ msgstr "Tốc độ vẽ lại"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "Bộ lọc tham chiếu"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Đang đổ lại các vùng chồng lấn..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2131,6 +2915,14 @@ msgstr "Loại bỏ ghi đè độ trễ lỗ xuyên"
 msgid "Rename variant"
 msgstr "Đổi tên biến thể"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Thay thế mô hình"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Thay các tham chiếu mô hình WRL 3D lỗi thời bằng mô hình STEP hiện tại"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Thay thế bằng"
@@ -2167,9 +2959,21 @@ msgstr "Đổi kích thước"
 msgid "Restore Project"
 msgstr "Khôi phục dự án"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Khôi phục phiên bản"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Khôi phục dự án về phiên bản từ %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Đang khôi phục dự án của bạn..."
+
+#: pcb_calculator/galvanic_corrosion.ts:24
+msgid "Rhodium"
+msgstr "Rôdi"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2194,6 +2998,22 @@ msgstr "Làm tròn vị trí đến"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Đơn vị thước"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3119,10 @@ msgstr "Chọn/tô sáng các đối tượng tương ứng với lựa chọn %
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Các ô được chọn hiển thị với lựa chọn màu mặc định của hệ thống sau khi điền lại bảng."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Vùng chọn chứa các mục bị khóa. Bật 'Override locks' để thao tác trên chúng."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Gửi liên kết đặt lại"
@@ -2327,21 +3151,49 @@ msgstr "Đặt màu cho net %s"
 msgid "Set color for the %s netclass"
 msgstr "Đặt màu cho lớp mạng %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Đặt thuộc tính loại khỏi tệp vị trí"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Chia sẻ dự án này"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Các linh kiện dùng chung:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "Tệp trang tính không có trong dự án: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift và Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Hiển thị bộ điều hướng 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Hiện tùy chọn"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3218,10 @@ msgstr "Chữ số có nghĩa (điện áp)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Đang đăng nhập..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Đã bỏ qua %d mục được chọn không phải là nhóm liên kết với khối thiết kế."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3263,10 @@ msgstr "Đưa ra các nghiệm dùng tối đa 4 linh kiện."
 msgid "Solve for this parameter"
 msgstr "Giải cho tham số này"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Một số mục được chọn không thể nhóm."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Một số trang tính không tải được: %s"
@@ -2423,6 +3283,18 @@ msgstr "Tùy chọn sắp xếp và mở rộng"
 msgid "Sources"
 msgstr "Nguồn"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
+#: pcbnew/menubar_pcb_editor.ts:143
+msgid "Specctra Session..."
+msgstr "Specctra Session..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Lớp bắt đầu"
@@ -2435,7 +3307,7 @@ msgstr "Ký hiệu tham chiếu bắt đầu"
 msgid "Step for rotate commands"
 msgstr "Bước cho lệnh xoay"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Trò chuyện hỗ trợ"
 
@@ -2467,6 +3339,30 @@ msgstr "Đang đồng bộ dự án đám mây..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Không hỗ trợ tổng hợp cho ống dẫn sóng chữ nhật."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Vùng quy tắc đích dùng chung linh kiện với vùng tham chiếu"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Khu vực đích"
@@ -2474,6 +3370,10 @@ msgstr "Khu vực đích"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "Trở kháng đích"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "Tee"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +3386,10 @@ msgstr "Màu văn bản"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Khung văn bản"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Văn bản hoặc đồ họa trên lớp Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3427,10 @@ msgstr "Giá trị chi phối được hiển thị in đậm."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Tải xuống thất bại. Hãy sao chép lỗi bên dưới và báo cáo, vui lòng không tải lại, công việc của bạn vẫn có thể khôi phục từ thẻ này."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Không thể xử lý các nhóm sau:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Công thức, từ IPC 2221, là"
@@ -2539,6 +3447,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Mục tiêu của IEC60664-1 là hướng dẫn thiết kế cách điện cho các sản phẩm có kết nối với nguồn lưới."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Bảng thư viện thuộc loại sai"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Giá trị được yêu cầu luôn bị loại khỏi tập nghiệm."
@@ -2554,6 +3466,10 @@ msgstr "Chiều cao văn bản phải nằm trong khoảng %s."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Độ rộng văn bản phải nằm trong khoảng %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Tên đơn vị '%s' đã được sử dụng."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3543,10 @@ msgstr "Trang thiết lập này chưa được triển khai."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Bảng này cho thấy chênh lệch điện thế điện hóa giữa các kim loại và hợp kim khác nhau. Ăn mòn điện hóa ảnh hưởng đến các kim loại khác nhau khi tiếp xúc trong một số điều kiện."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Vùng quy tắc đích này chọn cùng các linh kiện với vùng tham chiếu. Bố cục lặp không thể sao chép một vùng quy tắc lên chính nó. Hãy cho mỗi vùng quy tắc đặt một tờ, lớp linh kiện hoặc nhóm riêng biệt."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Công cụ này cho phép bạn thiết kế cầu chì đường mạch nhưng chỉ nên dùng làm ước tính."
@@ -2634,6 +3554,14 @@ msgstr "Công cụ này cho phép bạn thiết kế cầu chì đường mạch
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Để chọn giá trị, bắt đầu từ giá trị đích tính được rồi làm tròn đến 2 chữ số có nghĩa với E24 trở xuống hoặc 3 chữ số có nghĩa với E48 trở lên. Sau đó tìm giá trị trong bảng gần nhất với các chữ số có nghĩa còn lại và thay vào các chữ số đó."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Bật/tắt thuộc tính loại khỏi bảng vật liệu"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Bật/tắt thuộc tính loại khỏi tệp vị trí"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3631,38 @@ msgstr "Hai chân ký hiệu được ánh xạ tới cùng một điểm hàn c
 msgid "Type to search"
 msgstr "Nhập để tìm kiếm"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Không thể kéo đường mạch cung từ %.1f độ trở lên."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Không thể tải bảng thư viện."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Không thể lưu ký hiệu đã tải xuống: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Tên hiển thị của đơn vị"
@@ -2743,6 +3703,14 @@ msgstr "Lớp người dùng"
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Đang dùng %1$s trong %2$s. Hãy tải dự án xuống, rồi xóa các dự án cũ khỏi màn hình chính để giải phóng dung lượng."
 
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
+
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
 msgstr "Trình chỉnh sửa đỉnh"
@@ -2750,6 +3718,10 @@ msgstr "Trình chỉnh sửa đỉnh"
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
 msgid "Vertical %s"
 msgstr "Dọc %s"
+
+#: pcbnew/router/router_tool.ts:204
+msgid "Via %s"
+msgstr "Via %s"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
@@ -2766,6 +3738,10 @@ msgstr "Kích thước lỗ xuyên"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
 msgid "Via type"
 msgstr "Loại lỗ xuyên"
+
+#: pcbnew/toolbars_pcb_editor.ts:500
+msgid "Via: %s (%s)"
+msgstr "Via: %s (%s)"
 
 #: pcbnew/pcb_edit_frame_ui.tsx:7089
 msgid "Via: %s / %s mm (%s / %s mils)"
@@ -2786,6 +3762,34 @@ msgstr "Trình xem"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Khung nhìn (Shift+Tab):"
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Mức nghiêm trọng của vi phạm cũng có thể được sửa trong Thiết lập bảng mạch"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Mức nghiêm trọng của vi phạm cũng có thể được sửa trong Thiết lập sơ đồ mạch"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:691
+msgid "Vref (min/typ/max):"
+msgstr "Vref (min/typ/max):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +3823,10 @@ msgstr "Khi dùng lớp phủ bảo vệ hoặc đổ keo để chống ô nhi�
 msgid "Who's here"
 msgstr "Ai đang ở đây"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Kiểu dây"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Độ rộng dây/bus"
@@ -2842,6 +3850,10 @@ msgstr "Vị trí Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Hệ số tỷ lệ Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3883,22 @@ msgstr "Dự án của bạn vẫn còn trong bộ nhớ. Hãy tải xuống tr�
 msgid "Your recovery key"
 msgstr "Khóa khôi phục của bạn"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA gặp lỗi không mong muốn"
@@ -2886,6 +3914,20 @@ msgstr "ZiroEDA cần màn hình lớn hơn"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "Trò chuyện hỗ trợ ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Mức ưu tiên vùng"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Phần đổ vùng có thể không chính xác: việc đổ lặp không hội tụ sau %d lượt.\n"
+"\n"
+"Điều này có thể xảy ra với các vùng chồng lấn phức tạp.  Hãy cân nhắc đơn giản hóa các vùng."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3949,22 @@ msgstr "Xem trước vùng"
 msgid "Zoom speed"
 msgstr "Tốc độ thu phóng"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/tools/footprint_editor_control.ts:427
+msgid "_copy"
+msgstr "_copy"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "chênh lệch góc bằng không với %ld đối tượng"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "bên dưới để đặt lại mật khẩu của bạn. Không cần khóa khôi phục."
@@ -2919,17 +3977,73 @@ msgstr "có thể chỉnh sửa"
 msgid "can view"
 msgstr "có thể xem"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "không thể tải bố cục của khối thiết kế"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "nét đứt: khoảng cách rò"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "khối thiết kế không chứa mục nào để áp dụng"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "khối thiết kế không có bố cục PCB đã lưu"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "khối thiết kế không có trong các thư viện đã tải"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "chưa đồng bộ:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:111
+msgid "feet"
+msgstr "feet"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "nhóm trống"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "đã có tài khoản, liên kết đặt lại đang được gửi. Hãy mở nó trên thiết bị này để chọn mật khẩu mới."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "chênh lệch ngang bằng không với %ld đối tượng"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:65 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:100 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:104 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:125 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:129 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:148
+msgid "in"
+msgstr "in"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:40
+msgid "inch"
+msgstr "inch"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,13 +4077,149 @@ msgstr "là độ dày (chiều cao) tính bằng mil"
 msgid "is width in mils"
 msgstr "là độ rộng tính bằng mil"
 
+#: pcbnew/dialogs/panel_setup_layers.tsx:269
+msgid "jumper"
+msgstr "dây nhảy"
+
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "sao chép bố cục thất bại"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:547
+msgid "max"
+msgstr "max"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: common/eda_draw_frame.ts:1336 eeschema/dialogs/panel_setup_formatting.tsx:131 pagelayout_editor/pl_editor_frame.ts:664
+msgid "mils"
+msgstr "mils"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:311
+msgid "nano-Henry"
+msgstr "nano-Henry"
+
+#: pcbnew/drc/drc_engine.ts:458 pcbnew/drc/drc_engine.ts:477 pcbnew/drc/drc_engine.ts:551 pcbnew/drc/drc_engine.ts:569 pcbnew/drc/drc_rules_engine.ts:500 pcbnew/drc/drc_rules_engine.ts:507
+msgid "netclass '%s'"
+msgstr "lớp net '%s'"
+
+#: pcbnew/drc/drc_engine.ts:587 pcbnew/drc/drc_engine.ts:605
+msgid "netclass '%s' (uvia)"
+msgstr "lớp net '%s' (uvia)"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:299
+msgid "pico-Farad"
+msgstr "pico-Farad"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "nét liền: khoảng hở"
 
+#: common/validators.ts:128
+msgid "tab"
+msgstr "tab"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "đến điểm nóng chảy cũng như năng lượng cần cho sự chuyển pha."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "chênh lệch dọc bằng không với %ld đối tượng"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

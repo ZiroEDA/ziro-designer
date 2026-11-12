@@ -140,7 +140,7 @@ export function validateSizes(v: {
 
     if (bad) {
       const col = bad.m_Field === VIA_PARAMETER_ERROR_FIELD.DIAMETER ? 'diameter' : 'drill';
-      return { message: bad.m_Message, row, grid: wxGetTranslation('Vias'), col };
+      return { message: bad.m_Message, row, grid: 'Vias', col };
     }
   }
 
@@ -151,7 +151,7 @@ export function validateSizes(v: {
       return {
         message: wxGetTranslation('No differential pair gap defined.'),
         row,
-        grid: wxGetTranslation('Differential Pairs'),
+        grid: 'Differential Pairs',
         col: 'gap',
       };
   }

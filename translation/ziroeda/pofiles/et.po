@@ -39,6 +39,10 @@ msgstr "„%s” ei ole GitHubi hoidla link."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "„%s” määrati aktiivseks ahelaskeemi värviteemaks"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d WRL 3D-mudelile ei leitud samaväärset STEP-mudelit."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -86,6 +90,10 @@ msgstr "Materjal: %s"
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
 msgid "%s must be between the minimum and maximum text size."
 msgstr "%s peab jääma teksti minimaalse ja maksimaalse suuruse vahele."
+
+#: common/remote_provider_utils.ts:121
+msgid "%s must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL."
+msgstr "%s peab kasutama HTTPS-i, välja arvatud juhul, kui allow_insecure_localhost on loopback-URL-i jaoks lubatud."
 
 #: pcbnew/dialogs/panel_setup_layers.tsx:400
 msgid "%s name"
@@ -167,6 +175,22 @@ msgstr "%s: eemalda"
 msgid "%s: sort"
 msgstr "%s: sorteeri"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' on juba määratud käsule '%s' jaotises '%s'. Mõlemad sidumised säilivad, kuid iga klahvivajutuse peale käivitub ainult üks. Kas jätkata?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' ei ole PADS Logic ASCII-fail."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(automaatne)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(säilita olemasolev viide)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(projektis pole STEP-faile)"
@@ -174,6 +198,10 @@ msgstr "(projektis pole STEP-faile)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(demosid pole kaasas)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(nimetu rühm)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +215,49 @@ msgstr ". Kontrollige oma postkasti (ja rämpsposti), et kinnitamine lõpule vii
 msgid "... (step"
 msgstr "... (samm"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0.00 in / 0 mils / 0.0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "1 teine vaataja"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D-vaatur — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Fail nimega „%s” on juba olemas.  Kas soovite selle asendada?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Asukohas '%s' on teek juba olemas; imporditud jalajäljed jäetakse lahendamata."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +271,43 @@ msgstr "Saadaval on ZiroEDA uus versioon."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Positiivne arv näitab, et rida on anoodne (-) ja veerg katoodne (+); külmad ja soojad värvitoonid näitavad samuti ridade potentsiaali."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Selle tsooni unikaalne nimi, mida kasutatakse selle tuvastamiseks DRC-reeglites"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Konto"
 
@@ -234,6 +330,10 @@ msgstr "Aktiivne"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Lisa 3D-mudel"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Lisa otsingukataloog..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +366,10 @@ msgstr "Lisa arvutist..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Lisa ruudustik"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Lisa rühm '%s' rühma '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,9 +419,17 @@ msgstr "Lisa variant"
 msgid "Add via delay override"
 msgstr "Lisa läbiviigu viivituse alistamine"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Rühm '%s' lisati rühma '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Hoidla „%s” lisati (pakette: %s)"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:73
+msgid "Alias"
+msgstr "Alias"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -334,6 +446,14 @@ msgstr "Lubage sellele lehele saidiandmed või laadige projekt alla enne vaheleh
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Kas teil on juba konto?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +491,21 @@ msgstr "Midagi veel?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Rakendatud muudatused: paigaldatud %s, eemaldatud %s"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Disainiploki paigutus rakendati %d rühmale %d-st."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Rakenda ootel muudatused ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Rakenda disainiploki paigutus %d rühmale"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Rakenda disainiploki paigutused uutele rühmadele"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -411,6 +543,10 @@ msgstr "Seotud kiht"
 msgid "Attenuation is 6 dB"
 msgstr "Sumbuvus on 6 dB"
 
+#: gerbview/gerbview_frame_ui.tsx:612
+msgid "Attr:"
+msgstr "Atribuut:"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "Automaatse panoraamimise kiirus"
@@ -418,6 +554,18 @@ msgstr "Automaatse panoraamimise kiirus"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "Määra prioriteedid automaatselt"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Migreeri 3D-mudelite viited automaatselt"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Paiguta lehe klemmid automaatselt"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Määra tsoonide prioriteedid automaatselt kattuvate piirkondade ühenduvusanalüüsi põhjal."
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +575,14 @@ msgstr "Saadaolevad trükkplaadijäljed"
 msgid "Available path substitutions"
 msgstr "Saadaolevad asendustee"
 
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Materjaliloendi vormingu eelseadistused"
@@ -434,6 +590,10 @@ msgstr "Materjaliloendi vormingu eelseadistused"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Materjaliloendi redaktsioon"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -462,6 +622,14 @@ msgstr "Parim pikkus"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Parim laius"
+
+#: common/eda_shape.ts:2941 eeschema/sch_io/altium/sch_io_altium.ts:2713
+msgid "Bezier"
+msgstr "Bézier"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Bitikaart"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -531,9 +699,29 @@ msgstr "Siini aliased"
 msgid "Bus members"
 msgstr "Siini liikmed"
 
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Tühistati pärast %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Teegi kausta „%s” ei saa luua."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Imporditud jalajälgede vahemälu registreerimine ebaõnnestus: projekti teegitabel puudub."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +731,25 @@ msgstr "Lahtri sisu"
 msgid "Center layer"
 msgstr "Keskmine kiht"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Muuda %s 'Välista asukohafailidest' väärtusest '%s' väärtusele '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Vestelge meiega (lohistage liigutamiseks)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Pisarühenduste isoleervahemike kontrollimine..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Konto kontrollimine"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Alamelemeid ei saa rühmitada eraldi oma emaelemist."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -571,6 +771,18 @@ msgstr "Sulge 3D-vaatur"
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Lingi hilisem sulgemine takistab uutel inimestel selle avamist. Juba nimekirjas olijad säilitavad juurdepääsu, kuni te nad eemaldate."
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
+
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
 msgstr "Ahenda"
@@ -591,9 +803,17 @@ msgstr "Värviteema"
 msgid "Color theme files"
 msgstr "Värviteemade failid"
 
+#: common/widgets/widget_hotkey_list.tsx:169
+msgid "Command"
+msgstr "Käsk"
+
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Levinud materjalid"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Lõpetatud ajaga %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +854,10 @@ msgstr "Koordinaatide vorming"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "Kopeeritud"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Kopeeritud vasel pole ühendusniiti määratud. Ühendamiseks määrake ühendusniidid."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +911,22 @@ msgstr "Ei õnnestunud avada %s: %s"
 msgid "Could not open this project: %s"
 msgstr "Seda projekti ei õnnestunud avada: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Teegifaili '%s' ei õnnestunud üle kirjutada.\n"
+"Veenduge, et teil on kirjutusõigused, ja proovige uuesti."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Imporditud jalajälgede vahemälu avaldamine asukohta '%s' ebaõnnestus."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Imporditud jalajälgede teekide ühitamine ebaõnnestus: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Teegi faili „%s” ei õnnestunud kirjutada."
@@ -727,6 +967,22 @@ msgstr "Konto loomine..."
 msgid "Creating your account"
 msgstr "Teie konto loomine"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Voolutihedus:"
@@ -735,9 +991,29 @@ msgstr "Voolutihedus:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Vool ületab selle tiheduse jaoks lubatud voolukoormuse."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Kohandatud korpusestiilidel peab olema vähemalt 2 kirjet"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Kohandatud mõõtkava"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1027,10 @@ msgstr "DRC valikud"
 msgid "DRC results"
 msgstr "DRC tulemused"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "DXF-i vaikejoone laius"
@@ -762,6 +1042,10 @@ msgstr "DXF-i vaikeühikud"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Kriipsu pikkus"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -907,6 +1191,18 @@ msgstr "Laadige projekt alla enne vahelehe sulgemist või minge üle uuemale bra
 msgid "Downloaded"
 msgstr "Alla laaditud"
 
+#: eeschema/remote_symbol_import_job.ts:95
+msgid "Downloaded symbol payload did not include expected symbol '%s'."
+msgstr "Allalaaditud sümboli andmed ei sisaldanud oodatud sümbolit '%s'."
+
+#: eeschema/remote_symbol_import_job.ts:82
+msgid "Downloaded symbol payload was empty."
+msgstr "Allalaaditud sümboli andmed olid tühjad."
+
+#: eeschema/remote_symbol_import_job.ts:89
+msgid "Downloaded symbol payload was not a KiCad symbol library."
+msgstr "Allalaaditud sümboli andmed ei olnud KiCad sümbolite teek."
+
 #: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
 msgid "Drag to resize"
 msgstr "Lohistage suuruse muutmiseks"
@@ -923,9 +1219,45 @@ msgstr "Puurimismärgid"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Meie otspunktkrüpteerimise protokolli olemuse tõttu ei saa teie andmeid ilma parooli või taastevõtmeta dekrüptida."
 
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 soovitab pingevahet alla 300 mV. Tuntud tavad kasutavad põhipaari vahel kolmandat piirpinna metalli (nt ENIG pinnaviimistlus)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:143 pcbnew/dialogs/panel_setup_text_and_graphics.tsx:126 pcbnew/footprint_editor_settings.ts:108
+msgid "Edge Cuts"
+msgstr "Servalõiked"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1266,10 @@ msgstr "Servakaardi pistikud"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Redigeeri siini kirjet"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Redigeeri '%s' kirjeldust"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1303,14 @@ msgstr "Redigeeri sümboli välju"
 msgid "Edit Text Box"
 msgstr "Redigeeri tekstikasti"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Redigeeri variandi kirjeldust"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Redigeeri variandi kirjeldust..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Redigeeri ruudustikku"
@@ -979,6 +1323,10 @@ msgstr "Redigeeri tekstivaaturis"
 msgid "Edit layer"
 msgstr "Redigeeri kihti"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Redigeeri olemasoleva disainivariandi kirjeldust."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Redigeeri variandi kirjeldust"
@@ -986,6 +1334,14 @@ msgstr "Redigeeri variandi kirjeldust"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Kulunud aeg:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Kulunud: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Kulunud: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1387,14 @@ msgstr "Sisestage positiivne eritakistus ja kehtiv temperatuur."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Sisestage konto loomisel salvestatud taastevõti ja valige uus parool."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Vea üksikasjad"
@@ -1065,6 +1429,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Viga projekti jalajälgede teegitabeli salvestamisel."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1451,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Viga imporditud jalajälgede vahemälu '%s' kirjutamisel: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Viga!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Välist. asukohaf."
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1487,10 @@ msgstr "Ekspordi manustatud failid"
 msgid "Export units"
 msgstr "Ekspordi ühikud"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "Tootmise pistikprogrammid käitavad genereerimisskripte, mis vajavad liivakastiga käituskeskkonda, mis brauseris veel saadaval pole."
@@ -1118,6 +1502,18 @@ msgstr "Tootmisatribuut"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "Ahelaskeemi laadimine ebaõnnestus:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "PADS Logic faili '%s' analüüs ebaõnnestus."
+
+#: eeschema/remote_symbol_import_utils.ts:211
+msgid "Failed to save the library table."
+msgstr "Teegitabeli salvestamine ebaõnnestus."
+
+#: eeschema/remote_symbol_import_utils.ts:194
+msgid "Failed to update the library table."
+msgstr "Teegitabeli uuendamine ebaõnnestus."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1543,18 @@ msgstr "Täite tüüp"
 msgid "Fill with color"
 msgstr "Täida värviga"
 
+#: common/dialogs/eda_list_dialog_base.tsx:101 common/lib_table_descriptions.ts:74 common/lib_table_descriptions.ts:332 common/widgets/lib_tree.tsx:1083 eeschema/browser/global_sym_lib_table.ts:68 eeschema/dialogs/dialog_lib_fields_table_base.tsx:104
+msgid "Filter"
+msgstr "Filter"
+
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Filtreeri toiminguid"
+
+#: common/widgets/filter_combobox.tsx:231 eeschema/dialogs/dialog_lib_symbol_properties.tsx:944 eeschema/dialogs/dialog_lib_symbol_properties.tsx:966
+msgid "Filter:"
+msgstr "Filter:"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Esimene vaba number pärast"
@@ -1158,6 +1566,14 @@ msgstr "Esimese padi number"
 #: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
 msgid "First page option"
 msgstr "Esimese lehe valik"
+
+#: common/eda_text.ts:1605 eeschema/sch_field.ts:354 eeschema/sch_label.ts:1602 eeschema/sch_tablecell.ts:120 eeschema/sch_text.ts:286 eeschema/sch_textbox.ts:234
+msgid "Font"
+msgstr "Font"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:218 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:277 eeschema/dialogs/dialog_label_properties.tsx:701 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:150 eeschema/dialogs/dialog_tablecell_properties_base.tsx:259 eeschema/dialogs/dialog_text_properties_base.tsx:221
+msgid "Font:"
+msgstr "Font:"
 
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
 msgid "Footprint 3D model path"
@@ -1175,9 +1591,21 @@ msgstr "Trükkplaadijälgede seosefailid"
 msgid "Footprint field"
 msgstr "Trükkplaadijälje väli"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Jalajälje elemeid ei saa rühmitada eraldi nende ülemjalajäljest."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Trükkplaadijälje tüüp"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Jalajälgi ei saa peegeldada. Kasutage Pööramist, et viia need trükkplaadi teisele küljele."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "Iga disainiplokist loodud uue rühma puhul rakenda ploki salvestatud jalajälgede paigutus ja juhtmestik automaatselt."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1635,25 @@ msgstr "Esikülje prefiks"
 msgid "Front reference start"
 msgstr "Esikülje tähiste algus"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Pilu pikkus"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1671,23 @@ msgstr "Krüpteerimisvõtmete loomine..."
 msgid "Generating your encryption keys"
 msgstr "Teie krüpteerimisvõtmete loomine"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: pcbnew/menubar_pcb_editor.ts:180 pcbnew/tools/pcb_actions.ts:1670
+msgid "Gerbers (.gbr)..."
+msgstr "Gerbers (.gbr)..."
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Alustamine: %s"
 
@@ -1250,6 +1710,14 @@ msgstr "Graafika stiil"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Ruudustiku suurus"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Rühmad, mis sisaldavad jalajälgi või muid peegeldamatuid elemente, jäeti vahele."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1743,29 @@ msgstr "Ülekäigu suurus"
 msgid "Horizontal Any"
 msgstr "Horisontaalne mis tahes"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Kiirklahvi konflikt"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Siiski ei kata see kalkulaator mõningaid juhtumeid:"
+
+#: common/eda_text.ts:1747 eeschema/sch_field.ts:1709 eeschema/sch_label.ts:2513 eeschema/sch_tablecell.ts:436 pcbnew/pcb_dimension.ts:2400 pcbnew/pcb_dimension.ts:2428
+msgid "Hyperlink"
+msgstr "Hüperviide"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1779,45 @@ msgstr "Tuletasin parooli meelde"
 msgid "I understand this deletes my account and all its data."
 msgstr "Saan aru, et see kustutab minu konto ja kõik selle andmed."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Kui"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Kui märgitud, säilitavad kihid oma standardsed KiCad nimed, mitte ei nimetata ümber imporditud kihtide nimedeks."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1323,6 +1843,10 @@ msgstr "Kui määrate suurima voolu, arvutatakse radade laiused selle järgi."
 msgid "Ignored tests"
 msgstr "Eiratud testid"
 
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:546 eeschema/dialogs/dialog_import_symbol_select_base.tsx:131 eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:288 eeschema/menubar.ts:129 eeschema/symbol_editor/menubar_symbol_editor.ts:193 pcbnew/footprint_edit_frame_ui.tsx:1333
+msgid "Import"
+msgstr "Impordi"
+
 #: eeschema/dialogs/dialog_import_symbol_select.tsx:603
 msgid "Import %s"
 msgstr "Impordi %s"
@@ -1330,6 +1854,14 @@ msgstr "Impordi %s"
 #: pcbnew/dialogs/dialog_map_layers.tsx:261
 msgid "Import Layer Mapping"
 msgstr "Impordi kihtide vastendus"
+
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Impordi mitte-KiCad trükkplaadi fail..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Impordi mitte-KiCad ahelaskeem..."
 
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
@@ -1343,6 +1875,18 @@ msgstr "Impordi allikast"
 msgid "Import scale"
 msgstr "Impordi mõõtkava"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Importimise mastaap peab olema positiivne arv."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Imporditi %d pikkuse häälestuse mustrit."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Imporditud jalajäljel '%s' on vastuolulised paigutatud definitsioonid; esimene säilitatakse."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Mitteaktiivsed kihid (H):"
@@ -1354,6 +1898,10 @@ msgstr "Suurenda"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Suurenda sammuga"
+
+#: pcb_calculator/galvanic_corrosion.ts:30
+msgid "Indium"
+msgstr "Indium"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1407,6 +1955,26 @@ msgstr "Sõlmepunkti suurus"
 msgid "Junction size"
 msgstr "Sõlme suurus"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Säilita olemasolev"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Säilita KiCad kihinimed"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Säilita mõlemad"
@@ -1439,6 +2007,10 @@ msgstr "KiCadi võrgunimekirja failid (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "KiCadi pistikprogrammid on natiivsed Pythoni skriptid. Brauseris vajavad need liivakastiga veebikäituskeskkonda, mis on eraldi töö."
 
+#: common/tool/action_toolbar_actions.ts:87 common/tool/actions.ts:492 pcbnew/toolbars_footprint_editor.ts:232
+msgid "Lasso"
+msgstr "Lasso"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "Kihi vaikeväärtused"
@@ -1467,6 +2039,10 @@ msgstr "Vasakklõpsu (ja lohistamise) toimingud sõltuvad kahest muutjaklahvist:
 msgid "Left margin"
 msgstr "Vasak veeris"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Pikkuse häälestuse sätted"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Teegid ja värviteemad paigaldatakse ja töötavad juba täna."
@@ -1487,6 +2063,10 @@ msgstr "Teegi link"
 msgid "Library name:"
 msgstr "Teegi nimi:"
 
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Teegitabel '%s' on kirjutuskaitstud"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
 msgstr "Joone värvus"
@@ -1502,6 +2082,10 @@ msgstr "Link"
 #: designer/src/mobile/DesktopGate.tsx:69
 msgid "Link copied"
 msgstr "Link kopeeritud"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:375
+msgid "Link:"
+msgstr "Link:"
 
 #: common/launch_ext.tsx:275
 msgid "Load"
@@ -1527,9 +2111,41 @@ msgstr "Laadimine: %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Kohalikel ja globaalsetel toitesümbolitel on sama nimi"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Langeta"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Tootja tootekood"
+
+#: common/eda_item.ts:911 common/eda_item.ts:924 eeschema/sch_marker.ts:342 pcbnew/pcb_marker.ts:312
+msgid "Marker"
+msgstr "Märker"
+
+#: pcbnew/pcb_marker.ts:353
+msgid "Marker (%s)"
+msgstr "Märker (%s)"
 
 #: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
 msgid "Maximum allowed deviation"
@@ -1547,9 +2163,29 @@ msgstr "Suurim raja laius"
 msgid "Maximum width"
 msgstr "Suurim laius"
 
+#: designer/src/editors/calculator/CalculatorTools.tsx:86
+msgid "Memo"
+msgstr "Memo"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Keskmise nupuga lohistamine"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Migreeri 3D-mudelid"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Migreeri 3D-mudelid..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Migreeri 3D-mudelite viited"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2194,10 @@ msgstr "Vähim laius"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Puuduvad 3D-mudelite viited"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Puuduvad 3D-mudelite viited:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2215,25 @@ msgstr "Liiguta ruudustikku alla"
 msgid "Move grid up"
 msgstr "Liiguta ruudustikku üles"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Teisalda alla"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Teisalda üles"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Minu põhjust pole loendis"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1598,6 +2254,10 @@ msgstr "Ühendusniitide filter"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
 msgid "Net name"
 msgstr "Ühendusniidi nimi"
+
+#: pcbnew/board_connected_item.ts:438
+msgid "NetName"
+msgstr "NetName"
 
 #: common/dialogs/panel_setup_netclasses.tsx:522
 msgid "Netclass assignments"
@@ -1627,9 +2287,17 @@ msgstr "Järgmine leht"
 msgid "No %s match your search."
 msgstr "Ükski %s ei vasta otsingule."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Redigeeritavaid disainivariante pole."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Trükkplaadijälgede teeke pole laaditud."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Ühtegi seotud disainiplokiga rühma pole valitud."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2314,10 @@ msgstr "Teeke pole"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Vasteid pole"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Vasteid ei leitud."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1667,6 +2339,10 @@ msgstr "Sellele sihtimpedantsile ei leitud füüsikalist lahendust."
 msgid "No recovery key?"
 msgstr "Pole taastevõtit?"
 
+#: eeschema/remote_symbol_import_job.ts:342
+msgid "No symbol asset was available to place."
+msgstr "Paigutamiseks ei olnud ühtegi sümbolit saadaval."
+
 #: cvpcb/cvpcb_mainframe_ui.tsx:1591
 msgid "No symbols, place and annotate symbols first."
 msgstr "Sümboleid pole, paigutage ja märgistage kõigepealt sümbolid."
@@ -1682,6 +2358,10 @@ msgstr "Pole .kicad_sch fail: %s"
 #: designer/src/home/HomePage.tsx:2699
 msgid "Nothing has been changed or copied."
 msgstr "Midagi ei muudetud ega kopeeritud."
+
+#: eeschema/sch_pin.ts:505 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:92
+msgid "Number"
+msgstr "Number"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
 msgid "Number of units"
@@ -1699,6 +2379,26 @@ msgstr "Numbri teksti suurus"
 msgid "Numbering step"
 msgstr "Numeratsiooni samm"
 
+#: common/remote_provider_models.ts:75
+msgid "OAuth metadata must include authorization_endpoint and token_endpoint."
+msgstr "OAuth-i metaandmed peavad sisaldama authorization_endpoint ja token_endpoint."
+
+#: common/dialog_about/dialog_about.tsx:254 common/dialogs/dialog_book_reporter_ui.tsx:89 common/dialogs/dialog_color_picker.tsx:629 common/dialogs/dialog_grid_settings.tsx:219 common/dialogs/dialog_hotkey_list.tsx:54 common/dialogs/dialog_paste_special.tsx:140
+msgid "OK"
+msgstr "OK"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2414,10 @@ msgstr "Ainult kutsutud inimesed"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Ava demoprojekt"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Ava väline fail..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2439,14 @@ msgstr "Avage projekt, millele trükkplaadijälgede teeki lisada."
 msgid "Open from Computer..."
 msgstr "Ava arvutist..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Ava trükkplaadi seadistamise dialoog"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Ava ahelaskeemi häälestuse dialoog"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "Ava joonestatud fail pärast edukat joonestamist uuel brauseri vahelehel (ainult praegune leht)"
@@ -1750,6 +2462,10 @@ msgstr "Projekti avamine..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "Jagatud projekti avamine..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "Valik:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2503,34 @@ msgstr "Väljundi tee"
 msgid "Outset"
 msgstr "Väljasnihe"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF-i väljundrežiim"
@@ -1794,6 +2538,22 @@ msgstr "PDF-i väljundrežiim"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG valikud"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1895,6 +2655,10 @@ msgstr "Kleepige oma 24-sõnaline taastevõti"
 msgid "People with access"
 msgstr "Juurdepääsuga inimesed"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "Valige kuupäev"
@@ -1963,6 +2727,14 @@ msgstr "Joonestamise vorming"
 msgid "Plugin options"
 msgstr "Pistikprogrammi valikud"
 
+#: eeschema/sch_pin.ts:519
+msgid "Pos X"
+msgstr "Pos X"
+
+#: eeschema/sch_pin.ts:522
+msgid "Pos Y"
+msgstr "Pos Y"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "Asukoha režiim"
@@ -1971,9 +2743,17 @@ msgstr "Asukoha režiim"
 msgid "Position offset"
 msgstr "Asukoha nihe"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Võimalikud asendused"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Võimalikud asendused:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2762,18 @@ msgstr "Eelmääratud raja laiused"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Eelmääratud läbiviikude suurused"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "PrePreg"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "Pressliide"
+
+#: pcbnew/board_statistics_report.ts:200
+msgid "Press-fit:"
+msgstr "Pressliide:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2799,25 @@ msgstr "Projektid"
 msgid "Protection features"
 msgstr "Kaitsefunktsioonid"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Pane paigaldus järjekorda"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Tõsta"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2830,10 @@ msgstr "Vahemik (pinged)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Loogiliste ühenduste joone paksus"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "%d imporditud jalajälje määrangut seoti uuesti teegiga '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2867,10 @@ msgstr "Ümberjoonistamise kiirus"
 msgid "Reference filter"
 msgstr "Tähiste filter"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Kattuvate tsoonide uuesti täitmine..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "Värskenda eelvaadet"
@@ -2074,6 +2890,66 @@ msgstr "Laadi nüüd uuesti"
 #: designer/src/ui/ErrorBoundary.tsx:81
 msgid "Reload without saving"
 msgstr "Laadi uuesti salvestamata"
+
+#: eeschema/remote_symbol_download_manager.ts:68
+msgid "Remote asset URL"
+msgstr "Kaugvara URL"
+
+#: eeschema/remote_symbol_download_manager.ts:81
+msgid "Remote asset URL origin must match the selected provider."
+msgstr "Kaugvara URL-i päritolu peab vastama valitud pakkujale."
+
+#: eeschema/remote_symbol_download_manager.ts:158
+msgid "Remote asset content type did not match the manifest."
+msgstr "Kaugvara sisutüüp ei vastanud manifestile."
+
+#: eeschema/remote_symbol_download_manager.ts:177
+msgid "Remote asset digest did not match the manifest."
+msgstr "Kaugvara räsi ei vastanud manifestile."
+
+#: eeschema/remote_symbol_download_manager.ts:144
+msgid "Remote asset exceeds the provider download limit."
+msgstr "Kaugvara ületab pakkuja allalaadimispiirangu."
+
+#: eeschema/remote_symbol_download_manager.ts:168
+msgid "Remote asset exceeds the remaining download limit."
+msgstr "Kaugvara ületab allesjäänud allalaadimispiirangu."
+
+#: eeschema/remote_symbol_download_manager.ts:132
+msgid "Remote asset manifest declared an invalid size."
+msgstr "Kaugvara manifest deklareeris kehtetu suuruse."
+
+#: eeschema/remote_symbol_download_manager.ts:137
+msgid "Remote asset manifest must declare sha256 for URL-based downloads."
+msgstr "Kaugvara manifest peab URL-põhiste allalaadimiste jaoks deklareerima sha256."
+
+#: eeschema/remote_symbol_download_manager.ts:163
+msgid "Remote asset size did not match the manifest."
+msgstr "Kaugvara suurus ei vastanud manifestile."
+
+#: eeschema/remote_symbol_download_manager.ts:153
+msgid "Remote download failed with HTTP %d."
+msgstr "Kaugallalaadimine ebaõnnestus HTTP veaga %d."
+
+#: common/remote_provider_models.ts:148
+msgid "Remote provider manifest failed schema validation: %s"
+msgstr "Kaugpakkuja manifest ebaõnnestus skeemi valideerimisel: %s"
+
+#: common/remote_provider_metadata.ts:78
+msgid "Remote provider metadata failed schema validation: %s"
+msgstr "Kaugpakkuja metaandmed ebaõnnestusid skeemi valideerimisel: %s"
+
+#: common/remote_provider_metadata.ts:158
+msgid "Remote provider metadata must define session_bootstrap_url for oauth2."
+msgstr "Kaugpakkuja metaandmed peavad oauth2 jaoks määrama session_bootstrap_url."
+
+#: common/remote_provider_metadata.ts:148
+msgid "Remote provider metadata must enable direct_downloads_v1, inline_payloads_v1, or both."
+msgstr "Kaugpakkuja metaandmed peavad lubama direct_downloads_v1, inline_payloads_v1 või mõlemad."
+
+#: common/remote_provider_metadata.ts:143
+msgid "Remote provider metadata must enable web_ui_v1."
+msgstr "Kaugpakkuja metaandmed peavad lubama web_ui_v1."
 
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
@@ -2131,6 +3007,14 @@ msgstr "Eemalda läbiviigu viivituse alistamine"
 msgid "Rename variant"
 msgstr "Nimeta variant ümber"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Asenda mudelid"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Asenda aegunud WRL 3D-mudelite viited praeguste STEP-mudelitega"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Asenda sellega"
@@ -2167,6 +3051,14 @@ msgstr "Muuda suurust"
 msgid "Restore Project"
 msgstr "Taasta projekt"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Taasta versioon"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Kas taastada projekt versioonile ajast %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Teie projekti taastamine..."
@@ -2194,6 +3086,22 @@ msgstr "Ümarda asukohad täpsusega"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Joonlaua ühikud"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3207,10 @@ msgstr "Vali/tõsta esile objektid, mis vastavad valikule: %s"
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Valitud lahtrid kuvatakse pärast tabeli uuesti täitmist süsteemi vaikimisi värvivalikuga."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Valik sisaldab lukustatud elemente. Nendega töötamiseks lubage 'Tühista lukustused'."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Saada lähtestuslink"
@@ -2327,21 +3239,49 @@ msgstr "Määra ühendusniidi %s värv"
 msgid "Set color for the %s netclass"
 msgstr "Määra ühendusniidiklassi %s värv"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Määra asukohafailidest välistamise atribuut"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Jaga seda projekti"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Ühised komponendid:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "Lehe faili ei ole projektis: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift ja Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Näita 3D-navigaatorit"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Kuva suvandid"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3306,10 @@ msgstr "Tüvenumbrid (pinged)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Sisselogimine..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Jäeti vahele %d valitud elementi, mis ei ole disainiplokiga seotud rühmad."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3351,10 @@ msgstr "Antakse lahendused kuni 4 komponendiga."
 msgid "Solve for this parameter"
 msgstr "Lahenda selle parameetri jaoks"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Mõnda valitud elementi ei saa rühmitada."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Mõne lehe laadimine ebaõnnestus: %s"
@@ -2423,6 +3371,14 @@ msgstr "Sortimise ja laiendamise valikud"
 msgid "Sources"
 msgstr "Allikad"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Alguskiht"
@@ -2435,7 +3391,7 @@ msgstr "Algustähis"
 msgid "Step for rotate commands"
 msgstr "Pööramiskäskude samm"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Tugivestlus"
 
@@ -2467,6 +3423,30 @@ msgstr "Pilveprojektide sünkroonimine..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Süntees pole ristkülikukujuliste lainejuhtide jaoks saadaval."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Sihtreeglipiirkond jagab komponente võrdluspiirkonnaga"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Sihtalad"
@@ -2474,6 +3454,10 @@ msgstr "Sihtalad"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "Sihtimpedants"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "T"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +3470,10 @@ msgstr "Teksti värvus"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Tekstiraam"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Tekst või graafika Edge.Cuts kihil"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3511,10 @@ msgstr "Määrav väärtus on kuvatud paksus kirjas."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Allalaadimine ebaõnnestus. Kopeerige allolev viga ja teatage sellest, palun ärge laadige uuesti, teie töö on sellelt vahelehelt veel taastatav."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Järgmisi rühmi ei õnnestunud töödelda:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "IPC 2221 valem on"
@@ -2539,6 +3531,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "IEC60664-1 eesmärk on anda juhiseid toodete isolatsiooni projekteerimiseks, mis on ühendatud toitevõrku."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Teegitabeli tüüp on vale"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Soovitud väärtus on lahenduste hulgast alati välistatud."
@@ -2554,6 +3550,10 @@ msgstr "Teksti kõrgus peab olema vahemikus %s."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Teksti laius peab olema vahemikus %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Ühiku nimi '%s' on juba kasutusel."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3627,10 @@ msgstr "See seadistuslehekülg pole veel realiseeritud."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "See tabel näitab erinevate metallide ja sulamite elektrokeemilise potentsiaali erinevust. Galvaaniline korrosioon mõjutab teatud tingimustel kokkupuutuvaid erinevaid metalle."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "See sihtreeglipiirkond valib samad komponendid mis võrdluspiirkond. Paigutuse kordamine ei saa reeglipiirkonda iseendale kopeerida. Andke igale paigutuse reeglipiirkonnale eraldi leht, komponendiklass või rühm."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "See tööriist võimaldab projekteerida raja kaitset, kuid seda tuleks kasutada ainult hinnanguna."
@@ -2634,6 +3638,14 @@ msgstr "See tööriist võimaldab projekteerida raja kaitset, kuid seda tuleks k
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Väärtuse valimiseks alustage arvutatud sihtväärtusest ja ümardage see E24 või madalama rea puhul 2 tüvenumbrini, E48 või kõrgema puhul 3 tüvenumbrini. Seejärel leidke tabelist jäänud tüvenumbritele lähim väärtus ja asendage need sellega."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Lülita materjalide loetelust välistamise atribuuti"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Lülita asukohafailidest välistamise atribuuti"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3715,38 @@ msgstr "Kaks sümboli klemmi on vastendatud samale trükkplaadijälje padile"
 msgid "Type to search"
 msgstr "Tippige otsimiseks"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: eeschema/remote_symbol_import_utils.ts:180
+msgid "Unable to access the library table."
+msgstr "Teegitabelile ei õnnestunud juurde pääseda."
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Kaare, mille nurk on %.1f kraadi või rohkem, ei saa lohistada."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Teegitabelit ei õnnestunud laadida."
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "Kaugpakkuja manifesti analüüs ebaõnnestus: %s"
+
+#: common/remote_provider_metadata.ts:136
+msgid "Unable to parse remote provider metadata: %s"
+msgstr "Kaugpakkuja metaandmete analüüs ebaõnnestus: %s"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Allalaaditud sümbolit ei õnnestunud salvestada: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Osade kuvanimed"
@@ -2723,6 +3767,10 @@ msgstr "Teie krüpteeritud projektide avamine"
 msgid "Unpin (allow updates)"
 msgstr "Vabasta (luba uuendused)"
 
+#: common/remote_provider_metadata.ts:120
+msgid "Unsupported provider capability '%s'."
+msgstr "Toetamata pakkuja võimekus '%s'."
+
 #: common/dialogs/git/panel_git_repos.tsx:68
 msgid "Update interval"
 msgstr "Uuendamise intervall"
@@ -2739,9 +3787,33 @@ msgstr "Kasutaja kihtide nimed"
 msgid "User layers"
 msgstr "Kasutaja kihid"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Kasutusel %s / %s. Laadige projekt alla ja kustutage siis avalehelt vanad projektid, et ruumi vabastada."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3859,26 @@ msgstr "Vaatur"
 msgid "Viewports (Shift+Tab):"
 msgstr "Vaateaknad (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Rikkumiste tõsidust saab muuta ka trükkplaadi seadistamisel"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Rikkumiste tõsidust saab muuta ka ahelaskeemi häälestuses"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "Me ei salvesta seda võtit, seega salvestage see turvalisse kohta"
@@ -2819,6 +3911,10 @@ msgstr "Kui saastuse eest kaitsmiseks kasutatakse kaitselakki või valamist ja k
 msgid "Who's here"
 msgstr "Kes siin on"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Juhtme stiil"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Traadi/siini laius"
@@ -2835,6 +3931,10 @@ msgstr "X asukoht"
 msgid "X scale factor"
 msgstr "X mõõtkavategur"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y asukoht"
@@ -2842,6 +3942,10 @@ msgstr "Y asukoht"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y mõõtkavategur"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3975,22 @@ msgstr "Teie projekt on veel mälus. Laadige see enne uuesti laadimist alla, ses
 msgid "Your recovery key"
 msgstr "Teie taastevõti"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA tabas ootamatu viga"
@@ -2886,6 +4006,20 @@ msgstr "ZiroEDA vajab suuremat ekraani"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA tugivestlus"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Tsooni prioriteet"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Tsooni täited võivad olla valed: iteratiivne uuesti täitmine ei koondunud %d käiguga.\n"
+"\n"
+"See võib juhtuda keerukate kattuvate tsoonidega.  Kaaluge tsoonide lihtsustamist."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,9 +4041,25 @@ msgstr "Tsoonide eelvaated"
 msgid "Zoom speed"
 msgstr "Suumimise kiirus"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "nullnurga delta %ld objektiga"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "allpool, et uuesti parool määrata. Taastevõtit pole vaja."
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:201
+msgid "bits"
+msgstr "bitti"
 
 #: designer/src/home/ShareButton.tsx:60
 msgid "can edit"
@@ -2919,17 +4069,69 @@ msgstr "saab redigeerida"
 msgid "can view"
 msgstr "saab vaadata"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "disainiploki paigutust ei õnnestunud laadida"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "katkendjoon: roomevahemik"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "disainiplokk ei sisalda rakendatavaid elemente"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "disainiplokil pole salvestatud PCB paigutust"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "disainiplokk pole laaditud teekides"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "ei sünkroonitud:"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:319 pcbnew/dialogs/dialog_pad_properties.tsx:320 gerbview/dialogs/dialog_draw_layers_settings.ts:48
+msgid "dummy"
+msgstr "dummy"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:111
+msgid "feet"
+msgstr "jalga"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "rühm on tühi"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "on konto, lähtestuslink on teel. Avage see sellel seadmel, et valida uus parool."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "horisontaalne delta on null %ld objektiga"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:40
+msgid "inch"
+msgstr "toll"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +4165,102 @@ msgstr "on paksus (kõrgus) millides"
 msgid "is width in mils"
 msgstr "on laius millides"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "paigutuse kopeerimine ebaõnnestus"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87
+msgid "nanoseconds"
+msgstr "nanosekundit"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: common/remote_provider_metadata.ts:197
+msgid "session_bootstrap_url must share the same origin as panel_url."
+msgstr "session_bootstrap_url peab jagama sama päritolu mis panel_url."
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "pidev joon: isoleervahemik"
@@ -2970,6 +4268,22 @@ msgstr "pidev joon: isoleervahemik"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "selle sulamistemperatuurini, samuti faasimuutuseks vajalikku energiat."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "vertikaalne delta on null %ld objektiga"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

@@ -167,6 +167,10 @@ msgstr "%s: kaldır"
 msgid "%s: sort"
 msgstr "%s: sırala"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%1$s', '%3$s' bölümünde zaten '%2$s' öğesine atanmış. Her iki atama da korunur, ancak tuşa basıldığında yalnızca biri çalışır. Devam edilsin mi?"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(projede STEP dosyası yok)"
@@ -174,6 +178,10 @@ msgstr "(projede STEP dosyası yok)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(paketlenmiş demo yok)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(adsız grup)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -191,13 +199,49 @@ msgstr "... (adım"
 msgid "1 other viewer"
 msgstr "1 diğer görüntüleyici"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
+
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3B Görüntüleyici — %s"
 
+#: eeschema/dialogs/dialog_text_properties.tsx:281 eeschema/schematic.ts:1229
+msgid "<root sheet>"
+msgstr "<kök yaprak>"
+
+#: eeschema/sch_group.ts:70 pcbnew/pcb_group.ts:425
+msgid "<unnamed>"
+msgstr "<adsız>"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "\"%s\" adında bir dosya zaten var.  Değiştirmek istiyor musunuz?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "'%s' konumunda zaten bir kütüphane var; içe aktarılan ayak izleri çözümlenmeden bırakılıyor."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +255,43 @@ msgstr "ZiroEDA'nın yeni bir sürümü mevcut."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Pozitif bir sayı, satırın anodik (-) ve sütunun katodik (+) olduğunu gösterir; soğuk ve sıcak renk tonları da satırların potansiyelini gösterir."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Bu bölge için DRC kurallarında onu tanımlamak üzere kullanılan benzersiz bir ad"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Hesap"
 
@@ -267,6 +347,10 @@ msgstr "Bilgisayardan ekle..."
 msgid "Add grid"
 msgstr "Izgara ekle"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "'%s' grubunu '%s' grubuna ekle."
+
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
 msgstr "Katman ekle"
@@ -315,6 +399,10 @@ msgstr "Varyant ekle"
 msgid "Add via delay override"
 msgstr "Geçit gecikmesi geçersiz kılma ekle"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "'%s' grubu '%s' grubuna eklendi."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "\"%s\" deposu eklendi (%s paket)"
@@ -334,6 +422,14 @@ msgstr "Bu sayfa için site verilerine izin verin veya sekmeyi kapatmadan önce 
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Zaten hesabınız var mı?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +467,21 @@ msgstr "Başka bir şey var mı?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Uygulanan değişiklikler: %s yüklendi, %s kaldırıldı"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Tasarım bloğu yerleşimi %d / %d gruba uygulandı."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Bekleyen değişiklikleri uygula ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Tasarım bloğu yerleşimini %d gruba uygula"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Tasarım bloğu yerleşimlerini yeni gruplara uygula"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -419,6 +527,10 @@ msgstr "Otomatik kaydırma hızı"
 msgid "Auto-assign priorities"
 msgstr "Öncelikleri otomatik ata"
 
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Yaprak Pinlerini Otomatik Yerleştir"
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "Kullanılabilir ayak izleri"
@@ -427,6 +539,14 @@ msgstr "Kullanılabilir ayak izleri"
 msgid "Available path substitutions"
 msgstr "Kullanılabilir yol ikameleri"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "BOM biçimlendirme ön ayarları"
@@ -434,6 +554,10 @@ msgstr "BOM biçimlendirme ön ayarları"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "BOM revizyonu"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -462,6 +586,14 @@ msgstr "En iyi uzunluk"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "En iyi genişlik"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Bit Eşlem"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:493
+msgid "Bitmap DPI:"
+msgstr "Bit eşlem DPI:"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -531,9 +663,21 @@ msgstr "Veriyolu takma adları"
 msgid "Bus members"
 msgstr "Veriyolu üyeleri"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "'%s' kütüphane klasörü oluşturulamıyor."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "İçe aktarılan ayak izi önbelleği kaydedilemiyor: proje kütüphane tablosu yok."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -542,6 +686,10 @@ msgstr "Hücre içeriği"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:211
 msgid "Center layer"
 msgstr "Orta katman"
+
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "%s için 'Konum dosyalarından hariç tut' durumunu '%s' iken '%s' olarak değiştir."
 
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
@@ -687,6 +835,22 @@ msgstr "%s açılamadı: %s"
 msgid "Could not open this project: %s"
 msgstr "Bu proje açılamadı: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"'%s' kütüphane dosyasının üzerine yazılamadı.\n"
+"Yazma izinlerinizin olduğundan emin olun ve tekrar deneyin."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "İçe aktarılan ayak izi önbelleği '%s' konumuna yayınlanamadı."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "İçe aktarılan ayak izi kütüphaneleri uzlaştırılamadı: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "'%s' kütüphane dosyası yazılamadı."
@@ -727,6 +891,22 @@ msgstr "Hesap oluşturuluyor..."
 msgid "Creating your account"
 msgstr "Hesabınız oluşturuluyor"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Akım yoğunluğu:"
@@ -735,9 +915,21 @@ msgstr "Akım yoğunluğu:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Akım, bu yoğunluk için akım taşıma kapasitesini aşıyor."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Özel gövde stilleri en az 2 girdi içermelidir"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Özel ölçek"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -750,6 +942,10 @@ msgstr "DRC seçenekleri"
 #: pcbnew/dialogs/dialog_drc_base.tsx:278
 msgid "DRC results"
 msgstr "DRC sonuçları"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
 
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
@@ -923,6 +1119,34 @@ msgstr "Delik işaretleri"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Uçtan uca şifreleme protokolümüzün doğası gereği, verileriniz şifreniz veya kurtarma anahtarınız olmadan çözülemez."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310, 300 mV altında bir gerilim farkı önerir. Bilinen uygulamalar, ana çiftin arasında üçüncü bir arayüz metali kullanır (örn. ENIG yüzey kaplaması)."
@@ -1031,6 +1255,14 @@ msgstr "Pozitif bir özdirenç ve geçerli bir sıcaklık girin."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Hesabınızı oluştururken kaydettiğiniz kurtarma anahtarını girin ve yeni bir şifre seçin."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Hata ayrıntıları"
@@ -1065,6 +1297,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Proje ayak izi kütüphane tablosu kaydedilirken hata oluştu."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1319,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "İçe aktarılan ayak izi önbelleği '%s' yazılırken hata: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Hata!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Konum Dos. Hariç"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1207,6 +1455,14 @@ msgstr "Ön ön eki"
 msgid "Front reference start"
 msgstr "Ön referans başlangıcı"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Boşluk uzunluğu"
@@ -1227,7 +1483,7 @@ msgstr "Şifreleme anahtarları oluşturuluyor..."
 msgid "Generating your encryption keys"
 msgstr "Şifreleme anahtarlarınız oluşturuluyor"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "%s ile Başlarken"
 
@@ -1250,6 +1506,14 @@ msgstr "Grafik stili"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Izgara boyutu"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Aynalanamayan ayak izleri veya diğer öğeleri içeren gruplar atlandı."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1539,21 @@ msgstr "Atlama boyutu"
 msgid "Horizontal Any"
 msgstr "Yatay Herhangi"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Kısayol tuşu çakışması"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Ancak bazı durumlar bu hesaplayıcı tarafından kapsanmaz:"
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1294,6 +1570,26 @@ msgstr "Bunun hesabımı ve tüm verilerini sildiğini anlıyorum."
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
+
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
 
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
@@ -1342,6 +1638,18 @@ msgstr "Şuradan içe aktar"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "İçe aktarma ölçeği"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "İçe aktarma ölçeği pozitif bir sayı olmalıdır."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "%d uzunluk ayarlama deseni içe aktarıldı."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "İçe aktarılan '%s' ayak izinin çakışan yerleştirilmiş tanımları var; ilki korunuyor."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1715,22 @@ msgstr "Bağlantı noktası nokta boyutu"
 msgid "Junction size"
 msgstr "Bağlantı noktası boyutu"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "KiCad katman adlarını koru"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "İkisini de tut"
@@ -1467,6 +1791,10 @@ msgstr "Sol tıklama (ve sürükleme) eylemleri 2 değiştirici tuşa bağlıdı
 msgid "Left margin"
 msgstr "Sol kenar boşluğu"
 
+#: cvpcb/display_footprints_frame.ts:322
+msgid "Lib: %s"
+msgstr "Kütüphane: %s"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Kütüphaneler ve renk temaları bugün yüklenir ve çalışır."
@@ -1487,6 +1815,10 @@ msgstr "Kütüphane bağlantısı"
 msgid "Library name:"
 msgstr "Kütüphane adı:"
 
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "'%s' kütüphane tablosu salt okunur"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
 msgstr "Çizgi rengi"
@@ -1502,6 +1834,10 @@ msgstr "Bağlantı"
 #: designer/src/mobile/DesktopGate.tsx:69
 msgid "Link copied"
 msgstr "Bağlantı kopyalandı"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:375
+msgid "Link:"
+msgstr "Bağlantı:"
 
 #: common/launch_ext.tsx:275
 msgid "Load"
@@ -1526,6 +1862,18 @@ msgstr "%s yükleniyor..."
 #: eeschema/erc/erc_settings.ts:217
 msgid "Local and global power symbols have same name"
 msgstr "Yerel ve genel güç sembollerinin adı aynı"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
 
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
@@ -1579,6 +1927,14 @@ msgstr "Izgarayı yukarı taşı"
 msgid "My reason isn't listed"
 msgstr "Nedenim listede yok"
 
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
 msgstr "Ad metni boyutu"
@@ -1631,6 +1987,10 @@ msgstr "Aramanızla eşleşen %s yok."
 msgid "No footprint libraries loaded."
 msgstr "Yüklü ayak izi kütüphanesi yok."
 
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Bağlı tasarım bloğu olan hiçbir grup seçilmedi."
+
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
 msgstr "Hiçbir kısayol tuşu eşleşmiyor \""
@@ -1675,6 +2035,10 @@ msgstr "Sembol yok, önce sembol yerleştirin ve numaralandırın."
 msgid "None of the files chosen is of the type %s."
 msgstr "Seçilen dosyaların hiçbiri %s türünde değil."
 
+#: common/dialogs/panel_common_settings.tsx:250 common/eda_text.ts:1062 eeschema/sch_label.ts:1605 eeschema/sch_tablecell.ts:123 eeschema/sch_text.ts:289 eeschema/sch_textbox.ts:237
+msgid "Normal"
+msgstr "Normal"
+
 #: eeschema/sch_edit_frame_ui.tsx:3966
 msgid "Not a .kicad_sch file: %s"
 msgstr ".kicad_sch dosyası değil: %s"
@@ -1698,6 +2062,18 @@ msgstr "Numara metni boyutu"
 #: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
 msgid "Numbering step"
 msgstr "Numaralandırma adımı"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
 
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
@@ -1787,6 +2163,30 @@ msgstr "Çıktı yolu"
 msgid "Outset"
 msgstr "Dışa kaydırma"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF çıktı modu"
@@ -1794,6 +2194,14 @@ msgstr "PDF çıktı modu"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG Seçenekleri"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1895,6 +2303,10 @@ msgstr "24 kelimelik kurtarma anahtarınızı yapıştırın"
 msgid "People with access"
 msgstr "Erişimi olan kişiler"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "Tarih seçin"
@@ -1902,6 +2314,18 @@ msgstr "Tarih seçin"
 #: common/dialogs/dialog_page_settings_base.tsx:294
 msgid "Pick date"
 msgstr "Tarih seç"
+
+#: common/eda_item.ts:943
+msgid "Pin"
+msgstr "Pin"
+
+#: eeschema/sch_pin.ts:1804
+msgid "Pin %s [%s, %s, %s]"
+msgstr "Pin %s [%s, %s, %s]"
+
+#: eeschema/sch_pin.ts:1812
+msgid "Pin %s [%s, %s]"
+msgstr "Pin %s [%s, %s]"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
 msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
@@ -2011,6 +2435,10 @@ msgstr "Koruma özellikleri"
 msgid "Queue install"
 msgstr "Yüklemeyi sıraya al"
 
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
 msgstr "Aralık (akımlar)"
@@ -2022,6 +2450,10 @@ msgstr "Aralık (gerilimler)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Ratsnest çizgi kalınlığı"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "%d içe aktarılan ayak izi ataması '%s' kütüphanesine yeniden bağlandı."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2054,6 +2486,10 @@ msgstr "Yeniden çizim hızı"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "Referans filtresi"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Çakışan bölgeler yeniden dolduruluyor..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2167,6 +2603,14 @@ msgstr "Yeniden boyutlandır"
 msgid "Restore Project"
 msgstr "Projeyi Geri Yükle"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Sürümü Geri Yükle"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Proje, %s tarihli sürüme geri yüklensin mi?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Projeniz geri yükleniyor..."
@@ -2194,6 +2638,22 @@ msgstr "Konumları şuna yuvarla"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Cetvel birimleri"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2327,9 +2787,21 @@ msgstr "%s ağı için renk ayarla"
 msgid "Set color for the %s netclass"
 msgstr "%s ağ sınıfı için renk ayarla"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Konum dosyalarından hariç tut özniteliğini ayarla"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Bu projeyi paylaş"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Paylaşılan bileşenler:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
@@ -2338,6 +2810,10 @@ msgstr "Sayfa dosyası projede değil: %s"
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift ve Ctrl"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
 
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
@@ -2366,6 +2842,10 @@ msgstr "Anlamlı basamaklar (gerilimler)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Oturum açılıyor..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Tasarım bloğuna bağlı grup olmayan %d seçili öğe atlandı."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +2887,10 @@ msgstr "En fazla 4 bileşen kullanan çözümler verilir."
 msgid "Solve for this parameter"
 msgstr "Bu parametre için çöz"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Seçilen bazı öğeler gruplandırılamaz."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Bazı sayfalar yüklenemedi: %s"
@@ -2435,7 +2919,7 @@ msgstr "Başlangıç referans tanımlayıcısı"
 msgid "Step for rotate commands"
 msgstr "Döndürme komutları için adım"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Destek Sohbeti"
 
@@ -2467,6 +2951,26 @@ msgstr "Bulut projeleri eşitleniyor..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Dikdörtgen dalga kılavuzları için sentez mevcut değil."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Hedef Kural Alanı, referans alanla bileşenleri paylaşıyor"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Hedef alanlar"
@@ -2474,6 +2978,10 @@ msgstr "Hedef alanlar"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "Hedef empedans"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "T"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +2994,10 @@ msgstr "Metin rengi"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Metin çerçevesi"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Edge.Cuts katmanında metin veya grafik"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2522,6 +3034,10 @@ msgstr "Belirleyici değer kalın gösterilir."
 #: designer/src/ui/ErrorBoundary.tsx:86
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "İndirme başarısız oldu. Aşağıdaki hatayı kopyalayıp bildirin, lütfen yeniden yüklemeyin, çalışmanız bu sekmeden hâlâ kurtarılabilir."
+
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Aşağıdaki gruplar işlenemedi:"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
@@ -2635,6 +3151,14 @@ msgstr "Bu araç bir yol sigortası tasarlamanıza olanak tanır ancak yalnızca
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Bir değer seçmek için hesaplanan hedef değerle başlayın ve E24 veya altı için 2, E48 ve üstü için 3 anlamlı basamağa yuvarlayın. Ardından tabloda kalan anlamlı basamaklara en yakın değeri bulun ve onların yerine koyun."
 
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Malzeme listesinden hariç tut özniteliğini aç/kapat"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Konum dosyalarından hariç tut özniteliğini aç/kapat"
+
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
 msgstr "Araç çubuğu öğeleri"
@@ -2703,6 +3227,30 @@ msgstr "İki sembol pini aynı ayak izi pedine eşlenmiş"
 msgid "Type to search"
 msgstr "Aramak için yazın"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "%.1f derece veya daha büyük yay yolları sürüklenemiyor."
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Birim görünen adları"
@@ -2742,6 +3290,14 @@ msgstr "Kullanıcı katmanları"
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "%s / %s kullanılıyor. Projenizi indirin, ardından yer açmak için ana ekrandan eski projeleri silin."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2786,6 +3342,18 @@ msgstr "Görüntüleyici"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Görünümler (Shift+Tab):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2835,6 +3403,10 @@ msgstr "X konumu"
 msgid "X scale factor"
 msgstr "X ölçek çarpanı"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y konumu"
@@ -2842,6 +3414,10 @@ msgstr "Y konumu"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y ölçek çarpanı"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2870,6 +3446,14 @@ msgstr "Projeniz hâlâ bellekte. Yeniden yüklemeden önce indirin, yeniden yü
 #: designer/src/auth/SignIn.tsx:300
 msgid "Your recovery key"
 msgstr "Kurtarma anahtarınız"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
 
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
@@ -2919,13 +3503,49 @@ msgstr "düzenleyebilir"
 msgid "can view"
 msgstr "görüntüleyebilir"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "tasarım bloğunun yerleşimi yüklenemedi"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "kesikli: kaçak yolu"
 
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "tasarım bloğunda uygulanacak öğe yok"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "tasarım bloğunun kayıtlı bir PCB yerleşimi yok"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "tasarım bloğu yüklü kütüphanelerde yok"
+
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "eşitlenmedi:"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/sn"
 
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
@@ -2963,6 +3583,90 @@ msgstr "mil cinsinden kalınlıktır (yükseklik)"
 msgid "is width in mils"
 msgstr "mil cinsinden genişliktir"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/sa"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "yerleşim kopyalama başarısız oldu"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mil/sa"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "dk"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "düz: açıklık"
@@ -2970,6 +3674,18 @@ msgstr "düz: açıklık"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "erime noktasına kadar ve faz değişimi için gereken enerjiyi."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

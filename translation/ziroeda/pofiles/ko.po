@@ -39,6 +39,10 @@ msgstr "\"%s\"은(는) GitHub 저장소 링크가 아닙니다."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "\"%s\"을(를) 현재 회로도 색상 테마로 설정했습니다"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "WRL 3D 모델 %d개를 동등한 STEP 모델과 대응시킬 수 없습니다."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -50,6 +54,10 @@ msgstr ""
 "%s\n"
 " \n"
 "그래도 다시 주석을 매기시겠습니까?"
+
+#: pcbnew/pcb_shape.ts:662
+msgid "%s %s of %s on %s"
+msgstr "%4$s의 %3$s에 대한 %1$s %2$s"
 
 #: common/widgets/widget_hotkey_list.tsx:243
 msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
@@ -87,6 +95,10 @@ msgstr "%s 재질"
 msgid "%s must be between the minimum and maximum text size."
 msgstr "%s은(는) 최소 텍스트 크기와 최대 텍스트 크기 사이여야 합니다."
 
+#: common/remote_provider_utils.ts:121
+msgid "%s must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL."
+msgstr "루프백 URL에 allow_insecure_localhost가 활성화되어 있지 않으면 %s은(는) HTTPS를 사용해야 합니다."
+
 #: pcbnew/dialogs/panel_setup_layers.tsx:400
 msgid "%s name"
 msgstr "%s 이름"
@@ -94,6 +106,10 @@ msgstr "%s 이름"
 #: designer/src/home/HomePage.tsx:736
 msgid "%s names files that were not chosen: %s."
 msgstr "%s이(가) 선택하지 않은 파일을 지정합니다: %s."
+
+#: pcbnew/pcb_shape.ts:674
+msgid "%s of %s on %s"
+msgstr "%3$s의 %2$s에 대한 %1$s"
 
 #: eeschema/sch_edit_frame_ui.tsx:5664
 msgid "%s other viewers"
@@ -167,6 +183,22 @@ msgstr "%s: 제거"
 msgid "%s: sort"
 msgstr "%s: 정렬"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%1$s'은(는) '%3$s' 섹션에서 이미 '%2$s'에 할당되어 있습니다. 두 바인딩 모두 유지되지만 키를 누를 때마다 하나만 실행됩니다. 계속하시겠습니까?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s'은(는) PADS Logic ASCII 파일이 아닙니다."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(자동)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(기존 참조 유지)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(프로젝트에 STEP 파일 없음)"
@@ -174,6 +206,10 @@ msgstr "(프로젝트에 STEP 파일 없음)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(포함된 데모 없음)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(이름 없는 그룹)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +223,41 @@ msgstr ". 받은 편지함(및 스팸함)을 확인하여 인증을 완료하세
 msgid "... (step"
 msgstr "... (단계"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0.00 in / 0 mils / 0.0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "다른 뷰어 1명"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D 뷰어 — %s"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "\"%s\"(이)라는 파일이 이미 있습니다. 바꾸시겠습니까?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "'%s'에 라이브러리가 이미 있습니다. 가져온 풋프린트는 해결되지 않은 상태로 둡니다."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +271,43 @@ msgstr "ZiroEDA의 새 버전을 사용할 수 있습니다."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "양수는 해당 행이 애노드(-)이고 열이 캐소드(+)임을 나타내며, 차가운 색과 따뜻한 색 계열도 각 행의 전위를 나타냅니다."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "DRC 규칙에서 이 영역을 식별하는 데 사용되는 고유한 이름"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "계정"
 
@@ -234,6 +330,10 @@ msgstr "활성"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "3D 모델 추가"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "검색 디렉터리 추가..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +366,10 @@ msgstr "컴퓨터에서 추가..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "그리드 추가"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "그룹 '%s'을(를) 그룹 '%s'에 추가합니다."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +419,10 @@ msgstr "변형 추가"
 msgid "Add via delay override"
 msgstr "비아 지연 재정의 추가"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "그룹 '%s'을(를) 그룹 '%s'에 추가했습니다."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "저장소 \"%s\"을(를) 추가했습니다(패키지 %s개)"
@@ -334,6 +442,14 @@ msgstr "이 페이지의 사이트 데이터를 허용하거나 탭을 닫기 �
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "이미 계정이 있으신가요?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +487,21 @@ msgstr "더 궁금한 점이 있으신가요?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "변경 사항 적용됨: %s개 설치, %s개 제거"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "%2$d개 그룹 중 %1$d개에 디자인 블록 레이아웃을 적용했습니다."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "보류 중인 변경 사항 적용 ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "%d개 그룹에 디자인 블록 레이아웃 적용"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "새 그룹에 디자인 블록 레이아웃 적용"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -407,6 +535,10 @@ msgstr "네트 클래스 할당"
 msgid "Associated layer"
 msgstr "연결된 레이어"
 
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:299
+msgid "At"
+msgstr "위치"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:184
 msgid "Attenuation is 6 dB"
 msgstr "감쇠는 6 dB입니다"
@@ -419,6 +551,18 @@ msgstr "자동 이동 속도"
 msgid "Auto-assign priorities"
 msgstr "우선순위 자동 할당"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "3D 모델 참조 자동 이주"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "시트 핀 자동 배치"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "겹치는 영역의 연결성 분석을 기반으로 영역 우선순위를 자동으로 할당합니다."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "사용 가능한 풋프린트"
@@ -427,6 +571,18 @@ msgstr "사용 가능한 풋프린트"
 msgid "Available path substitutions"
 msgstr "사용 가능한 경로 대체"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "BOM 서식 프리셋"
@@ -434,6 +590,14 @@ msgstr "BOM 서식 프리셋"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "BOM 리비전"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:237
+msgid "BOM revision:"
+msgstr "BOM 리비전:"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -531,9 +695,33 @@ msgstr "버스 별칭"
 msgid "Bus members"
 msgstr "버스 멤버"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "%s 후 취소됨"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "라이브러리 폴더 '%s'을(를) 만들 수 없습니다."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "가져온 풋프린트 캐시를 등록할 수 없습니다: 프로젝트 라이브러리 테이블이 없습니다."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +731,25 @@ msgstr "셀 내용"
 msgid "Center layer"
 msgstr "중앙 레이어"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "%s '위치 파일에서 제외'를 '%s'에서 '%s'(으)로 변경합니다."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "채팅으로 문의 (드래그하여 이동)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "물방울모양 공간거리 확인 중..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "계정을 확인하는 중"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "하위 항목은 상위 항목과 별도로 그룹화할 수 없습니다."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +770,18 @@ msgstr "3D 뷰어 닫기"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "나중에 링크를 닫으면 새 사용자는 열 수 없게 됩니다. 이미 목록에 있는 사용자는 제거할 때까지 접근 권한을 유지합니다."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +806,10 @@ msgstr "색상 테마 파일"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "일반 재료"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "%s 만에 완료됨"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +850,10 @@ msgstr "좌표 형식"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "복사됨"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "복사된 구리에 네트가 할당되어 있지 않습니다. 연결하려면 네트를 할당하십시오."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +907,22 @@ msgstr "%s을(를) 열 수 없습니다: %s"
 msgid "Could not open this project: %s"
 msgstr "이 프로젝트를 열 수 없습니다: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"라이브러리 파일 '%s'을(를) 덮어쓸 수 없습니다.\n"
+"쓰기 권한이 있는지 확인한 후 다시 시도하십시오."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "가져온 풋프린트 캐시를 '%s'에 게시할 수 없습니다."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "가져온 풋프린트 라이브러리를 조정할 수 없습니다: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "라이브러리 파일 '%s'을(를) 쓸 수 없습니다."
@@ -727,6 +963,22 @@ msgstr "계정을 만드는 중..."
 msgid "Creating your account"
 msgstr "계정을 만드는 중"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "전류 밀도:"
@@ -735,9 +987,33 @@ msgstr "전류 밀도:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "전류가 이 밀도의 허용 전류를 초과합니다."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "사용자 정의 본체 스타일에는 항목이 2개 이상 있어야 합니다"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "사용자 지정 배율"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1027,10 @@ msgstr "DRC 옵션"
 msgid "DRC results"
 msgstr "DRC 결과"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "DXF 기본 선 폭"
@@ -762,6 +1042,10 @@ msgstr "DXF 기본 단위"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "파선 길이"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -907,6 +1191,18 @@ msgstr "탭을 닫기 전에 프로젝트를 다운로드하거나 최신 브라
 msgid "Downloaded"
 msgstr "다운로드됨"
 
+#: eeschema/remote_symbol_import_job.ts:95
+msgid "Downloaded symbol payload did not include expected symbol '%s'."
+msgstr "다운로드한 심볼 페이로드에 예상한 심볼 '%s'이(가) 없습니다."
+
+#: eeschema/remote_symbol_import_job.ts:82
+msgid "Downloaded symbol payload was empty."
+msgstr "다운로드한 심볼 페이로드가 비어 있습니다."
+
+#: eeschema/remote_symbol_import_job.ts:89
+msgid "Downloaded symbol payload was not a KiCad symbol library."
+msgstr "다운로드한 심볼 페이로드가 KiCad 심볼 라이브러리가 아닙니다."
+
 #: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
 msgid "Drag to resize"
 msgstr "드래그하여 크기 조정"
@@ -923,9 +1219,45 @@ msgstr "드릴 마크"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "종단 간 암호화 프로토콜의 특성상 비밀번호나 복구 키가 없으면 데이터를 복호화할 수 없습니다."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310은 전압 차이를 300mV 미만으로 할 것을 권장합니다. 알려진 방법은 주 쌍 사이에 세 번째 계면 금속(예: ENIG 표면 처리)을 사용하는 것입니다."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1266,10 @@ msgstr "에지 카드 커넥터"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "버스 엔트리 편집"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "'%s'의 설명 편집"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1303,14 @@ msgstr "심볼 필드 편집"
 msgid "Edit Text Box"
 msgstr "텍스트 상자 편집"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "변형 설명 편집"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "변형 설명 편집..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "그리드 편집"
@@ -979,6 +1323,10 @@ msgstr "텍스트 뷰어에서 편집"
 msgid "Edit layer"
 msgstr "레이어 편집"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "기존 설계 변형의 설명을 편집합니다."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "변형 설명 편집"
@@ -986,6 +1334,14 @@ msgstr "변형 설명 편집"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "경과 시간:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "경과: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "경과: 0 초"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1065,6 +1421,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "프로젝트 풋프린트 라이브러리 테이블을 저장하는 중 오류가 발생했습니다."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1443,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "가져온 풋프린트 캐시 '%s'을(를) 쓰는 중 오류가 발생했습니다: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "오류!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "위치 파일 제외"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1479,10 @@ msgstr "포함된 파일 내보내기"
 msgid "Export units"
 msgstr "내보내기 단위"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "제조 플러그인은 샌드박스 런타임이 필요한 생성 스크립트를 실행하며, 브라우저에서는 아직 사용할 수 없습니다."
@@ -1118,6 +1494,18 @@ msgstr "제조 속성"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "회로도를 불러오지 못했습니다:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "PADS Logic 파일 '%s'을(를) 구문 분석하지 못했습니다."
+
+#: eeschema/remote_symbol_import_utils.ts:211
+msgid "Failed to save the library table."
+msgstr "라이브러리 테이블을 저장하지 못했습니다."
+
+#: eeschema/remote_symbol_import_utils.ts:194
+msgid "Failed to update the library table."
+msgstr "라이브러리 테이블을 업데이트하지 못했습니다."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1535,10 @@ msgstr "채우기 유형"
 msgid "Fill with color"
 msgstr "색상으로 채우기"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "동작 필터"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "다음 번호 이후 첫 번째 빈 번호"
@@ -1175,9 +1567,21 @@ msgstr "풋프린트 연결 파일"
 msgid "Footprint field"
 msgstr "풋프린트 필드"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "풋프린트 항목은 상위 풋프린트와 별도로 그룹화할 수 없습니다."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "풋프린트 유형"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "풋프린트는 미러링할 수 없습니다. 기판의 반대편으로 옮기려면 뒤집기를 사용하십시오."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "디자인 블록에서 새 그룹을 만들 때마다 블록에 저장된 풋프린트 배치와 배선을 자동으로 적용합니다."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1611,25 @@ msgstr "앞면 접두사"
 msgid "Front reference start"
 msgstr "앞면 참조 시작 번호"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "간격 길이"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1647,7 @@ msgstr "암호화 키를 생성하는 중..."
 msgid "Generating your encryption keys"
 msgstr "암호화 키를 생성하는 중"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "%s 시작하기"
 
@@ -1250,6 +1670,14 @@ msgstr "그래픽 스타일"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "그리드 크기"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "미러링할 수 없는 풋프린트나 다른 항목이 포함된 그룹은 건너뛰었습니다."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1703,25 @@ msgstr "홉오버 크기"
 msgid "Horizontal Any"
 msgstr "수평 임의"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "단축키 충돌"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "그러나 이 계산기에서 다루지 않는 경우가 있습니다:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1735,45 @@ msgstr "비밀번호가 기억났습니다"
 msgid "I understand this deletes my account and all its data."
 msgstr "계정과 모든 데이터가 삭제된다는 것을 이해합니다."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:717
+msgid "Iadj (typ/max):"
+msgstr "Iadj (표준/최대):"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "ID"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "만약"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "선택하면 레이어 이름이 가져온 레이어 이름으로 바뀌지 않고 표준 KiCad 이름을 유지합니다."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1807,14 @@ msgstr "%s 가져오기"
 msgid "Import Layer Mapping"
 msgstr "레이어 매핑 가져오기"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "KiCad 이외의 기판 파일 가져오기..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "KiCad 이외의 회로도 가져오기..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "벡터 그래픽 가져오기"
@@ -1342,6 +1826,18 @@ msgstr "가져올 위치"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "가져오기 배율"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "가져오기 배율은 양수여야 합니다."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "길이 조정 패턴 %d개를 가져왔습니다."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "가져온 풋프린트 '%s'에 서로 충돌하는 배치 정의가 있습니다. 첫 번째 것을 유지합니다."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1903,26 @@ msgstr "정션 점 크기"
 msgid "Junction size"
 msgstr "정션 크기"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "기존 항목 유지"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "KiCad 레이어 이름 유지"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "둘 다 유지"
@@ -1467,6 +1983,10 @@ msgstr "왼쪽 클릭(및 드래그) 동작은 2개의 보조 키에 따라 달�
 msgid "Left margin"
 msgstr "왼쪽 여백"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "길이 조정 설정"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "라이브러리와 색상 테마는 현재 설치하여 사용할 수 있습니다."
@@ -1486,6 +2006,10 @@ msgstr "라이브러리 링크"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "라이브러리 이름:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "라이브러리 테이블 '%s'은(는) 읽기 전용입니다"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2051,30 @@ msgstr "%s을(를) 불러오는 중..."
 msgid "Local and global power symbols have same name"
 msgstr "로컬 및 전역 전원 심볼의 이름이 같습니다"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "아래로"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "제조업체 P/N"
@@ -1547,9 +2095,25 @@ msgstr "최대 트랙 폭"
 msgid "Maximum width"
 msgstr "최대 폭"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "마이크로 QR 코드"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "가운데 버튼 드래그"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "3D 모델 이주"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "3D 모델 이주..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "3D 모델 참조 이주"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2122,10 @@ msgstr "최소 폭"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "누락된 3D 모델 참조"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "누락된 3D 모델 참조:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2143,25 @@ msgstr "그리드 아래로 이동"
 msgid "Move grid up"
 msgstr "그리드 위로 이동"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "맨 아래로 이동"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "맨 위로 이동"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "내 사유가 목록에 없습니다"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1627,9 +2211,17 @@ msgstr "다음 페이지"
 msgid "No %s match your search."
 msgstr "검색과 일치하는 %s이(가) 없습니다."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "편집할 설계 변형이 없습니다."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "불러온 풋프린트 라이브러리가 없습니다."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "디자인 블록이 연결된 그룹이 선택되지 않았습니다."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2238,10 @@ msgstr "일치하는 단축키가 없음: “"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "검색과 일치하는 설치된 패키지가 없습니다."
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "일치하는 항목을 찾을 수 없습니다."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1666,6 +2262,10 @@ msgstr "이 목표 임피던스에 대한 물리적 해를 찾을 수 없습니�
 #: designer/src/auth/SignIn.tsx:562
 msgid "No recovery key?"
 msgstr "복구 키가 없으신가요?"
+
+#: eeschema/remote_symbol_import_job.ts:342
+msgid "No symbol asset was available to place."
+msgstr "배치할 수 있는 심볼 에셋이 없습니다."
 
 #: cvpcb/cvpcb_mainframe_ui.tsx:1591
 msgid "No symbols, place and annotate symbols first."
@@ -1699,9 +2299,29 @@ msgstr "번호 텍스트 크기"
 msgid "Numbering step"
 msgstr "번호 증가 단계"
 
+#: common/remote_provider_models.ts:75
+msgid "OAuth metadata must include authorization_endpoint and token_endpoint."
+msgstr "OAuth 메타데이터에는 authorization_endpoint와 token_endpoint가 포함되어야 합니다."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:256 pcbnew/dialogs/dialog_pad_properties_base.tsx:876 pcbnew/pad.ts:4002
+msgid "Oblong"
+msgstr "장공형"
 
 #: designer/src/mobile/DesktopGate.tsx:76
 msgid "On a tablet? Rotate to landscape, or connect a mouse."
@@ -1714,6 +2334,10 @@ msgstr "초대된 사람만"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "데모 프로젝트 열기"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "외부 파일 열기..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2359,14 @@ msgstr "풋프린트 라이브러리를 추가할 프로젝트를 여세요."
 msgid "Open from Computer..."
 msgstr "컴퓨터에서 열기..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "기판 설정 대화 상자 열기"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "회로도 설정 대화 상자 열기"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "플롯이 성공하면 플롯한 파일을 새 브라우저 탭에서 열기(현재 페이지만)"
@@ -1750,6 +2382,10 @@ msgstr "프로젝트를 여는 중..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "공유 프로젝트를 여는 중..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "옵션:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2423,34 @@ msgstr "출력 경로"
 msgid "Outset"
 msgstr "외부 확장"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF 출력 모드"
@@ -1794,6 +2458,22 @@ msgstr "PDF 출력 모드"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG 옵션"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1975,6 +2655,10 @@ msgstr "위치 오프셋"
 msgid "Potential replacements"
 msgstr "대체 후보"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "대체 가능한 항목:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
 msgstr "사전 정의된 트랙 폭"
@@ -2007,9 +2691,25 @@ msgstr "프로젝트"
 msgid "Protection features"
 msgstr "보호 기능"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "설치 대기열에 추가"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "위로"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2722,10 @@ msgstr "범위(전압)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "래츠네스트 선 두께"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "가져온 풋프린트 할당 %d개를 라이브러리 '%s'에 다시 연결했습니다."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2759,10 @@ msgstr "다시 그리기 속도"
 msgid "Reference filter"
 msgstr "참조 필터"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "겹치는 영역을 다시 채우는 중..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "미리보기 새로고침"
@@ -2074,6 +2782,66 @@ msgstr "지금 다시 불러오기"
 #: designer/src/ui/ErrorBoundary.tsx:81
 msgid "Reload without saving"
 msgstr "저장하지 않고 다시 불러오기"
+
+#: eeschema/remote_symbol_download_manager.ts:68
+msgid "Remote asset URL"
+msgstr "원격 에셋 URL"
+
+#: eeschema/remote_symbol_download_manager.ts:81
+msgid "Remote asset URL origin must match the selected provider."
+msgstr "원격 에셋 URL의 출처는 선택한 제공자와 일치해야 합니다."
+
+#: eeschema/remote_symbol_download_manager.ts:158
+msgid "Remote asset content type did not match the manifest."
+msgstr "원격 에셋의 콘텐츠 유형이 매니페스트와 일치하지 않습니다."
+
+#: eeschema/remote_symbol_download_manager.ts:177
+msgid "Remote asset digest did not match the manifest."
+msgstr "원격 에셋의 다이제스트가 매니페스트와 일치하지 않습니다."
+
+#: eeschema/remote_symbol_download_manager.ts:144
+msgid "Remote asset exceeds the provider download limit."
+msgstr "원격 에셋이 제공자의 다운로드 한도를 초과합니다."
+
+#: eeschema/remote_symbol_download_manager.ts:168
+msgid "Remote asset exceeds the remaining download limit."
+msgstr "원격 에셋이 남은 다운로드 한도를 초과합니다."
+
+#: eeschema/remote_symbol_download_manager.ts:132
+msgid "Remote asset manifest declared an invalid size."
+msgstr "원격 에셋 매니페스트에 잘못된 크기가 선언되어 있습니다."
+
+#: eeschema/remote_symbol_download_manager.ts:137
+msgid "Remote asset manifest must declare sha256 for URL-based downloads."
+msgstr "URL 기반 다운로드의 원격 에셋 매니페스트에는 sha256이 선언되어야 합니다."
+
+#: eeschema/remote_symbol_download_manager.ts:163
+msgid "Remote asset size did not match the manifest."
+msgstr "원격 에셋의 크기가 매니페스트와 일치하지 않습니다."
+
+#: eeschema/remote_symbol_download_manager.ts:153
+msgid "Remote download failed with HTTP %d."
+msgstr "원격 다운로드가 HTTP %d(으)로 실패했습니다."
+
+#: common/remote_provider_models.ts:148
+msgid "Remote provider manifest failed schema validation: %s"
+msgstr "원격 제공자 매니페스트가 스키마 검증에 실패했습니다: %s"
+
+#: common/remote_provider_metadata.ts:78
+msgid "Remote provider metadata failed schema validation: %s"
+msgstr "원격 제공자 메타데이터가 스키마 검증에 실패했습니다: %s"
+
+#: common/remote_provider_metadata.ts:158
+msgid "Remote provider metadata must define session_bootstrap_url for oauth2."
+msgstr "원격 제공자 메타데이터에는 oauth2용 session_bootstrap_url이 정의되어야 합니다."
+
+#: common/remote_provider_metadata.ts:148
+msgid "Remote provider metadata must enable direct_downloads_v1, inline_payloads_v1, or both."
+msgstr "원격 제공자 메타데이터에서 direct_downloads_v1, inline_payloads_v1 또는 둘 다를 활성화해야 합니다."
+
+#: common/remote_provider_metadata.ts:143
+msgid "Remote provider metadata must enable web_ui_v1."
+msgstr "원격 제공자 메타데이터에서 web_ui_v1을 활성화해야 합니다."
 
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
@@ -2131,6 +2899,14 @@ msgstr "비아 지연 재정의 제거"
 msgid "Rename variant"
 msgstr "변형 이름 변경"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "모델 바꾸기"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "오래된 WRL 3D 모델 참조를 현재의 STEP 모델로 바꿉니다"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "바꿀 내용"
@@ -2167,9 +2943,21 @@ msgstr "크기 조정"
 msgid "Restore Project"
 msgstr "프로젝트 복원"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "버전 복원"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "프로젝트를 %s의 버전으로 복원하시겠습니까?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "프로젝트를 복원하는 중..."
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:93
+msgid "Revision string for the BOM section. Auto-populated from schematic title block revision"
+msgstr "BOM 섹션의 리비전 문자열입니다. 회로도 제목 블록의 리비전에서 자동으로 채워집니다"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2194,6 +2982,22 @@ msgstr "위치 반올림 단위"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "눈금자 단위"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3103,10 @@ msgstr "%s 선택에 해당하는 객체 선택/강조 표시"
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "표를 다시 채운 후 선택한 셀은 시스템 기본 색상으로 표시됩니다."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "선택 항목에 잠긴 항목이 있습니다. 해당 항목을 작업하려면 '잠금 해제'를 활성화하십시오."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "재설정 링크 보내기"
@@ -2327,21 +3135,49 @@ msgstr "네트 %s 색상 설정"
 msgid "Set color for the %s netclass"
 msgstr "네트 클래스 %s 색상 설정"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "위치 파일에서 제외 속성 설정"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "이 프로젝트 공유"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"공유 부품:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "시트 파일이 프로젝트에 없습니다: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift 및 Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "3D 내비게이터 표시"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "옵션 표시"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3202,10 @@ msgstr "유효 숫자(전압)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "로그인하는 중..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "디자인 블록에 연결된 그룹이 아닌 선택 항목 %d개를 건너뛰었습니다."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3247,10 @@ msgstr "최대 4개 부품을 사용한 해가 제공됩니다."
 msgid "Solve for this parameter"
 msgstr "이 매개변수 풀이"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "선택한 일부 항목은 그룹화할 수 없습니다."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "일부 시트를 불러오지 못했습니다: %s"
@@ -2423,6 +3267,14 @@ msgstr "정렬 및 펼치기 옵션"
 msgid "Sources"
 msgstr "소스"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "시작 레이어"
@@ -2435,7 +3287,7 @@ msgstr "시작 참조 지정자"
 msgid "Step for rotate commands"
 msgstr "회전 명령 단계"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "지원 채팅"
 
@@ -2467,6 +3319,30 @@ msgstr "클라우드 프로젝트를 동기화하는 중..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "직사각형 도파관에는 합성을 사용할 수 없습니다."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "대상 규칙 영역이 기준 영역과 부품을 공유합니다"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "대상 영역"
@@ -2486,6 +3362,10 @@ msgstr "텍스트 색상"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "텍스트 프레임"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Edge.Cuts 레이어의 텍스트 또는 그래픽"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3403,10 @@ msgstr "결정하는 값은 굵게 표시됩니다."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "다운로드에 실패했습니다. 아래 오류를 복사하여 신고해 주세요. 다시 불러오지 마세요. 작업 내용은 이 탭에서 복구할 수 있습니다."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "다음 그룹을 처리할 수 없습니다:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "IPC 2221에서 나온 공식은 다음과 같습니다"
@@ -2539,6 +3423,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "IEC60664-1의 목표는 상용 전원에 연결되는 제품의 절연 설계에 대한 지침을 제공하는 것입니다."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "라이브러리 테이블의 유형이 잘못되었습니다"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "요청한 값은 항상 해 집합에서 제외됩니다."
@@ -2554,6 +3442,10 @@ msgstr "텍스트 높이는 %s 사이여야 합니다."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "텍스트 폭은 %s 사이여야 합니다."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "유닛 이름 '%s'은(는) 이미 사용 중입니다."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3519,10 @@ msgstr "이 설정 페이지는 아직 구현되지 않았습니다."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "이 표는 다양한 금속과 합금 사이의 전기화학적 전위 차이를 보여줍니다. 갈바닉 부식은 특정 조건에서 접촉한 서로 다른 금속에 영향을 줍니다."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "이 대상 규칙 영역은 기준 영역과 동일한 부품을 선택합니다. 레이아웃 반복은 규칙 영역을 자기 자신에게 복사할 수 없습니다. 각 배치 규칙 영역에 서로 다른 시트, 부품 클래스 또는 그룹을 지정하십시오."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "이 도구로 트랙 퓨즈를 설계할 수 있지만 추정용으로만 사용해야 합니다."
@@ -2634,6 +3530,10 @@ msgstr "이 도구로 트랙 퓨즈를 설계할 수 있지만 추정용으로�
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "값을 선택하려면 계산된 목표 값에서 시작하여 E24 이하는 유효 숫자 2자리, E48 이상은 유효 숫자 3자리로 반올림합니다. 그런 다음 표에서 남은 유효 숫자에 가장 가까운 값을 찾아 그 숫자 대신 사용합니다."
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "위치 파일에서 제외 속성 전환"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2654,6 +3554,10 @@ msgstr "상단 여백"
 #: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
 msgid "Track Width and Via Size"
 msgstr "트랙 폭 및 비아 크기"
+
+#: pcbnew/drc/drc_item.ts:569
+msgid "Track endpoint not centered on via"
+msgstr "트랙 끝점이 비아의 중심에 있지 않음"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
 msgid "Track layer"
@@ -2703,6 +3607,50 @@ msgstr "두 심볼 핀이 같은 풋프린트 패드에 매핑되어 있습니�
 msgid "Type to search"
 msgstr "입력하여 검색"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: eeschema/remote_symbol_import_utils.ts:180
+msgid "Unable to access the library table."
+msgstr "라이브러리 테이블에 접근할 수 없습니다."
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "%.1f도 이상의 호 트랙은 드래그할 수 없습니다."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "라이브러리 테이블을 불러올 수 없습니다."
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "원격 제공자 매니페스트를 구문 분석할 수 없습니다: %s"
+
+#: common/remote_provider_metadata.ts:136
+msgid "Unable to parse remote provider metadata: %s"
+msgstr "원격 제공자 메타데이터를 구문 분석할 수 없습니다: %s"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "다운로드한 심볼을 저장할 수 없습니다: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "유닛 표시 이름"
@@ -2723,6 +3671,10 @@ msgstr "암호화된 프로젝트의 잠금을 해제하는 중"
 msgid "Unpin (allow updates)"
 msgstr "고정 해제 (업데이트 허용)"
 
+#: common/remote_provider_metadata.ts:120
+msgid "Unsupported provider capability '%s'."
+msgstr "지원되지 않는 제공자 기능 '%s'."
+
 #: common/dialogs/git/panel_git_repos.tsx:68
 msgid "Update interval"
 msgstr "업데이트 간격"
@@ -2739,9 +3691,29 @@ msgstr "사용자 레이어 이름"
 msgid "User layers"
 msgstr "사용자 레이어"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "%s / %s 사용 중. 프로젝트를 다운로드한 다음 홈 화면에서 오래된 프로젝트를 삭제하여 공간을 확보하세요."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3759,30 @@ msgstr "뷰어"
 msgid "Viewports (Shift+Tab):"
 msgstr "뷰포트 (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "위반 심각도는 기판 설정에서도 편집할 수 있습니다"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "위반 심각도는 회로도 설정에서도 편집할 수 있습니다"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:691
+msgid "Vref (min/typ/max):"
+msgstr "Vref (최소/표준/최대):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "이 키는 저장하지 않으므로 안전한 곳에 보관하세요"
@@ -2819,6 +3815,10 @@ msgstr "오염으로부터 보호하기 위해 컨포멀 코팅이나 포팅을 
 msgid "Who's here"
 msgstr "현재 접속 중인 사용자"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "배선 스타일"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "와이어/버스 폭"
@@ -2835,6 +3835,10 @@ msgstr "X 위치"
 msgid "X scale factor"
 msgstr "X 배율"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y 위치"
@@ -2842,6 +3846,10 @@ msgstr "Y 위치"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y 배율"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3879,22 @@ msgstr "프로젝트가 아직 메모리에 있습니다. 다시 불러오기 �
 msgid "Your recovery key"
 msgstr "복구 키"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA에서 예기치 않은 오류가 발생했습니다"
@@ -2886,6 +3910,20 @@ msgstr "ZiroEDA에는 더 큰 화면이 필요합니다"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA 지원 채팅"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "영역 우선순위"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"영역 채우기가 올바르지 않을 수 있습니다: 반복 다시 채우기가 %d회 후에도 수렴하지 않았습니다.\n"
+"\n"
+"복잡하게 겹치는 영역에서 발생할 수 있습니다.  영역을 단순화하는 것을 고려하십시오."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3945,18 @@ msgstr "존 미리보기"
 msgid "Zoom speed"
 msgstr "확대/축소 속도"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "객체 %ld개에서 각도 델타가 0입니다"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "아래에서 비밀번호를 다시 설정하세요. 복구 키는 필요하지 않습니다."
@@ -2919,17 +3969,65 @@ msgstr "편집 가능"
 msgid "can view"
 msgstr "볼 수 있음"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "디자인 블록의 레이아웃을 불러올 수 없습니다"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "파선: 연면 거리"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:387 pcbnew/dialogs/dialog_create_array_base.tsx:469 pcbnew/dialogs/dialog_create_array_base.tsx:489 pcbnew/dialogs/dialog_track_via_properties.tsx:1594 pcbnew/dialogs/panel_zone_properties.tsx:634 designer/src/editors/calculator/unit_selector.ts:81
+msgid "deg"
+msgstr "도"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "디자인 블록에 적용할 항목이 없습니다"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "디자인 블록에 저장된 PCB 레이아웃이 없습니다"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "디자인 블록이 불러온 라이브러리에 없습니다"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "동기화되지 않음:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "그룹이 비어 있습니다"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "계정이 있으면 재설정 링크가 전송 중입니다. 이 기기에서 열어 새 비밀번호를 선택하세요."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "객체 %ld개에서 수평 델타가 0입니다"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +4061,102 @@ msgstr "은(는) mil 단위의 두께(높이)입니다"
 msgid "is width in mils"
 msgstr "은(는) mil 단위의 폭입니다"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "레이아웃 복사에 실패했습니다"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: common/eda_draw_frame.ts:1336 eeschema/dialogs/panel_setup_formatting.tsx:131 pagelayout_editor/pl_editor_frame.ts:664
+msgid "mils"
+msgstr "mil"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:186
+msgid "ohms"
+msgstr "Ω"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: common/remote_provider_metadata.ts:197
+msgid "session_bootstrap_url must share the same origin as panel_url."
+msgstr "session_bootstrap_url must share the same origin as panel_url."
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "실선: 공간 거리"
@@ -2970,6 +4164,38 @@ msgstr "실선: 공간 거리"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "녹는점까지 필요한 에너지와 상변화에 필요한 에너지."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:546
+msgid "typ"
+msgstr "표준"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "객체 %ld개에서 수직 델타가 0입니다"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:59
+msgid "~20% (Level L)"
+msgstr "~20% (Level L)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:60
+msgid "~37% (Level M)"
+msgstr "~37% (Level M)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:61
+msgid "~55% (Level Q)"
+msgstr "~55% (Level Q)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:62
+msgid "~65% (Level H)"
+msgstr "~65% (Level H)"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

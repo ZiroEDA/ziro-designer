@@ -39,6 +39,10 @@ msgstr "„%s“ GitHub-ის საცავის ბმული არ ა�
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "„%s“ დაყენებულია სქემის აქტიურ ფერთა თემად"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d WRL 3D მოდელისთვის ვერ მოიძებნა ექვივალენტური STEP მოდელი."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: წაშლა"
 msgid "%s: sort"
 msgstr "%s: დახარისხება"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' უკვე მინიჭებულია '%s'-ზე განყოფილებაში '%s'. ორივე მიბმა ინახება, მაგრამ ღილაკზე თითო დაჭერაზე მხოლოდ ერთი მუშაობს. გაგრძელება?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' არ არის PADS Logic ASCII ფაილი."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(ავტო)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(არსებული მითითების შენარჩუნება)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(პროექტში STEP ფაილები არ არის)"
@@ -174,6 +194,10 @@ msgstr "(პროექტში STEP ფაილები არ არის
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(დემო პროექტები არ არის)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(უსახელო ჯგუფი)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -195,9 +219,21 @@ msgstr "1 სხვა მნახველი"
 msgid "3D Viewer — %s"
 msgstr "3D ხედი — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "ა"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "ფაილი სახელით „%s“ უკვე არსებობს.  გნებავთ მისი ჩანაცვლება?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "ბიბლიოთეკა უკვე არსებობს '%s'-ზე; იმპორტირებული ნაკვალევები გადაუწყვეტელი რჩება."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +247,19 @@ msgstr "ხელმისაწვდომია ZiroEDA-ს ახალი �
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "დადებითი რიცხვი ნიშნავს, რომ მწკრივი ანოდურია (-), სვეტი კი კათოდური (+); ცივი და თბილი ფერის ტონებიც მწკრივების პოტენციალს აჩვენებს."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "ამ ზონის უნიკალური სახელი, რომელიც გამოიყენება მის ამოსაცნობად DRC წესებში"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "ანგარიში"
 
@@ -234,6 +282,10 @@ msgstr "აქტიური"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "3D მოდელის დამატება"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "ძიების დირექტორიის დამატება..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +318,10 @@ msgstr "კომპიუტერიდან დამატება..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "ბადის დამატება"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "'%s' ჯგუფის დამატება '%s' ჯგუფში."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +371,10 @@ msgstr "ვარიანტის დამატება"
 msgid "Add via delay override"
 msgstr "გამტარი ნახვრეტის დაყოვნების გადაფარვის დამატება"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "'%s' ჯგუფი დაემატა '%s' ჯგუფს."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "დაემატა საცავი „%s“ (პაკეტები: %s)"
@@ -334,6 +394,14 @@ msgstr "ამ გვერდისთვის დაუშვით საი
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "უკვე გაქვთ ანგარიში?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +439,21 @@ msgstr "კიდევ რამე?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "გამოყენებული ცვლილებები: დაყენებულია %s, წაშლილია %s"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "დიზაინის ბლოკის განლაგება გამოყენებულია %d ჯგუფზე %d-დან."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "მოლოდინში მყოფი ცვლილებების გამოყენება ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "დიზაინის ბლოკის განლაგების გამოყენება %d ჯგუფზე"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "დიზაინის ბლოკების განლაგების გამოყენება ახალ ჯგუფებზე"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -419,6 +499,18 @@ msgstr "ავტომატური გადაადგილების �
 msgid "Auto-assign priorities"
 msgstr "პრიორიტეტების ავტომატური მინიჭება"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "3D მოდელის მითითებების ავტომატური მიგრაცია"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "ფურცლის კონტაქტების ავტომატური განთავსება"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "ზონების პრიორიტეტების ავტომატური მინიჭება გადამფარავი უბნების დაკავშირებულობის ანალიზის საფუძველზე."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "ხელმისაწვდომი ნაკვალევები"
@@ -427,6 +519,14 @@ msgstr "ხელმისაწვდომი ნაკვალევებ�
 msgid "Available path substitutions"
 msgstr "ხელმისაწვდომი გზების ჩანაცვლებები"
 
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "მასალების სიის ფორმატირების წინასწარი პარამეტრები"
@@ -434,6 +534,10 @@ msgstr "მასალების სიის ფორმატირებ�
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "მასალების სიის რევიზია"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -531,9 +635,29 @@ msgstr "სალტის მეტსახელები"
 msgid "Bus members"
 msgstr "სალტის წევრები"
 
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "გაუქმდა %s-ის შემდეგ"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "ბიბლიოთეკის საქაღალდე „%s“ ვერ შეიქმნა."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "იმპორტირებული ნაკვალევების ქეშის რეგისტრაცია შეუძლებელია: პროექტის ბიბლიოთეკის ცხრილი არ არსებობს."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +667,25 @@ msgstr "უჯრედის შიგთავსი"
 msgid "Center layer"
 msgstr "ცენტრალური ფენა"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "%s-ის 'პოზიციების ფაილებიდან გამორიცხვა' შეცვლა '%s'-დან '%s'-ზე."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "დაგვიკავშირდით ჩატში (გადასაადგილებლად გადაათრიეთ)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "ცრემლისებური ფორმების ღრეჩოების შემოწმება..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "თქვენი ანგარიშის შემოწმება"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "შვილობილი ელემენტების დაჯგუფება მშობელი ელემენტისგან განცალკევებით შეუძლებელია."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -595,6 +731,10 @@ msgstr "ფერთა თემების ფაილები"
 msgid "Common materials"
 msgstr "გავრცელებული მასალები"
 
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "დასრულდა %s-ში"
+
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
 msgstr "კომპონენტის კლასი"
@@ -634,6 +774,10 @@ msgstr "კოორდინატების ფორმატი"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "დაკოპირდა"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "დაკოპირებულ სპილენძს ქსელი არ აქვს მინიჭებული. მისაერთებლად მიანიჭეთ ქსელები."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +831,22 @@ msgstr "%s ვერ გაიხსნა: %s"
 msgid "Could not open this project: %s"
 msgstr "ეს პროექტი ვერ გაიხსნა: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"ბიბლიოთეკის ფაილის '%s' გადაწერა ვერ მოხერხდა.\n"
+"დარწმუნდით, რომ გაქვთ ჩაწერის უფლება და სცადეთ ხელახლა."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "იმპორტირებული ნაკვალევების ქეშის გამოქვეყნება '%s'-ში ვერ მოხერხდა."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "იმპორტირებული ნაკვალევების ბიბლიოთეკების შეჯერება ვერ მოხერხდა: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "ბიბლიოთეკის ფაილი „%s“ ვერ ჩაიწერა."
@@ -727,6 +887,22 @@ msgstr "ანგარიში იქმნება..."
 msgid "Creating your account"
 msgstr "თქვენი ანგარიში იქმნება"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "დენის სიმკვრივე:"
@@ -735,9 +911,29 @@ msgstr "დენის სიმკვრივე:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "დენი აჭარბებს ამ სიმკვრივისთვის დასაშვებ დატვირთვას."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "მომხმარებლის კორპუსის სტილებს უნდა ჰქონდეს მინიმუმ 2 ჩანაწერი"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "მორგებული მასშტაბი"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -750,6 +946,10 @@ msgstr "DRC-ის პარამეტრები"
 #: pcbnew/dialogs/dialog_drc_base.tsx:278
 msgid "DRC results"
 msgstr "DRC-ის შედეგები"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
 
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
@@ -923,9 +1123,41 @@ msgstr "გაბურღვის ნიშნები"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "ბოლომდე დაშიფვრის ჩვენი პროტოკოლის ბუნების გამო თქვენი მონაცემების გაშიფვრა პაროლის ან აღდგენის გასაღების გარეშე შეუძლებელია."
 
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 რეკომენდაციას იძლევა 300 მვ-ზე ნაკლები ძაბვის სხვაობაზე. ცნობილი პრაქტიკა ძირითად წყვილს შორის მესამე საკონტაქტო ლითონს იყენებს (მაგ. ENIG ზედაპირის დამუშავება)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -967,6 +1199,10 @@ msgstr "სიმბოლოს ველების ჩასწორებ�
 msgid "Edit Text Box"
 msgstr "ტექსტური ველის ჩასწორება"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "ვარიანტის აღწერის ჩასწორება"
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "ბადის ჩასწორება"
@@ -986,6 +1222,14 @@ msgstr "ვარიანტის აღწერის ჩასწორე�
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "გასული დრო:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "გასულია: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "გასულია: 0 წმ"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1065,6 +1309,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "შეცდომა პროექტის ნაკვალევების ბიბლიოთეკის ცხრილის შენახვისას."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1331,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "შეცდომა იმპორტირებული ნაკვალევების ქეშის '%s' ჩაწერისას: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "შეცდომა!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "გამ. პოზ. ფაილ."
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1106,6 +1366,10 @@ msgstr "ჩაშენებული ფაილების გატან�
 #: pcbnew/dialogs/dialog_plot_base.tsx:642
 msgid "Export units"
 msgstr "ერთეულების გატანა"
+
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
@@ -1175,9 +1439,21 @@ msgstr "ნაკვალევის ასოცირების ფაი�
 msgid "Footprint field"
 msgstr "ნაკვალევის ველი"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "ნაკვალევის ელემენტების დაჯგუფება მშობელი ნაკვალევისგან განცალკევებით შეუძლებელია."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "ნაკვალევის ტიპი"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "ნაკვალევების არეკვლა შეუძლებელია. გამოიყენეთ გადაბრუნება, რომ დაფის მეორე მხარეს გადაიტანოთ."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "დიზაინის ბლოკიდან შექმნილ თითოეულ ახალ ჯგუფზე ავტომატურად გამოიყენება ბლოკის შენახული ნაკვალევების განლაგება და გაყვანილობა."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1211,6 +1487,10 @@ msgstr "წინა მხარის აღნიშვნების და
 msgid "Gap length"
 msgstr "დაშორების სიგრძე"
 
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
+
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
 msgstr "ზოგადი წვდომა"
@@ -1227,7 +1507,19 @@ msgstr "დაშიფვრის გასაღებები გენე�
 msgid "Generating your encryption keys"
 msgstr "თქვენი დაშიფვრის გასაღებები გენერირდება"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "%s-ის გამოყენების დასაწყისი"
 
@@ -1250,6 +1542,14 @@ msgstr "გრაფიკის სტილი"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "ბადის ზომა"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "ჯგუფები, რომლებიც შეიცავს ნაკვალევებს ან სხვა ელემენტებს, რომელთა არეკვლაც შეუძლებელია, გამოტოვებულია."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1575,21 @@ msgstr "გადახტომის ზომა"
 msgid "Horizontal Any"
 msgstr "ჰორიზონტალური ნებისმიერი"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "მალსახმობი ღილაკების კონფლიქტი"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "თუმცა ეს კალკულატორი ზოგ შემთხვევას არ მოიცავს:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1603,45 @@ msgstr "პაროლი გამახსენდა"
 msgid "I understand this deletes my account and all its data."
 msgstr "მესმის, რომ ეს ჩემს ანგარიშს და მის ყველა მონაცემს წაშლის."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "თუ"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "თუ მონიშნულია, ფენები შეინარჩუნებენ KiCad-ის სტანდარტულ სახელებს და არ გადაერქმევა იმპორტირებული ფენების სახელებად."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1675,10 @@ msgstr "%s-ის შემოტანა"
 msgid "Import Layer Mapping"
 msgstr "ფენების შესაბამისობის შემოტანა"
 
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "არა-KiCad სქემის შემოტანა..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "ვექტორული გრაფიკის შემოტანა"
@@ -1342,6 +1690,18 @@ msgstr "შემოტანა აქედან"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "შემოტანის მასშტაბი"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "შემოტანის მასშტაბი უნდა იყოს დადებითი რიცხვი."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "შემოტანილია სიგრძის მორგების %d შაბლონი."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "იმპორტირებულ ნაკვალევს '%s' აქვს ერთმანეთის საწინააღმდეგო განთავსებული განსაზღვრებები; ინახება პირველი."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1767,26 @@ msgstr "შეერთების წერტილის ზომა"
 msgid "Junction size"
 msgstr "შეერთების ზომა"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "არსებულის შენარჩუნება"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "KiCad-ის ფენების სახელების შენარჩუნება"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "ორივეს დატოვება"
@@ -1467,6 +1847,10 @@ msgstr "მარცხენა დაწკაპუნების (და �
 msgid "Left margin"
 msgstr "მარცხენა ველი"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "სიგრძის მორგების პარამეტრები"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "ბიბლიოთეკები და ფერთა თემები დღესვე ინსტალირდება და მუშაობს."
@@ -1486,6 +1870,10 @@ msgstr "ბიბლიოთეკის ბმული"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "ბიბლიოთეკის სახელი:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "ბიბლიოთეკის ცხრილი '%s' მხოლოდ საკითხავია"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +1915,14 @@ msgstr "იტვირთება: %s..."
 msgid "Local and global power symbols have same name"
 msgstr "ლოკალურ და გლობალურ კვების სიმბოლოებს ერთი და იგივე სახელი აქვთ"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "ჩაწევა"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "მწარმოებლის არტიკული"
@@ -1550,6 +1946,14 @@ msgstr "მაქსიმალური სიგანე"
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "შუა ღილაკით გადათრევა"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "3D მოდელების მიგრაცია"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "3D მოდელების მიგრაცია..."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1575,9 +1979,25 @@ msgstr "ბადის ქვემოთ გადატანა"
 msgid "Move grid up"
 msgstr "ბადის ზემოთ გადატანა"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "ბოლოში გადატანა"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "თავში გადატანა"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "ჩემი მიზეზი სიაში არ არის"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1627,9 +2047,17 @@ msgstr "შემდეგი გვერდი"
 msgid "No %s match your search."
 msgstr "არც ერთი %s არ შეესაბამება ძიებას."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "ჩასასწორებელი დიზაინის ვარიანტები არ არის."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "ნაკვალევის ბიბლიოთეკები არ არის ჩატვირთული."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "არცერთი ჯგუფი დაკავშირებული დიზაინის ბლოკით არ არის მონიშნული."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2074,10 @@ msgstr "ბიბლიოთეკები არ არის"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "დამთხვევები არ არის"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "დამთხვევები ვერ მოიძებნა."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2131,22 @@ msgstr "ნომრის ტექსტის ზომა"
 msgid "Numbering step"
 msgstr "გადანომვრის ბიჯი"
 
+#: common/dialog_about/dialog_about.tsx:254 common/dialogs/dialog_book_reporter_ui.tsx:89 common/dialogs/dialog_color_picker.tsx:629 common/dialogs/dialog_grid_settings.tsx:219 common/dialogs/dialog_hotkey_list.tsx:54 common/dialogs/dialog_paste_special.tsx:140
+msgid "OK"
+msgstr "OK"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2162,10 @@ msgstr "მხოლოდ მოწვეული ადამიანებ�
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "დემო პროექტის გახსნა"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "გარე ფაილის გახსნა..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1734,6 +2186,14 @@ msgstr "გახსენით პროექტი, რომელშიც
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "კომპიუტერიდან გახსნა..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "დაფის მორგების დიალოგის გახსნა"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "სქემის მორგების დიალოგის გახსნა"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1787,6 +2247,26 @@ msgstr "გამოტანის გზა"
 msgid "Outset"
 msgstr "გარეთ წანაცვლება"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF-ის გამოტანის რეჟიმი"
@@ -1794,6 +2274,18 @@ msgstr "PDF-ის გამოტანის რეჟიმი"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG-ის პარამეტრები"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1971,6 +2463,10 @@ msgstr "პოზიციის რეჟიმი"
 msgid "Position offset"
 msgstr "პოზიციის წანაცვლება"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "შესაძლო ჩანაცვლებები"
@@ -2007,9 +2503,21 @@ msgstr "პროექტები"
 msgid "Protection features"
 msgstr "დაცვის ფუნქციები"
 
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "ინსტალაციის რიგში დაყენება"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "აწევა"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2530,10 @@ msgstr "დიაპაზონი (ძაბვები)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "ჰაეროვანი კავშირების ხაზის სისქე"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "%d იმპორტირებული ნაკვალევის მინიჭება თავიდან დაუკავშირდა ბიბლიოთეკას '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2054,6 +2566,10 @@ msgstr "გადახატვის სიჩქარე"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "აღნიშვნების ფილტრი"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "გადამფარავი ზონების თავიდან შევსება..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2131,6 +2647,14 @@ msgstr "გამტარი ნახვრეტის დაყოვნე�
 msgid "Rename variant"
 msgstr "ვარიანტის გადარქმევა"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "მოდელების ჩანაცვლება"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "მოძველებული WRL 3D მოდელის მითითებების ჩანაცვლება მიმდინარე STEP მოდელებით"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "ჩანაცვლება ამით"
@@ -2167,6 +2691,14 @@ msgstr "ზომის შეცვლა"
 msgid "Restore Project"
 msgstr "პროექტის აღდგენა"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "ვერსიის აღდგენა"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "აღვადგინოთ პროექტი %s-ის ვერსიაზე?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "თქვენი პროექტი აღდგება..."
@@ -2194,6 +2726,22 @@ msgstr "მდებარეობების დამრგვალებ�
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "სახაზავის ერთეულები"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +2847,10 @@ msgstr "%s-ის არჩევანის შესაბამისი ო
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "არჩეული უჯრედები ცხრილის ხელახლა შევსების შემდეგ სისტემის ნაგულისხმევი ფერების არჩევანით ჩანს."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "მონიშნული შეიცავს დაბლოკილ ელემენტებს. მათზე სამუშაოდ ჩართეთ 'დაბლოკვის გადაფარვა'."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "აღდგენის ბმულის გაგზავნა"
@@ -2327,21 +2879,49 @@ msgstr "ქსელის %s ფერის დაყენება"
 msgid "Set color for the %s netclass"
 msgstr "ქსელის კლასის %s ფერის დაყენება"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "პოზიციების ფაილებიდან გამორიცხვის ატრიბუტის დაყენება"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "ამ პროექტის გაზიარება"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"საერთო კომპონენტები:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "ფურცლის ფაილი პროექტში არ არის: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift და Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "3D ნავიგატორის ჩვენება"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "პარამეტრების ჩვენება"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +2946,10 @@ msgstr "მნიშვნელოვანი ციფრები (ძაბ
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "შესვლა მიმდინარეობს..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "გამოტოვებულია %d მონიშნული ელემენტი, რომელიც დიზაინის ბლოკთან დაკავშირებული ჯგუფი არ არის."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +2991,10 @@ msgstr "მოცემულია ამონახსნები არა�
 msgid "Solve for this parameter"
 msgstr "ამ პარამეტრისთვის ამოხსნა"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "ზოგიერთი მონიშნული ელემენტის დაჯგუფება შეუძლებელია."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "ზოგი ფურცელი ვერ ჩაიტვირთა: %s"
@@ -2423,6 +3011,10 @@ msgstr "დახარისხებისა და გაშლის პა
 msgid "Sources"
 msgstr "წყაროები"
 
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "საწყისი ფენა"
@@ -2435,7 +3027,7 @@ msgstr "საწყისი აღნიშვნა"
 msgid "Step for rotate commands"
 msgstr "შებრუნების ბრძანებების ბიჯი"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "მხარდაჭერის ჩატი"
 
@@ -2467,6 +3059,26 @@ msgstr "ღრუბლოვანი პროექტები სინქ�
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "სინთეზი მართკუთხა ტალღგამტარებისთვის ხელმისაწვდომი არ არის."
 
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "სამიზნე წესის ადგილს საერთო კომპონენტები აქვს საორიენტაციო ადგილთან"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "სამიზნე არეალები"
@@ -2486,6 +3098,10 @@ msgstr "ტექსტის ფერი"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "ტექსტის ჩარჩო"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "ტექსტი ან გრაფიკა Edge.Cuts ფენაზე"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3139,10 @@ msgstr "განმსაზღვრელი მნიშვნელობ�
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "ჩამოტვირთვა ვერ მოხერხდა. დააკოპირეთ ქვემოთ მოცემული შეცდომა და შეგვატყობინეთ, გთხოვთ, ნუ გადატვირთავთ, თქვენი სამუშაო ამ ჩანართიდან ჯერ კიდევ აღდგენადია."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "შემდეგი ჯგუფების დამუშავება ვერ მოხერხდა:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "IPC 2221-ის ფორმულაა"
@@ -2539,6 +3159,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "IEC60664-1-ის მიზანია მითითებების მიცემა იმ პროდუქტების იზოლაციის დაპროექტებისთვის, რომლებიც ქსელის კვებას უერთდება."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "ბიბლიოთეკის ცხრილის ტიპი არასწორია"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "მოთხოვნილი მნიშვნელობა ამონახსნთა სიმრავლიდან ყოველთვის გამორიცხულია."
@@ -2554,6 +3178,10 @@ msgstr "ტექსტის სიმაღლე უნდა იყოს %s
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "ტექსტის სიგანე უნდა იყოს %s შორის."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "ერთეულის სახელი '%s' უკვე გამოიყენება."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3255,10 @@ msgstr "პარამეტრების ეს გვერდი ჯერ
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "ეს ცხრილი აჩვენებს ელექტროქიმიური პოტენციალის სხვაობას სხვადასხვა ლითონსა და შენადნობს შორის. გალვანური კოროზია გარკვეულ პირობებში კონტაქტში მყოფ სხვადასხვა ლითონზე მოქმედებს."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "ეს სამიზნე წესის ადგილი ირჩევს იმავე კომპონენტებს, რასაც საორიენტაციო ადგილი. განლაგების გამეორებას არ შეუძლია წესის ადგილის საკუთარ თავზე დაკოპირება. თითოეულ განთავსების წესის ადგილს მიანიჭეთ განსხვავებული ფურცელი, კომპონენტის კლასი ან ჯგუფი."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "ეს ხელსაწყო ბილიკის დამცავის დაპროექტების საშუალებას გაძლევთ, მაგრამ მხოლოდ შეფასებისთვის უნდა გამოიყენოთ."
@@ -2634,6 +3266,14 @@ msgstr "ეს ხელსაწყო ბილიკის დამცავ
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "მნიშვნელობის ასარჩევად დაიწყეთ გამოთვლილი სამიზნე მნიშვნელობიდან და დაამრგვალეთ E24 ან დაბალი სერიისთვის 2 მნიშვნელოვან ციფრამდე, E48 და მაღლისთვის — 3 მნიშვნელოვან ციფრამდე. შემდეგ ცხრილში იპოვეთ დარჩენილ მნიშვნელოვან ციფრებთან უახლოესი მნიშვნელობა და ჩაანაცვლეთ ისინი მით."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "მასალების უწყისიდან გამორიცხვის ატრიბუტის გადართვა"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "პოზიციების ფაილებიდან გამორიცხვის ატრიბუტის გადართვა"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3343,26 @@ msgstr "სიმბოლოს ორი კონტაქტი ერთს
 msgid "Type to search"
 msgstr "საძიებლად აკრიფეთ"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "%.1f გრადუსიანი ან მეტი რკალის ბილიკების გადათრევა შეუძლებელია."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "ბიბლიოთეკის ცხრილის ჩატვირთვა შეუძლებელია."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "ჩამოტვირთული სიმბოლოს შენახვა შეუძლებელია: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "ერთეულების საჩვენებელი სახელები"
@@ -2739,9 +3399,33 @@ msgstr "მომხმარებლის ფენების სახე�
 msgid "User layers"
 msgstr "მომხმარებლის ფენები"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "გამოყენებულია %s %s-დან. ჩამოტვირთეთ პროექტი, შემდეგ კი მთავარი ეკრანიდან წაშალეთ ძველი პროექტები ადგილის გასათავისუფლებლად."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "ვ"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3471,22 @@ msgstr "მნახველი"
 msgid "Viewports (Shift+Tab):"
 msgstr "ხედის ფანჯრები (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "დარღვევების სიმძიმის ჩასწორება შესაძლებელია დაფის მორგებაშიც"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "დარღვევების სიმძიმის ჩასწორება შესაძლებელია სქემის მორგებაშიც"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "ამ გასაღებს არ ვინახავთ, ამიტომ შეინახეთ უსაფრთხო ადგილას"
@@ -2819,6 +3519,10 @@ msgstr "თუ დაბინძურებისგან დასაცა�
 msgid "Who's here"
 msgstr "ვინ არის აქ"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "მავთულის სტილი"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "მავთულის/სალტის სიგანე"
@@ -2835,6 +3539,10 @@ msgstr "X პოზიცია"
 msgid "X scale factor"
 msgstr "X მასშტაბის კოეფიციენტი"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y პოზიცია"
@@ -2842,6 +3550,10 @@ msgstr "Y პოზიცია"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y მასშტაბის კოეფიციენტი"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3583,22 @@ msgstr "თქვენი პროექტი ჯერ კიდევ მ�
 msgid "Your recovery key"
 msgstr "თქვენი აღდგენის გასაღები"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA-ს მოულოდნელი შეცდომა შეექმნა"
@@ -2886,6 +3614,20 @@ msgstr "ZiroEDA-ს უფრო დიდი ეკრანი სჭირდ
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA-ს მხარდაჭერის ჩატი"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "ზონის პრიორიტეტი"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"ზონის შევსებები შეიძლება არასწორი იყოს: იტერაციული ხელახალი შევსება %d გავლის შემდეგ არ კონვერგირდა.\n"
+"\n"
+"ეს შეიძლება მოხდეს რთული გადამფარავი ზონებისას.  განიხილეთ თქვენი ზონების გამარტივება."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3649,18 @@ msgstr "ზონების გადახედვები"
 msgid "Zoom speed"
 msgstr "გადიდების სიჩქარე"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "ნულოვანი კუთხური დელტა %ld ობიექტით"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "ქვემოთ პაროლის თავიდან დასაყენებლად. აღდგენის გასაღები საჭირო არ არის."
@@ -2919,17 +3673,45 @@ msgstr "შეუძლია ჩასწორება"
 msgid "can view"
 msgstr "შეუძლია ნახვა"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "დიზაინის ბლოკის განლაგების ჩატვირთვა ვერ მოხერხდა"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "წყვეტილი: ზედაპირული გაჟონვის მანძილი"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "დიზაინის ბლოკი არ შეიცავს გამოსაყენებელ ელემენტებს"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "დიზაინის ბლოკს შენახული PCB განლაგება არ აქვს"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "დიზაინის ბლოკი ჩატვირთულ ბიბლიოთეკებში არ არის"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "არ დასინქრონდა:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "ჯგუფი ცარიელია"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "ანგარიში აქვს, აღდგენის ბმული გზაშია. გახსენით ის ამ მოწყობილობაზე ახალი პაროლის ასარჩევად."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "ნულოვანი ჰორიზონტალური დელტა %ld ობიექტით"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +3745,22 @@ msgstr "არის სისქე (სიმაღლე) მილებშ�
 msgid "is width in mils"
 msgstr "არის სიგანე მილებში"
 
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "განლაგების კოპირება ვერ მოხერხდა"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "პწმ"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "უწყვეტი: ღრეჩო"
@@ -2970,6 +3768,14 @@ msgstr "უწყვეტი: ღრეჩო"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "მისი დნობის წერტილამდე, აგრეთვე ფაზური გარდაქმნისთვის საჭირო ენერგიას."
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "µვ"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "ნულოვანი ვერტიკალური დელტა %ld ობიექტით"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

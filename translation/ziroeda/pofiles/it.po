@@ -39,6 +39,10 @@ msgstr "\"%s\" non è un collegamento a un repository GitHub."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "\"%s\" impostato come tema colore attivo dello schema"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "Impossibile associare %d modello 3D WRL a un modello STEP equivalente."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: rimuovi"
 msgid "%s: sort"
 msgstr "%s: ordina"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' è già assegnato a '%s' nella sezione '%s'. Entrambe le associazioni vengono mantenute, ma a ogni pressione di tasto ne viene eseguita solo una. Continuare?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' non è un file ASCII PADS Logic."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(auto)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(mantieni il riferimento esistente)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(nessun file STEP nel progetto)"
@@ -174,6 +194,10 @@ msgstr "(nessun file STEP nel progetto)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(nessuna demo inclusa)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(gruppo senza nome)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +211,53 @@ msgstr ". Controlla la posta in arrivo (e lo spam) per completare la verifica."
 msgid "... (step"
 msgstr "... (passo"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0,00 in / 0 mils / 0,0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "1 altro spettatore"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234,0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234,0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "Visualizzatore 3D — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8,5 x 11 pollici"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Esiste già un file di nome “%s”.  Vuoi sostituirlo?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Esiste già una libreria in '%s'; le impronte importate restano non risolte."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +271,43 @@ msgstr "È disponibile una nuova versione di ZiroEDA."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Un numero positivo indica che la riga è anodica (-) e la colonna catodica (+); le tonalità fredde e calde indicano anch'esse il potenziale delle righe."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Un nome univoco per questa zona, usato per identificarla nelle regole DRC"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189 mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841 mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594 mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420 mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297 mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210 mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Account"
 
@@ -234,6 +330,10 @@ msgstr "Attivo"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Aggiungi modello 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Aggiungi cartella di ricerca..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +366,10 @@ msgstr "Aggiungi dal computer..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Aggiungi griglia"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Aggiungi il gruppo '%s' al gruppo '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,9 +419,17 @@ msgstr "Aggiungi variante"
 msgid "Add via delay override"
 msgstr "Aggiungi sovrascrittura ritardo via"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Gruppo '%s' aggiunto al gruppo '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Repository \"%s\" aggiunto (%s pacchetti)"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:73
+msgid "Alias"
+msgstr "Alias"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -334,6 +446,14 @@ msgstr "Consenti i dati del sito per questa pagina oppure scarica il progetto pr
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Hai già un account?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -355,6 +475,14 @@ msgstr "Impronta di ancoraggio"
 msgid "Annular rings"
 msgstr "Anelli anulari"
 
+#: designer/src/editors/pcb/prefs/PanelViewer3dOpengl.tsx:84
+msgid "Anti-aliasing:"
+msgstr "Anti-aliasing:"
+
+#: common/dialogs/panel_common_settings.tsx:93
+msgid "Antialiasing:"
+msgstr "Anti-aliasing:"
+
 #: designer/src/home/ShareButton.tsx:66
 msgid "Anyone with the link can edit"
 msgstr "Chiunque abbia il collegamento può modificare"
@@ -371,9 +499,21 @@ msgstr "Altro?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Modifiche applicate: %s installati, %s disinstallati"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Impaginazione del blocco progetto applicata a %d di %d gruppi."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Applica modifiche in sospeso ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Applica l'impaginazione del blocco progetto a %d gruppi"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Applica le impaginazioni dei blocchi progetto ai nuovi gruppi"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -387,6 +527,10 @@ msgstr "Archivia progetto"
 msgid "Archiving project..."
 msgstr "Archiviazione del progetto..."
 
+#: pcbnew/pad.ts:2464 pcbnew/widgets/search_handlers.ts:293
+msgid "Area"
+msgstr "Area"
+
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:448
 msgid "Area limit"
 msgstr "Limite area"
@@ -394,6 +538,10 @@ msgstr "Limite area"
 #: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
 msgid "Area name"
 msgstr "Nome area"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:203 designer/src/editors/calculator/panels/panel_cable_size.tsx:253
+msgid "Area:"
+msgstr "Area:"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
 msgid "Arrow direction"
@@ -411,6 +559,14 @@ msgstr "Strato associato"
 msgid "Attenuation is 6 dB"
 msgstr "L'attenuazione è di 6 dB"
 
+#: gerbview/gerbview_frame_ui.tsx:612
+msgid "Attr:"
+msgstr "Attr:"
+
+#: eeschema/dialogs/dialog_label_properties_base.tsx:140 eeschema/project_settings.ts:135 eeschema/schematic_settings.ts:43 eeschema/schematic_settings.ts:58 eeschema/schematic_settings.ts:134 eeschema/schematic_settings.ts:136
+msgid "Auto"
+msgstr "Auto"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "Velocità di scorrimento automatico"
@@ -418,6 +574,18 @@ msgstr "Velocità di scorrimento automatico"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "Assegna le priorità automaticamente"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Migra automaticamente i riferimenti ai modelli 3D"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Posiziona automaticamente i pin del foglio"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Assegna automaticamente le priorità delle zone in base all'analisi della connettività delle regioni sovrapposte."
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +595,14 @@ msgstr "Impronte disponibili"
 msgid "Available path substitutions"
 msgstr "Sostituzioni di percorso disponibili"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17 pollici"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Preimpostazioni di formattazione BOM"
@@ -434,6 +610,14 @@ msgstr "Preimpostazioni di formattazione BOM"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Revisione BOM"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:237
+msgid "BOM revision:"
+msgstr "Revisione BOM:"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -462,6 +646,14 @@ msgstr "Lunghezza ottimale"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Larghezza ottimale"
+
+#: common/eda_shape.ts:2941 eeschema/sch_io/altium/sch_io_altium.ts:2713
+msgid "Bezier"
+msgstr "Bezier"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Bitmap"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -499,6 +691,10 @@ msgstr "Retroforatura inferiore obbligatoria"
 msgid "Bottom backdrill size"
 msgstr "Dimensione retroforatura inferiore"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:401 pcbnew/dialogs/dialog_track_via_properties.tsx:1380 pcbnew/dialogs/dialog_track_via_properties_base.tsx:749
+msgid "Bottom backdrill size:"
+msgstr "Dimensione retroforatura inferiore:"
+
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
 msgid "Bottom margin"
 msgstr "Margine inferiore"
@@ -523,6 +719,10 @@ msgstr "Esplora simbolo"
 msgid "Browse for the new footprint"
 msgstr "Esplora la nuova impronta"
 
+#: eeschema/sch_bus_entry.ts:512
+msgid "Bus"
+msgstr "Bus"
+
 #: eeschema/dialogs/panel_setup_buses.tsx:331
 msgid "Bus aliases"
 msgstr "Alias bus"
@@ -531,9 +731,41 @@ msgstr "Alias bus"
 msgid "Bus members"
 msgstr "Membri del bus"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22 pollici"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Annullato dopo %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Impossibile creare la cartella della libreria \"%s\"."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Impossibile registrare la cache delle impronte importate: nessuna tabella librerie del progetto."
+
+#: pcbnew/pcb_track.ts:3104
+msgid "Capped"
+msgstr "Con tappo"
+
+#: pcbnew/pcb_track.ts:3579
+msgid "Capping"
+msgstr "Tappatura"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +775,25 @@ msgstr "Contenuto della cella"
 msgid "Center layer"
 msgstr "Strato centrale"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Cambia %s 'Escludi dai file di posizione' da '%s' a '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Chatta con noi (trascina per spostare)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Controllo delle clearance delle lacrime..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Verifica dell'account"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Gli elementi figli non possono essere raggruppati separatamente dall'elemento genitore."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -563,6 +807,18 @@ msgstr "Cancella il filtro"
 msgid "Clear the search"
 msgstr "Cancella la ricerca"
 
+#: common/dialogs/panel_setup_netclasses.tsx:203 pcbnew/tools/board_inspection_tool.ts:708 pcbnew/tools/board_inspection_tool.ts:1280 pcbnew/zone.ts:2803
+msgid "Clearance"
+msgstr "Clearance"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:104 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:454
+msgid "Clearance:"
+msgstr "Clearance:"
+
+#: eeschema/pin_type.ts:59 eeschema/sch_pin.ts:2212
+msgid "Clock"
+msgstr "Clock"
+
 #: designer/src/editors/pcb/Viewer3DFrame.tsx:852
 msgid "Close 3D Viewer"
 msgstr "Chiudi Visualizzatore 3D"
@@ -570,6 +826,18 @@ msgstr "Chiudi Visualizzatore 3D"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Se chiudi il collegamento più tardi, nessun altro potrà aprirlo. Chi è già nell'elenco mantiene l'accesso finché non lo rimuovi."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: gerbview/gerber_draw_item.ts:756 gerbview/gerbview_frame_ui.tsx:588
+msgid "Cmp:"
+msgstr "Cmp:"
+
+#: gerbview/gerber_draw_item.ts:743 gerbview/gerber_draw_item.ts:750
+msgid "Cmp: %s  Pad: %s"
+msgstr "Cmp: %s  Piazzola: %s"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +862,10 @@ msgstr "File temi colore"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Materiali comuni"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Completato in %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -635,6 +907,10 @@ msgstr "Formato coordinate"
 msgid "Copied"
 msgstr "Copiato"
 
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Il rame copiato non ha alcun net assegnato. Assegna dei net per collegarlo."
+
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
 msgstr "Finitura del rame"
@@ -663,6 +939,10 @@ msgstr "Copia collegamento"
 msgid "Copy variant"
 msgstr "Copia variante"
 
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:120 pcbnew/board_stackup_manager/panel_board_stackup.tsx:353 pcbnew/board_stackup_manager/panel_board_stackup.tsx:695
+msgid "Core"
+msgstr "Nucleo"
+
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
 msgid "Corner radius"
 msgstr "Raggio angolo"
@@ -686,6 +966,22 @@ msgstr "Impossibile aprire %s: %s"
 #: eeschema/sch_edit_frame_ui.tsx:3791
 msgid "Could not open this project: %s"
 msgstr "Impossibile aprire questo progetto: %s"
+
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Impossibile sovrascrivere il file libreria '%s'.\n"
+"Verifica di avere i permessi di scrittura e riprova."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Impossibile pubblicare la cache delle impronte importate in '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Impossibile riconciliare le librerie di impronte importate: %s"
 
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
@@ -727,6 +1023,14 @@ msgstr "Creazione dell'account..."
 msgid "Creating your account"
 msgstr "Creazione del tuo account"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Densità di corrente:"
@@ -735,9 +1039,45 @@ msgstr "Densità di corrente:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "La corrente supera la portata per questa densità."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Gli stili di corpo personalizzati devono avere almeno 2 voci"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Scala personalizzata"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34 pollici"
+
+#: gerbview/gerber_draw_item.ts:675
+msgid "D Code %d"
+msgstr "D Code %d"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: gerbview/gerbview_frame_ui.tsx:622
+msgid "DCode:"
+msgstr "DCode:"
+
+#: gerbview/dialogs/panel_gerbview_color_settings.ts:98 gerbview/widgets/gerbview_layer_widget.ts:65
+msgid "DCodes"
+msgstr "DCodes"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -750,6 +1090,10 @@ msgstr "Opzioni DRC"
 #: pcbnew/dialogs/dialog_drc_base.tsx:278
 msgid "DRC results"
 msgstr "Risultati DRC"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
 
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
@@ -907,6 +1251,14 @@ msgstr "Scarica il progetto prima di chiudere la scheda oppure passa a un browse
 msgid "Downloaded"
 msgstr "Scaricato"
 
+#: eeschema/remote_symbol_import_job.ts:82
+msgid "Downloaded symbol payload was empty."
+msgstr "Il contenuto del simbolo scaricato era vuoto."
+
+#: eeschema/remote_symbol_import_job.ts:89
+msgid "Downloaded symbol payload was not a KiCad symbol library."
+msgstr "Il contenuto del simbolo scaricato non era una libreria di simboli KiCad."
+
 #: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
 msgid "Drag to resize"
 msgstr "Trascina per ridimensionare"
@@ -923,9 +1275,45 @@ msgstr "Marcature di foratura"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "A causa della natura del nostro protocollo di crittografia end-to-end, i tuoi dati non possono essere decifrati senza la tua password o la chiave di recupero."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44 pollici"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "La EN 50310 suggerisce una differenza di tensione inferiore a 300 mV. Le pratiche note usano un terzo metallo di interfaccia tra la coppia principale (ad esempio la finitura superficiale ENIG)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -967,6 +1355,10 @@ msgstr "Modifica campi simbolo"
 msgid "Edit Text Box"
 msgstr "Modifica riquadro di testo"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Modifica descrizione variante"
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Modifica griglia"
@@ -986,6 +1378,14 @@ msgstr "Modifica descrizione variante"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Tempo trascorso:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Trascorso: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Trascorso: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1431,14 @@ msgstr "Inserisci una resistività positiva e una temperatura valida."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Inserisci la chiave di recupero salvata alla creazione dell'account e scegli una nuova password."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Dettagli errore"
@@ -1065,6 +1473,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Errore nel salvataggio della tabella librerie impronte del progetto."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1495,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Errore nella scrittura della cache delle impronte importate '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Errore!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Escl. file posizione"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1119,6 +1543,18 @@ msgstr "Proprietà di fabbricazione"
 msgid "Failed to load schematic:"
 msgstr "Caricamento dello schema non riuscito:"
 
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Impossibile analizzare il file PADS Logic '%s'."
+
+#: eeschema/remote_symbol_import_utils.ts:211
+msgid "Failed to save the library table."
+msgstr "Impossibile salvare la tabella librerie."
+
+#: eeschema/remote_symbol_import_utils.ts:194
+msgid "Failed to update the library table."
+msgstr "Impossibile aggiornare la tabella librerie."
+
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
 msgstr "Griglia rapida 1"
@@ -1135,9 +1571,17 @@ msgstr "Filtro nome campo"
 msgid "Field value"
 msgstr "Valore campo"
 
+#: eeschema/menubar.ts:116 eeschema/symbol_editor/menubar_symbol_editor.ts:162 eeschema/toolbars_symbol_viewer.ts:78 pcbnew/dialogs/dialog_export_2581_base.tsx:117 pcbnew/import_gfx/dialog_import_graphics_base.tsx:100 pcbnew/menubar_footprint_editor.ts:153
+msgid "File"
+msgstr "File"
+
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
 msgid "File name"
 msgstr "Nome file"
+
+#: common/dialogs/dialog_page_settings_base.tsx:218 eeschema/import_gfx/dialog_import_gfx_sch.tsx:263 pcbnew/dialogs/dialog_export_2581_base.tsx:110 pcbnew/import_gfx/dialog_import_graphics_base.tsx:92
+msgid "File:"
+msgstr "File:"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
 msgid "Fill type"
@@ -1146,6 +1590,10 @@ msgstr "Tipo di riempimento"
 #: eeschema/dialogs/dialog_shape_properties_base.tsx:206
 msgid "Fill with color"
 msgstr "Riempi con colore"
+
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Filtra azioni"
 
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
@@ -1158,6 +1606,14 @@ msgstr "Numero della prima piazzola"
 #: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
 msgid "First page option"
 msgstr "Opzione prima pagina"
+
+#: common/eda_text.ts:1605 eeschema/sch_field.ts:354 eeschema/sch_label.ts:1602 eeschema/sch_tablecell.ts:120 eeschema/sch_text.ts:286 eeschema/sch_textbox.ts:234
+msgid "Font"
+msgstr "Carattere"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:218 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:277 eeschema/dialogs/dialog_label_properties.tsx:701 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:150 eeschema/dialogs/dialog_tablecell_properties_base.tsx:259 eeschema/dialogs/dialog_text_properties_base.tsx:221
+msgid "Font:"
+msgstr "Carattere:"
 
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
 msgid "Footprint 3D model path"
@@ -1175,9 +1631,21 @@ msgstr "File di associazione impronte"
 msgid "Footprint field"
 msgstr "Campo impronta"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Gli elementi di un'impronta non possono essere raggruppati separatamente dall'impronta genitore."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Tipo di impronta"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Le impronte non possono essere specchiate. Usa Ribalta per spostarle sull'altro lato della scheda."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "Per ogni nuovo gruppo creato da un blocco progetto, applica automaticamente il posizionamento delle impronte e l'instradamento salvati nel blocco."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1195,6 +1663,10 @@ msgstr "Password dimenticata?"
 msgid "Format presets"
 msgstr "Preimpostazioni di formato"
 
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:449 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:410
+msgid "Formula"
+msgstr "Formula"
+
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
 msgstr "Unità di frequenza"
@@ -1207,9 +1679,25 @@ msgstr "Prefisso fronte"
 msgid "Front reference start"
 msgstr "Inizio riferimento fronte"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Lunghezza spazio"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1715,19 @@ msgstr "Generazione delle chiavi di crittografia..."
 msgid "Generating your encryption keys"
 msgstr "Generazione delle tue chiavi di crittografia"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Introduzione a %s"
 
@@ -1250,6 +1750,10 @@ msgstr "Stile grafico"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Dimensione griglia"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "I gruppi che contengono impronte o altri elementi non specchiabili sono stati saltati."
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1779,25 @@ msgstr "Dimensione del salto"
 msgid "Horizontal Any"
 msgstr "Qualsiasi angolo orizzontale"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Conflitto di tasti"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Alcuni casi, però, non sono coperti da questo calcolatore:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1811,45 @@ msgstr "Ricordo la mia password"
 msgid "I understand this deletes my account and all its data."
 msgstr "Capisco che questo elimina il mio account e tutti i suoi dati."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Se"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Se selezionato, gli strati manterranno i nomi standard di KiCad invece di essere rinominati con i nomi degli strati importati."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1883,14 @@ msgstr "Importa %s"
 msgid "Import Layer Mapping"
 msgstr "Importa mappatura strati"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Importa file scheda non KiCad..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Importa schema non KiCad..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Importa grafica vettoriale"
@@ -1342,6 +1902,18 @@ msgstr "Importa da"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "Scala di importazione"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "La scala di importazione deve essere un numero positivo."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Importati %d pattern di regolazione lunghezza."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "L'impronta importata '%s' ha definizioni posizionate in conflitto; viene mantenuta la prima."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1979,26 @@ msgstr "Dimensione punto di giunzione"
 msgid "Junction size"
 msgstr "Dimensione giunzione"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Mantieni esistente"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Mantieni i nomi degli strati KiCad"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Mantieni entrambi"
@@ -1439,6 +2031,10 @@ msgstr "File netlist KiCad (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "I plugin KiCad sono script Python nativi. Nel browser richiedono un runtime web isolato, un lavoro a parte."
 
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:145 pcbnew/dialogs/dialog_text_properties_base.tsx:216 pcbnew/pcb_barcode.ts:1172 pcbnew/pcb_dimension.ts:2401 pcbnew/pcb_dimension.ts:2429 pcbnew/pcb_dimension.ts:2469
+msgid "Knockout"
+msgstr "Negativo"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "Predefiniti dello strato"
@@ -1466,6 +2062,14 @@ msgstr "Le azioni del clic sinistro (e trascinamento) dipendono da 2 tasti modif
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:337
 msgid "Left margin"
 msgstr "Margine sinistro"
+
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Impostazioni regolazione lunghezza"
+
+#: cvpcb/display_footprints_frame.ts:322
+msgid "Lib: %s"
+msgstr "Lib: %s"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
@@ -1527,6 +2131,34 @@ msgstr "Caricamento di %s..."
 msgid "Local and global power symbols have same name"
 msgstr "I simboli di alimentazione locali e globali hanno lo stesso nome"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Abbassa"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
+#: pcb_calculator/galvanic_corrosion.ts:61
+msgid "Manganese"
+msgstr "Manganese"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Codice costruttore"
@@ -1547,9 +2179,41 @@ msgstr "Larghezza massima pista"
 msgid "Maximum width"
 msgstr "Larghezza massima"
 
+#: designer/src/editors/calculator/CalculatorTools.tsx:86
+msgid "Memo"
+msgstr "Promemoria"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:46 pcbnew/pcb_track.ts:3081
+msgid "Micro"
+msgstr "Micro"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Codice Micro QR"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Trascinamento con pulsante centrale"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Migra modelli 3D"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Migra modelli 3D..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Migra i riferimenti ai modelli 3D"
+
+#: common/tool/actions.ts:1444 eeschema/import_gfx/dialog_import_gfx_sch.tsx:95 pcbnew/dialogs/dialog_dimension_properties_base.tsx:255 pcbnew/dialogs/panel_setup_dimensions.tsx:90 pcbnew/dialogs/panel_setup_dimensions_base.tsx:100 pcbnew/import_gfx/dialog_import_graphics.tsx:68
+msgid "Mils"
+msgstr "Mils"
+
+#: pcbnew/dialogs/panel_setup_constraints.tsx:163 pcbnew/dialogs/panel_setup_constraints_base.tsx:175
+msgid "Minimum drill size:"
+msgstr "Dimensione minima foro:"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2222,10 @@ msgstr "Larghezza minima"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Riferimenti a modelli 3D mancanti"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Riferimenti a modelli 3D mancanti:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2243,25 @@ msgstr "Sposta la griglia in basso"
 msgid "Move grid up"
 msgstr "Sposta la griglia in alto"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Sposta in fondo"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Sposta in cima"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Il mio motivo non è nell'elenco"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1586,6 +2270,10 @@ msgstr "Dimensione testo nome"
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
 msgstr "Collegamento %s"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:401
+msgid "Net Ties"
+msgstr "Net tie"
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
 msgid "Net class filter"
@@ -1599,6 +2287,18 @@ msgstr "Filtro collegamenti"
 msgid "Net name"
 msgstr "Nome collegamento"
 
+#: pcbnew/board_connected_item.ts:424
+msgid "NetClass"
+msgstr "NetClass"
+
+#: pcbnew/board_connected_item.ts:438
+msgid "NetName"
+msgstr "NomeNet"
+
+#: pcbnew/widgets/pcb_net_inspector_panel_ui.tsx:34
+msgid "Netclass"
+msgstr "Netclass"
+
 #: common/dialogs/panel_setup_netclasses.tsx:522
 msgid "Netclass assignments"
 msgstr "Assegnazioni netclass"
@@ -1606,6 +2306,10 @@ msgstr "Assegnazioni netclass"
 #: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
 msgid "Netlist file"
 msgstr "File netlist"
+
+#: eeschema/menubar.ts:140 pcbnew/menubar_pcb_editor.ts:142
+msgid "Netlist..."
+msgstr "Netlist..."
 
 #: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
 msgid "New footprint library id"
@@ -1623,13 +2327,29 @@ msgstr "Sei nuovo su ZiroEDA?"
 msgid "Next page"
 msgstr "Pagina successiva"
 
+#: pcb_calculator/galvanic_corrosion.ts:37
+msgid "Nickel"
+msgstr "Nichel"
+
+#: eeschema/sch_field.ts:351 eeschema/sch_pin.ts:509 pcbnew/board_tables/board_characteristics_table.ts:104 pcbnew/board_tables/board_characteristics_table.ts:108 pcbnew/board_tables/board_characteristics_table.ts:112 pcbnew/board_tables/board_characteristics_table.ts:115
+msgid "No"
+msgstr "No"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:396
 msgid "No %s match your search."
 msgstr "Nessun %s corrisponde alla ricerca."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Nessuna variante di progetto da modificare."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Nessuna libreria di impronte caricata."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Nessun gruppo con un blocco progetto collegato è selezionato."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1667,6 +2387,10 @@ msgstr "Nessuna soluzione fisica trovata per questa impedenza obiettivo."
 msgid "No recovery key?"
 msgstr "Non hai una chiave di recupero?"
 
+#: eeschema/remote_symbol_import_job.ts:342
+msgid "No symbol asset was available to place."
+msgstr "Nessuna risorsa simbolo disponibile da posizionare."
+
 #: cvpcb/cvpcb_mainframe_ui.tsx:1591
 msgid "No symbols, place and annotate symbols first."
 msgstr "Nessun simbolo, posiziona e annota prima i simboli."
@@ -1699,6 +2423,22 @@ msgstr "Dimensione testo numero"
 msgid "Numbering step"
 msgstr "Passo di numerazione"
 
+#: common/dialog_about/dialog_about.tsx:254 common/dialogs/dialog_book_reporter_ui.tsx:89 common/dialogs/dialog_color_picker.tsx:629 common/dialogs/dialog_grid_settings.tsx:219 common/dialogs/dialog_hotkey_list.tsx:54 common/dialogs/dialog_paste_special.tsx:140
+msgid "OK"
+msgstr "OK"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2454,10 @@ msgstr "Solo le persone invitate"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Apri progetto demo"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Apri file esterno..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1734,6 +2478,14 @@ msgstr "Apri un progetto per aggiungervi una libreria di impronte."
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "Apri dal computer..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Apri la finestra Impostazioni scheda"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Apri la finestra Impostazioni schema"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1787,6 +2539,30 @@ msgstr "Percorso di uscita"
 msgid "Outset"
 msgstr "Rientranza"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "Modalità di uscita PDF"
@@ -1794,6 +2570,22 @@ msgstr "Modalità di uscita PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "Opzioni PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1851,6 +2643,10 @@ msgstr "Modalità stackup piazzola"
 msgid "Page number"
 msgstr "Numero di pagina"
 
+#: common/dialogs/panel_mouse_settings.tsx:54
+msgid "Pan"
+msgstr "Panoramica"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "Scorri muovendo il mouse con il tasto"
@@ -1870,6 +2666,10 @@ msgstr "Riferimento padre"
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:236
 msgid "Passive components are commonly made with E-series values appropriate to their precision. Capacitors commonly use E12 values. 10% and 5% resistors commonly use E24 values. 1% resistors use E96 values. Other series are not commonly used."
 msgstr "I componenti passivi sono comunemente prodotti con valori delle serie E adatti alla loro precisione. I condensatori usano di solito valori E12. Per le resistenze al 10% (o 5%) si usano di solito valori E24; per quelle all'1%: E96. Le altre serie non sono di uso comune."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:130 designer/src/auth/DeleteAccountDialog.tsx:270 designer/src/auth/SignIn.tsx:275
+msgid "Password"
+msgstr "Password"
 
 #: designer/src/auth/SignIn.tsx:631
 msgid "Password strength: Moderate"
@@ -1895,6 +2695,10 @@ msgstr "Incolla la tua chiave di recupero di 24 parole"
 msgid "People with access"
 msgstr "Persone con accesso"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "Scegli una data"
@@ -1902,6 +2706,18 @@ msgstr "Scegli una data"
 #: common/dialogs/dialog_page_settings_base.tsx:294
 msgid "Pick date"
 msgstr "Scegli data"
+
+#: common/eda_item.ts:943
+msgid "Pin"
+msgstr "Pin"
+
+#: eeschema/sch_pin.ts:1804
+msgid "Pin %s [%s, %s, %s]"
+msgstr "Pin %s [%s, %s, %s]"
+
+#: eeschema/sch_pin.ts:1812
+msgid "Pin %s [%s, %s]"
+msgstr "Pin %s [%s, %s]"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
 msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
@@ -1963,6 +2779,14 @@ msgstr "Formato di tracciamento"
 msgid "Plugin options"
 msgstr "Opzioni plugin"
 
+#: eeschema/sch_pin.ts:519
+msgid "Pos X"
+msgstr "Pos X"
+
+#: eeschema/sch_pin.ts:522
+msgid "Pos Y"
+msgstr "Pos Y"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "Modalità posizione"
@@ -1971,9 +2795,21 @@ msgstr "Modalità posizione"
 msgid "Position offset"
 msgstr "Scostamento posizione"
 
+#: pcbnew/pcb_track.ts:3451
+msgid "Post-machining"
+msgstr "Post-lavorazione"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Possibili sostituzioni"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Possibili sostituzioni:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2818,18 @@ msgstr "Larghezze di pista predefinite"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Dimensioni via predefinite"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "Prepreg"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "Press-fit"
+
+#: pcbnew/board_statistics_report.ts:200
+msgid "Press-fit:"
+msgstr "Press-fit:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2855,25 @@ msgstr "Progetti"
 msgid "Protection features"
 msgstr "Funzioni di protezione"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "Codice QR (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Metti in coda l'installazione"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Alza"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2019,9 +2883,17 @@ msgstr "Intervallo (correnti)"
 msgid "Range (voltages)"
 msgstr "Intervallo (tensioni)"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:214 pcbnew/widgets/search_handlers.ts:537
+msgid "Ratsnest"
+msgstr "Ratsnest"
+
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Spessore linea ratsnest"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Ricollegate %d assegnazioni di impronte importate alla libreria '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2927,10 @@ msgstr "Velocità di ridisegno"
 msgid "Reference filter"
 msgstr "Filtro riferimenti"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Riempimento delle zone sovrapposte..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "Aggiorna anteprima"
@@ -2074,6 +2950,46 @@ msgstr "Ricarica ora"
 #: designer/src/ui/ErrorBoundary.tsx:81
 msgid "Reload without saving"
 msgstr "Ricarica senza salvare"
+
+#: eeschema/remote_symbol_download_manager.ts:68
+msgid "Remote asset URL"
+msgstr "URL della risorsa remota"
+
+#: eeschema/remote_symbol_download_manager.ts:81
+msgid "Remote asset URL origin must match the selected provider."
+msgstr "L'origine dell'URL della risorsa remota deve corrispondere al provider selezionato."
+
+#: eeschema/remote_symbol_download_manager.ts:158
+msgid "Remote asset content type did not match the manifest."
+msgstr "Il tipo di contenuto della risorsa remota non corrisponde al manifest."
+
+#: eeschema/remote_symbol_download_manager.ts:177
+msgid "Remote asset digest did not match the manifest."
+msgstr "L'impronta digest della risorsa remota non corrisponde al manifest."
+
+#: eeschema/remote_symbol_download_manager.ts:144
+msgid "Remote asset exceeds the provider download limit."
+msgstr "La risorsa remota supera il limite di download del provider."
+
+#: eeschema/remote_symbol_download_manager.ts:168
+msgid "Remote asset exceeds the remaining download limit."
+msgstr "La risorsa remota supera il limite di download rimanente."
+
+#: eeschema/remote_symbol_download_manager.ts:132
+msgid "Remote asset manifest declared an invalid size."
+msgstr "Il manifest della risorsa remota dichiara una dimensione non valida."
+
+#: eeschema/remote_symbol_download_manager.ts:137
+msgid "Remote asset manifest must declare sha256 for URL-based downloads."
+msgstr "Il manifest della risorsa remota deve dichiarare sha256 per i download basati su URL."
+
+#: eeschema/remote_symbol_download_manager.ts:163
+msgid "Remote asset size did not match the manifest."
+msgstr "La dimensione della risorsa remota non corrisponde al manifest."
+
+#: eeschema/remote_symbol_download_manager.ts:153
+msgid "Remote download failed with HTTP %d."
+msgstr "Download remoto non riuscito con HTTP %d."
 
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
@@ -2131,6 +3047,14 @@ msgstr "Rimuovi sovrascrittura ritardo via"
 msgid "Rename variant"
 msgstr "Rinomina variante"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Sostituisci modelli"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Sostituisci i riferimenti ai modelli 3D WRL obsoleti con gli attuali modelli STEP"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Sostituisci con"
@@ -2167,9 +3091,21 @@ msgstr "Ridimensiona"
 msgid "Restore Project"
 msgstr "Ripristina progetto"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Ripristina versione"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Ripristinare il progetto alla versione del %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Ripristino del progetto..."
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:93
+msgid "Revision string for the BOM section. Auto-populated from schematic title block revision"
+msgstr "Stringa di revisione per la sezione BOM. Compilata automaticamente dalla revisione del cartiglio dello schema"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2194,6 +3130,22 @@ msgstr "Arrotonda le posizioni a"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Unità del righello"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3251,10 @@ msgstr "Seleziona/evidenzia gli oggetti corrispondenti alla selezione di %s"
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Le celle selezionate vengono mostrate con i colori predefiniti del sistema dopo un nuovo riempimento della tabella."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "La selezione contiene elementi bloccati. Abilita 'Ignora blocchi' per operare su di essi."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Invia collegamento di reimpostazione"
@@ -2327,9 +3283,21 @@ msgstr "Imposta colore per il collegamento %s"
 msgid "Set color for the %s netclass"
 msgstr "Imposta colore per la netclass %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Imposta l'attributo di esclusione dai file di posizione"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Condividi questo progetto"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Componenti condivisi:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
@@ -2342,6 +3310,10 @@ msgstr "Maiusc e Ctrl"
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Mostra navigatore 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Mostra opzioni"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3338,10 @@ msgstr "Cifre significative (tensioni)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Accesso in corso..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Saltati %d elementi selezionati che non sono gruppi collegati a un blocco progetto."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3383,10 @@ msgstr "Vengono fornite soluzioni con fino a 4 componenti."
 msgid "Solve for this parameter"
 msgstr "Risolvi per questo parametro"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Alcuni elementi selezionati non possono essere raggruppati."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Impossibile caricare alcuni fogli: %s"
@@ -2423,6 +3403,26 @@ msgstr "Opzioni di ordinamento ed espansione"
 msgid "Sources"
 msgstr "Origini"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
+#: pcbnew/menubar_pcb_editor.ts:143
+msgid "Specctra Session..."
+msgstr "Sessione Specctra..."
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:436 eeschema/tools/sch_edit_tool.ts:229
+msgid "Standard"
+msgstr "Standard"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:257
+msgid "Standard (1,2,3)"
+msgstr "Standard (1,2,3)"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Strato iniziale"
@@ -2435,7 +3435,7 @@ msgstr "Riferimento iniziale"
 msgid "Step for rotate commands"
 msgstr "Passo dei comandi di rotazione"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Chat di supporto"
 
@@ -2467,6 +3467,30 @@ msgstr "Sincronizzazione dei progetti cloud..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "La sintesi non è disponibile per le guide d'onda rettangolari."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "L'area regola di destinazione condivide componenti con l'area di riferimento"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Aree obiettivo"
@@ -2486,6 +3510,10 @@ msgstr "Colore testo"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Cornice di testo"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Testo o grafica sullo strato Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3551,10 @@ msgstr "Il valore determinante è mostrato in grassetto."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Download non riuscito. Copia l'errore qui sotto e segnalalo, per favore non ricaricare: il tuo lavoro è ancora recuperabile da questa scheda."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Impossibile elaborare i seguenti gruppi:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "La formula, dalla IPC 2221, è"
@@ -2539,6 +3571,14 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Lo scopo della IEC60664-1 è fornire indicazioni per progettare l'isolamento dei prodotti collegati alla rete elettrica."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "La tabella librerie è del tipo sbagliato"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:176
+msgid "The minimum drill size. If set, this can only be reduced by custom rules."
+msgstr "La dimensione minima del foro. Se impostata, può essere ridotta solo da regole personalizzate."
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Il valore richiesto è sempre escluso dall'insieme delle soluzioni."
@@ -2554,6 +3594,10 @@ msgstr "L'altezza del testo deve essere compresa tra %s."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "La larghezza del testo deve essere compresa tra %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Il nome di unità '%s' è già in uso."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3671,10 @@ msgstr "Questa pagina di impostazioni non è ancora implementata."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Questa tabella mostra la differenza di potenziale elettrochimico tra vari metalli e leghe. La corrosione galvanica interessa metalli diversi a contatto e in certe condizioni."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Questa area regola di destinazione seleziona gli stessi componenti dell'area di riferimento. Ripeti impaginazione non può copiare un'area regola su se stessa. Assegna a ogni area regola di posizionamento un foglio, una classe di componenti o un gruppo distinto."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Questo strumento permette di progettare un fusibile a pista, ma va usato solo come stima."
@@ -2634,6 +3682,10 @@ msgstr "Questo strumento permette di progettare un fusibile a pista, ma va usato
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Per scegliere un valore, parti dal valore obiettivo calcolato e arrotondalo a 2 cifre significative per E24 o inferiore, o a 3 cifre significative per E48 e superiore. Poi trova nella tabella il valore più vicino alle cifre rimanenti e sostituiscilo a quelle cifre."
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Attiva/disattiva l'attributo di esclusione dai file di posizione"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2647,6 +3699,10 @@ msgstr "Retroforatura superiore obbligatoria"
 msgid "Top backdrill size"
 msgstr "Dimensione retroforatura superiore"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:400 pcbnew/dialogs/dialog_track_via_properties.tsx:1379 pcbnew/dialogs/dialog_track_via_properties_base.tsx:709
+msgid "Top backdrill size:"
+msgstr "Dimensione retroforatura superiore:"
+
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
 msgid "Top margin"
 msgstr "Margine superiore"
@@ -2654,6 +3710,10 @@ msgstr "Margine superiore"
 #: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
 msgid "Track Width and Via Size"
 msgstr "Larghezza pista e dimensione via"
+
+#: pcbnew/drc/drc_item.ts:569
+msgid "Track endpoint not centered on via"
+msgstr "Estremo della pista non centrato sulla via"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
 msgid "Track layer"
@@ -2687,6 +3747,10 @@ msgstr "Pista: %s mm (%s mil)"
 msgid "Trapezoid axis"
 msgstr "Asse del trapezio"
 
+#: eeschema/dialogs/dialog_label_properties.tsx:78 eeschema/dialogs/dialog_sheet_pin_properties.tsx:36 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:48 eeschema/pin_type.ts:42 eeschema/sch_label.ts:2464 eeschema/sch_pin.ts:2195
+msgid "Tri-state"
+msgstr "Tri-state"
+
 #: designer/src/auth/DeleteAccountDialog.tsx:253
 msgid "Try again"
 msgstr "Riprova"
@@ -2702,6 +3766,26 @@ msgstr "Due pin del simbolo sono associati alla stessa piazzola dell'impronta"
 #: common/widgets/search_pane_tab.tsx:101
 msgid "Type to search"
 msgstr "Digita per cercare"
+
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: eeschema/remote_symbol_import_utils.ts:180
+msgid "Unable to access the library table."
+msgstr "Impossibile accedere alla tabella librerie."
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Impossibile trascinare piste ad arco di %.1f gradi o più."
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "Impossibile analizzare il manifest del provider remoto: %s"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
@@ -2723,6 +3807,10 @@ msgstr "Sblocco dei progetti cifrati"
 msgid "Unpin (allow updates)"
 msgstr "Sblocca (consenti aggiornamenti)"
 
+#: common/remote_provider_metadata.ts:120
+msgid "Unsupported provider capability '%s'."
+msgstr "Capacità del provider '%s' non supportata."
+
 #: common/dialogs/git/panel_git_repos.tsx:68
 msgid "Update interval"
 msgstr "Intervallo di aggiornamento"
@@ -2739,9 +3827,33 @@ msgstr "Nomi strati utente"
 msgid "User layers"
 msgstr "Strati utente"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Usati %s di %s. Scarica il progetto, poi elimina i vecchi progetti dalla schermata iniziale per liberare spazio."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2750,6 +3862,14 @@ msgstr "Editor vertici"
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
 msgid "Vertical %s"
 msgstr "%s verticale"
+
+#: common/eda_item.ts:910 pcbnew/board_statistics_report.ts:664 pcbnew/board_statistics_report.ts:774 pcbnew/dialogs/dialog_board_statistics.tsx:276 pcbnew/widgets/search_handlers.ts:751
+msgid "Via"
+msgstr "Via"
+
+#: pcbnew/router/router_tool.ts:204
+msgid "Via %s"
+msgstr "Via %s"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
@@ -2766,6 +3886,10 @@ msgstr "Dimensione via"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
 msgid "Via type"
 msgstr "Tipo di via"
+
+#: pcbnew/toolbars_pcb_editor.ts:500
+msgid "Via: %s (%s)"
+msgstr "Via: %s (%s)"
 
 #: pcbnew/pcb_edit_frame_ui.tsx:7089
 msgid "Via: %s / %s mm (%s / %s mils)"
@@ -2786,6 +3910,30 @@ msgstr "Visualizzatore"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Viste (Maiusc+Tab):"
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Le gravità delle violazioni si possono modificare anche in Impostazioni scheda"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Le gravità delle violazioni si possono modificare anche in Impostazioni schema"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +3967,10 @@ msgstr "Quando si usa un rivestimento conforme o un incapsulamento per protegger
 msgid "Who's here"
 msgstr "Chi c'è qui"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Stile filo"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Larghezza filo/bus"
@@ -2835,6 +3987,10 @@ msgstr "Posizione X"
 msgid "X scale factor"
 msgstr "Fattore di scala X"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Posizione Y"
@@ -2842,6 +3998,10 @@ msgstr "Posizione Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Fattore di scala Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +4031,18 @@ msgstr "Il progetto è ancora in memoria. Scaricalo prima di ricaricare: ricaric
 msgid "Your recovery key"
 msgstr "La tua chiave di recupero"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA ha riscontrato un errore imprevisto"
@@ -2886,6 +4058,20 @@ msgstr "ZiroEDA richiede uno schermo più grande"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "Chat di supporto ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Priorità zona"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"I riempimenti delle zone potrebbero essere errati: il riempimento iterativo non è convergito dopo %d passaggi.\n"
+"\n"
+"Può accadere con zone sovrapposte complesse.  Valuta di semplificare le zone."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2903,9 +4089,33 @@ msgstr "Nome zona"
 msgid "Zone previews"
 msgstr "Anteprime zone"
 
+#: common/dialogs/panel_mouse_settings.tsx:55 common/eda_draw_frame_submenus.ts:117 common/tool/zoom_menu.ts:38 pcbnew/pcb_edit_frame_ui.tsx:7159 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:54
+msgid "Zoom"
+msgstr "Zoom"
+
+#: common/eda_draw_frame.ts:1049 common/eda_draw_frame.ts:1084 common/settings/zoom_settings.ts:123
+msgid "Zoom %.2f"
+msgstr "Zoom %.2f"
+
 #: common/dialogs/panel_mouse_settings.tsx:215
 msgid "Zoom speed"
 msgstr "Velocità di zoom"
+
+#: common/dialogs/panel_mouse_settings.tsx:349
+msgid "Zoom:"
+msgstr "Zoom:"
+
+#: common/settings/zoom_settings.ts:95 common/tool/zoom_menu.ts:59
+msgid "Zoom: %.2f"
+msgstr "Zoom: %.2f"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "delta angolare pari a zero con %ld oggetti"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
 
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
@@ -2919,17 +4129,65 @@ msgstr "può modificare"
 msgid "can view"
 msgstr "può visualizzare"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "impossibile caricare l'impaginazione del blocco progetto"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "tratteggiata: dispersione"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "il blocco progetto non contiene elementi da applicare"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "il blocco progetto non ha un layout PCB salvato"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "il blocco progetto non è nelle librerie caricate"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "non sincronizzato:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "il gruppo è vuoto"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "ha un account, un collegamento di reimpostazione sta arrivando. Aprilo su questo dispositivo per scegliere una nuova password."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "delta orizzontale pari a zero con %ld oggetti"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:65 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:100 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:104 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:125 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:129 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:148
+msgid "in"
+msgstr "in"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,13 +4221,153 @@ msgstr "è lo spessore (altezza) in mil"
 msgid "is width in mils"
 msgstr "è la larghezza in mil"
 
+#: pcbnew/dialogs/panel_setup_layers.tsx:269
+msgid "jumper"
+msgstr "ponticello"
+
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "copia dell'impaginazione non riuscita"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:547
+msgid "max"
+msgstr "max"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: common/eda_draw_frame.ts:1336 eeschema/dialogs/panel_setup_formatting.tsx:131 pagelayout_editor/pl_editor_frame.ts:664
+msgid "mils"
+msgstr "mils"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:311
+msgid "nano-Henry"
+msgstr "nano-Henry"
+
+#: pcbnew/drc/drc_engine.ts:1143
+msgid "net tie"
+msgstr "net tie"
+
+#: pcbnew/drc/drc_engine.ts:587 pcbnew/drc/drc_engine.ts:605
+msgid "netclass '%s' (uvia)"
+msgstr "netclass '%s' (uvia)"
+
+#: pcbnew/router/pns_kicad_iface.ts:1529
+msgid "netclass 'Default'"
+msgstr "netclass 'Default'"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:299
+msgid "pico-Farad"
+msgstr "pico-Farad"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:267
+msgid "power plane"
+msgstr "piano di alimentazione"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "continua: clearance"
 
+#: common/validators.ts:128
+msgid "tab"
+msgstr "scheda"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "fino al suo punto di fusione, oltre all'energia necessaria per il cambio di fase."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "delta verticale pari a zero con %ld oggetti"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

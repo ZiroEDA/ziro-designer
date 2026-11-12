@@ -39,6 +39,10 @@ msgstr "„%s“ не е връзка към хранилище в GitHub."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "„%s“ е зададена като активна цветова тема на схемата"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "За %d 3D модела WRL не можа да се намери съответстващ STEP модел."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: премахни"
 msgid "%s: sort"
 msgstr "%s: сортирай"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "„%s“ вече е присвоен на „%s“ в раздел „%s“. И двете присвоявания се запазват, но при натискане на клавиша се изпълнява само едно. Продължаване?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "„%s“ не е ASCII файл на PADS Logic."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(авто)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(запазване на съществуващото обозначение)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(в проекта няма STEP файлове)"
@@ -174,6 +194,10 @@ msgstr "(в проекта няма STEP файлове)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(няма включени демонстрации)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(група без име)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -191,13 +215,29 @@ msgstr "... (стъпка"
 msgid "1 other viewer"
 msgstr "1 друг зрител"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (мм)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 мм"
+
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D визуализатор — %s"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "А"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Файл с име „%s“ вече съществува.  Искате ли да го замените?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "В „%s“ вече съществува библиотека; импортираните отпечатъци остават неразрешени."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +251,23 @@ msgstr "Налична е нова версия на ZiroEDA."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Положително число означава, че редът е анодният (-), а колоната е катодната (+); студените и топлите нюанси също показват потенциала на редовете."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Уникално име на тази зона, използвано за идентифицирането ѝ в DRC правилата"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/hotkeys_inventory.ts:427
+msgid "Accept Autocomplete"
+msgstr "Приемане на автодовършването"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Профил"
 
@@ -234,6 +290,10 @@ msgstr "Активен"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Добави 3D модел"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Добавяне на директория за търсене..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +326,10 @@ msgstr "Добави от компютъра..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Добави мрежа"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Добавяне на група „%s“ към група „%s“."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +379,10 @@ msgstr "Добави вариант"
 msgid "Add via delay override"
 msgstr "Добави заместване на закъснението на проходна връзка"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Група „%s“ е добавена към група „%s“."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Хранилището „%s“ е добавено (пакети: %s)"
@@ -334,6 +402,14 @@ msgstr "Разрешете данните на сайта за тази стра
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Вече имате профил?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +447,21 @@ msgstr "Нещо друго?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Приложени промени: инсталирани %s, деинсталирани %s"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Оформлението на дизайн блока е приложено към %d от %d групи."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Приложи чакащите промени ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Прилагане на оформлението на дизайн блока към %d групи"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Прилагане на оформленията на дизайн блокове към нови групи"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -394,6 +482,10 @@ msgstr "Ограничение на площта"
 #: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
 msgid "Area name"
 msgstr "Име на областта"
+
+#: pcbnew/pcb_dimension.ts:2313
+msgid "Arrow Direction"
+msgstr "Посока на стрелката"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
 msgid "Arrow direction"
@@ -419,6 +511,18 @@ msgstr "Скорост на автоматично панорамиране"
 msgid "Auto-assign priorities"
 msgstr "Автоматично задаване на приоритети"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Автоматично мигриране на препратките към 3D модели"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Автоматично поставяне на изводите на листа"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Автоматично задаване на приоритети на зоните въз основа на анализ на свързаността на припокриващите се области."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "Налични отпечатъци"
@@ -426,6 +530,18 @@ msgstr "Налични отпечатъци"
 #: cvpcb/dialogs/dialog_config_equfiles.tsx:262
 msgid "Available path substitutions"
 msgstr "Налични замествания на пътища"
+
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
 
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
@@ -466,6 +582,10 @@ msgstr "Най-добра ширина"
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
 msgstr "Дебелина на платката от стека"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:76
+msgid "Board thickness: "
+msgstr "Дебелина на платката: "
 
 #: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
 msgid "Body style"
@@ -531,9 +651,37 @@ msgstr "Псевдоними на шини"
 msgid "Bus members"
 msgstr "Членове на шината"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Отказано след %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Папката на библиотеката „%s“ не може да се създаде."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Кешът на импортираните отпечатъци не може да бъде регистриран: няма таблица с библиотеки на проекта."
+
+#: eeschema/sch_table.ts:700 pcbnew/pcb_table.ts:1127
+msgid "Cell Separators"
+msgstr "Разделители на клетки"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,17 +691,33 @@ msgstr "Съдържание на клетката"
 msgid "Center layer"
 msgstr "Централен слой"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Промяна на „Изключи от позиция файлове“ за %s от „%s“ на „%s“."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Чат с нас (плъзнете за преместване)"
+
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Проверка на разстоянията на капковидните разширения..."
 
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Проверка на профила Ви"
 
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Подчинените елементи не могат да се групират отделно от родителския си елемент."
+
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
 msgstr "Почистване на пътечки и проходни връзки"
+
+#: gerbview/tools/gerbview_actions.ts:148
+msgid "Clear Highlight"
+msgstr "Изчистване на осветяването"
 
 #: common/dialogs/panel_hotkeys_editor.tsx:137 common/dialogs/panel_toolbar_customization.tsx:590
 msgid "Clear the filter"
@@ -571,9 +735,25 @@ msgstr "Затвори 3D визуализатора"
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Ако по-късно затворите връзката, нови хора няма да могат да я отварят. Хората, които вече са в списъка, запазват достъпа, докато не ги премахнете."
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
+
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
 msgstr "Свий"
+
+#: pcbnew/widgets/appearance_controls.tsx:882
+msgid "Colliding Courtyards"
+msgstr "Сблъскващи се зони на корпуса"
 
 #: common/launch_ext.tsx:236
 msgid "Color Themes"
@@ -594,6 +774,10 @@ msgstr "Файлове с цветови теми"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Често използвани материали"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Завършено за %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -635,9 +819,21 @@ msgstr "Формат на координатите"
 msgid "Copied"
 msgstr "Копирано"
 
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Копираната мед няма присвоена връзка. Присвоете връзки, за да я свържете."
+
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
 msgstr "Покритие на медта"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:100
+msgid "Copper finish: "
+msgstr "Покритие на медта: "
+
+#: pcbnew/board_tables/board_characteristics_table.ts:73
+msgid "Copper layer count: "
+msgstr "Брой медни слоеве: "
 
 #: pcbnew/sel_layer.tsx:608
 msgid "Copper layer pair presets"
@@ -687,6 +883,22 @@ msgstr "%s не можа да се отвори: %s"
 msgid "Could not open this project: %s"
 msgstr "Този проект не можа да се отвори: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Файлът на библиотеката „%s“ не можа да бъде презаписан.\n"
+"Уверете се, че имате права за запис, и опитайте отново."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Кешът на импортираните отпечатъци не можа да бъде публикуван в „%s“."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Импортираните библиотеки с отпечатъци не можаха да бъдат съгласувани: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Файлът на библиотеката „%s“ не можа да се запише."
@@ -698,6 +910,10 @@ msgstr "Броят на данните Ви не можа да се зареди
 #: pcbnew/pcb_edit_frame_ui.tsx:7375
 msgid "Couldn’t open board:"
 msgstr "Платката не можа да се отвори:"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:371
+msgid "Coupled Stripline"
+msgstr "Свързана лентова линия"
 
 #: designer/src/fs/FileChooser.tsx:709
 msgid "Create Folder"
@@ -727,6 +943,22 @@ msgstr "Създаване на профил..."
 msgid "Creating your account"
 msgstr "Създаване на профила Ви"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Плътност на тока:"
@@ -735,9 +967,41 @@ msgstr "Плътност на тока:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Токът надвишава допустимия за тази плътност."
 
+#: pcbnew/board_connected_item.ts:525
+msgid "Curved Teardrops"
+msgstr "Извити капковидни разширения"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Персонализираните стилове на корпуса трябва да имат поне 2 записа"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Персонализиран мащаб"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: gerbview/gerbview_frame_ui.tsx:622
+msgid "DCode:"
+msgstr "DCode:"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1015,10 @@ msgstr "Опции на DRC"
 msgid "DRC results"
 msgstr "Резултати от DRC"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "Ширина на линията по подразбиране за DXF"
@@ -762,6 +1030,10 @@ msgstr "Единици по подразбиране за DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Дължина на чертата"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -863,6 +1135,10 @@ msgstr "Директорията „%s/%s“ вече съществува."
 msgid "Discard Pending"
 msgstr "Отхвърли чакащите"
 
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:376
+msgid "Display Overrides"
+msgstr "Заместване на показването"
+
 #: common/widgets/zoom_correction_ctrl.tsx:223
 msgid "Display PPI"
 msgstr "PPI на екрана"
@@ -907,6 +1183,14 @@ msgstr "Изтеглете проекта си, преди да затворит
 msgid "Downloaded"
 msgstr "Изтеглено"
 
+#: pcbnew/router/router_tool.ts:1993
+msgid "Drag Anyway"
+msgstr "Влачене въпреки това"
+
+#: common/dialogs/panel_mouse_settings.tsx:261
+msgid "Drag Gestures"
+msgstr "Жестове за влачене"
+
 #: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
 msgid "Drag to resize"
 msgstr "Плъзнете за преоразмеряване"
@@ -923,9 +1207,45 @@ msgstr "Маркери на отворите"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Поради естеството на нашия протокол за пълно криптиране данните Ви не могат да бъдат разшифровани без паролата или ключа Ви за възстановяване."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 препоръчва разлика в напрежението под 300 mV. На практика между основната двойка се използва трети метал (напр. покритие ENIG)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1254,10 @@ msgstr "Конектори за ръбови карти"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Редактиране на вход на шина"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Редактиране на описанието на „%s“"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1291,14 @@ msgstr "Редактиране на полетата на символа"
 msgid "Edit Text Box"
 msgstr "Редактиране на текстова кутия"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Редактиране на описанието на варианта"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Редактиране на описанието на варианта..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Редактирай мрежата"
@@ -979,6 +1311,10 @@ msgstr "Редактирай в текстов визуализатор"
 msgid "Edit layer"
 msgstr "Редактирай слоя"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Редактиране на описанието на съществуващ вариант на дизайна."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Редактирай описанието на варианта"
@@ -986,6 +1322,14 @@ msgstr "Редактирай описанието на варианта"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Изминало време:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Изминало време: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Изминало време: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1375,14 @@ msgstr "Въведете положително съпротивление и в
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Въведете ключа за възстановяване, който сте запазили при създаването на профила, и изберете нова парола."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Епсилон R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Епсилон R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Подробности за грешката"
@@ -1065,6 +1417,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Грешка при запис на таблицата с библиотеки с отпечатъци на проекта."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1439,25 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Грешка при запис на кеша на импортираните отпечатъци „%s“: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Грешка!"
+
+#: common/rc_item.ts:689
+msgid "Error: "
+msgstr "Грешка: "
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Искл. от поз. файлове"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1479,10 @@ msgstr "Експортирай вградените файлове"
 msgid "Export units"
 msgstr "Единици за експорт"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "Приставките за производство изпълняват скриптове за генериране, за които е нужна изолирана среда, още недостъпна в браузъра."
@@ -1118,6 +1494,10 @@ msgstr "Производствено свойство"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "Схемата не можа да се зареди:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Файлът на PADS Logic „%s“ не можа да бъде анализиран."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1527,10 @@ msgstr "Тип запълване"
 msgid "Fill with color"
 msgstr "Запълни с цвят"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Филтриране на действия"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Първи свободен номер след"
@@ -1175,9 +1559,25 @@ msgstr "Файлове за асоциации на отпечатъци"
 msgid "Footprint field"
 msgstr "Поле на отпечатъка"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Елементите на отпечатъка не могат да се групират отделно от родителския отпечатък."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Тип на отпечатъка"
+
+#: pcbnew/dialogs/dialog_footprint_associations.tsx:43
+msgid "Footprint: "
+msgstr "Отпечатък: "
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Отпечатъците не могат да се огледалят. Използвайте Обръщане, за да ги преместите от другата страна на платката."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "За всяка нова група, създадена от дизайн блок, автоматично се прилагат запазеното разположение на отпечатъците и трасирането на блока."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1195,6 +1595,10 @@ msgstr "Забравена парола?"
 msgid "Format presets"
 msgstr "Предварителни настройки на форматите"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:317
+msgid "Frequency for 100% skin depth:"
+msgstr "Честота за 100% skin-ефект:"
+
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
 msgstr "Единица за честота"
@@ -1207,9 +1611,29 @@ msgstr "Префикс за предната страна"
 msgid "Front reference start"
 msgstr "Начало на номерацията на предната страна"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "ГА"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "ГВ"
+
+#: designer/src/editors/calculator/CalculatorTools.tsx:91
+msgid "Galvanic Corrosion"
+msgstr "Галванична корозия"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Дължина на междината"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1651,27 @@ msgstr "Генериране на ключове за криптиране..."
 msgid "Generating your encryption keys"
 msgstr "Генериране на Вашите ключове за криптиране"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:112
+msgid "Geographical Reannotation"
+msgstr "Географско преномериране"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:157 common/tool/actions.ts:1824
+msgid "Get Involved"
+msgstr "Включете се"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Първи стъпки с %s"
 
@@ -1251,9 +1695,21 @@ msgstr "Графичен стил"
 msgid "Grid size"
 msgstr "Размер на мрежата"
 
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Групите, съдържащи отпечатъци или други елементи, които не могат да се огледалят, са пропуснати."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
 msgstr "Скрий подробностите"
+
+#: designer/src/editors/calculator/CalculatorTools.tsx:78
+msgid "High Speed"
+msgstr "Високоскоростен"
 
 #: common/dialogs/cross_probing_group.tsx:57
 msgid "Highlight %s corresponding to selected %s"
@@ -1275,9 +1731,25 @@ msgstr "Размер на заобикалянето"
 msgid "Horizontal Any"
 msgstr "Всякакво хоризонтално"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Конфликт на горещи клавиши"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Някои случаи обаче не се покриват от този калкулатор:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1763,45 @@ msgstr "Спомних си паролата си"
 msgid "I understand this deletes my account and all its data."
 msgstr "Разбирам, че това изтрива профила ми и всички негови данни."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "ID"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Ако"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Ако е отметнато, слоевете запазват стандартните си имена в KiCad, вместо да бъдат преименувани на имената на импортираните слоеве."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1835,14 @@ msgstr "Внеси %s"
 msgid "Import Layer Mapping"
 msgstr "Внасяне на съпоставяне на слоевете"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Импортиране на файл с платка, различен от KiCad..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Импортиране на схема, различна от KiCad..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Внасяне на векторна графика"
@@ -1343,6 +1855,18 @@ msgstr "Внеси от"
 msgid "Import scale"
 msgstr "Мащаб на внасянето"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Мащабът на импортиране трябва да е положително число."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Импортирани са %d шаблона за настройка на дължината."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Импортираният отпечатък „%s“ има противоречиви дефиниции за разположение; запазва се първата."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Неактивни слоеве (H):"
@@ -1351,9 +1875,25 @@ msgstr "Неактивни слоеве (H):"
 msgid "Increase"
 msgstr "Увеличи"
 
+#: eeschema/tools/sch_editor_control.ts:2130
+msgid "Increment Annotations"
+msgstr "Нарастващо обозначаване"
+
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Стъпка на нарастване"
+
+#: pcbnew/generators/pcb_tuning_pattern.ts:1317
+msgid "Initial Side"
+msgstr "Начална страна"
+
+#: common/dialogs/panel_toolbar_customization.tsx:523
+msgid "Insert Separator"
+msgstr "Вмъкване на разделител"
+
+#: common/dialogs/panel_toolbar_customization.tsx:381
+msgid "Insert Spacer"
+msgstr "Вмъкване на разстояние"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1407,6 +1947,26 @@ msgstr "Размер на точката на съединение"
 msgid "Junction size"
 msgstr "Размер на съединението"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "К"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "кА"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "кВ"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Запази съществуващото"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Запазване на имената на слоевете на KiCad"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Запази и двете"
@@ -1418,6 +1978,10 @@ msgstr "Запази моето"
 #: pcbnew/dialogs/panel_fp_lib_table.tsx:281
 msgid "KiCad (folder) from Computer..."
 msgstr "KiCad (папка) от компютъра..."
+
+#: common/settings/builtin_color_themes.ts:587 common/settings/color_settings.ts:280 eeschema/sch_render_settings.ts:219 pcbnew/pcbTheme.ts:259
+msgid "KiCad Classic"
+msgstr "KiCad Classic"
 
 #: common/remote_provider_schemas.ts:18
 msgid "KiCad Remote Provider Metadata v1"
@@ -1467,6 +2031,10 @@ msgstr "Действията при щракване (и плъзгане) с л
 msgid "Left margin"
 msgstr "Ляво поле"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Настройки за настройка на дължината"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Библиотеките и цветовите теми вече се инсталират и работят."
@@ -1479,6 +2047,10 @@ msgstr "Асоциация с библиотека"
 msgid "Library id"
 msgstr "ID на библиотеката"
 
+#: eeschema/tools/sch_inspection_tool.ts:318
+msgid "Library item: "
+msgstr "Елемент на библиотеката: "
+
 #: eeschema/dialogs/dialog_symbol_properties_base.tsx:365
 msgid "Library link"
 msgstr "Връзка към библиотека"
@@ -1486,6 +2058,14 @@ msgstr "Връзка към библиотека"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "Име на библиотеката:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Таблицата с библиотеки „%s“ е само за четене"
+
+#: eeschema/tools/sch_inspection_tool.ts:314 pcbnew/dialogs/dialog_footprint_associations.tsx:42
+msgid "Library: "
+msgstr "Библиотека: "
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2107,30 @@ msgstr "Зареждане: %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Локалните и глобалните символи за захранване имат еднакво име"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Спусни"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "МА"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "МВ"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Номер на производителя"
@@ -1547,17 +2151,49 @@ msgstr "Максимална ширина на пътечка"
 msgid "Maximum width"
 msgstr "Максимална ширина"
 
+#: common/tool/actions.ts:741 common/tool/edit_table_tool_base.ts:520
+msgid "Merge Cells"
+msgstr "Сливане на клетки"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Плъзгане със средния бутон"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Мигриране на 3D модели"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Мигриране на 3D модели..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Мигриране на препратките към 3D модели"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
 msgstr "Минимална ширина"
 
+#: common/tool/action_toolbar_actions.ts:117 eeschema/tools/sch_actions.ts:981 pcbnew/tools/pcb_actions.ts:956 designer/src/editors/schematic/hotkeys.ts:477
+msgid "Mirror Horizontally"
+msgstr "Хоризонтално огледало"
+
+#: common/tool/action_toolbar_actions.ts:112 eeschema/tools/sch_actions.ts:970 pcbnew/tools/pcb_actions.ts:965 designer/src/editors/schematic/hotkeys.ts:470
+msgid "Mirror Vertically"
+msgstr "Вертикално огледало"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Липсващи препратки към 3D модели"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Липсващи препратки към 3D модели:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,13 +2211,37 @@ msgstr "Премести мрежата надолу"
 msgid "Move grid up"
 msgstr "Премести мрежата нагоре"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Премести най-отдолу"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Премести най-отгоре"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Причината ми не е в списъка"
 
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
 msgstr "Размер на текста на името"
+
+#: common/tool/action_toolbar_actions.ts:105 eeschema/menubar.ts:227 eeschema/tools/sch_actions.ts:1813 designer/src/editors/schematic/hotkeys.ts:635
+msgid "Navigate Forward"
+msgstr "Навигация напред"
+
+#: common/tool/action_toolbar_actions.ts:100 eeschema/menubar.ts:226 eeschema/tools/sch_actions.ts:1793 designer/src/editors/schematic/hotkeys.ts:628
+msgid "Navigate Up"
+msgstr "Навигация нагоре"
 
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
@@ -1627,9 +2287,17 @@ msgstr "Следваща страница"
 msgid "No %s match your search."
 msgstr "Няма %s, отговарящи на търсенето Ви."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Няма варианти на дизайна за редактиране."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Не са заредени библиотеки с отпечатъци."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Не са избрани групи със свързан дизайн блок."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2314,10 @@ msgstr "Няма библиотеки"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Няма съвпадения"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Не са намерени съвпадения."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1679,6 +2351,10 @@ msgstr "Нито един от избраните файлове не е от т
 msgid "Not a .kicad_sch file: %s"
 msgstr "Не е файл .kicad_sch: %s"
 
+#: pcbnew/dialogs/dialog_rule_area_properties.tsx:224
+msgid "Not found on board: "
+msgstr "Не е намерено на платката: "
+
 #: designer/src/home/HomePage.tsx:2699
 msgid "Nothing has been changed or copied."
 msgstr "Нищо не е променено или копирано."
@@ -1695,9 +2371,25 @@ msgstr "Брой единици в корпус"
 msgid "Number text size"
 msgstr "Размер на текста на номера"
 
+#: pcbnew/dialogs/dialog_create_array_base.tsx:299
+msgid "Numbering Direction"
+msgstr "Посока на номериране"
+
 #: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
 msgid "Numbering step"
 msgstr "Стъпка на номерацията"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
 
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
@@ -1714,6 +2406,10 @@ msgstr "Само поканени хора"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Отвори демонстрационен проект"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Отваряне на външен файл..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1734,6 +2430,14 @@ msgstr "Отворете проект, за да добавите библиот
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "Отвори от компютъра..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Отваряне на диалога за настройка на платката"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Отваряне на диалога за настройка на схемата"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1787,6 +2491,34 @@ msgstr "Изходен път"
 msgid "Outset"
 msgstr "Отместване навън"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "ПА"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "Изходен режим на PDF"
@@ -1794,6 +2526,22 @@ msgstr "Изходен режим на PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "Опции на PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "ПВ"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1851,6 +2599,14 @@ msgstr "Режим на стека на подложката"
 msgid "Page number"
 msgstr "Номер на страницата"
 
+#: common/tool/actions.ts:1290 designer/src/editors/schematic/hotkeys.ts:743
+msgid "Pan Down"
+msgstr "Преместване надолу"
+
+#: common/tool/actions.ts:1280 designer/src/editors/schematic/hotkeys.ts:736
+msgid "Pan Up"
+msgstr "Преместване нагоре"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "Панорамиране при движение на мишката с клавиш"
@@ -1894,6 +2650,10 @@ msgstr "Поставете ключа си за възстановяване о�
 #: designer/src/home/ShareButton.tsx:251
 msgid "People with access"
 msgstr "Хора с достъп"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
 
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
@@ -1947,6 +2707,10 @@ msgstr "Постави символ"
 msgid "Place/Remove No Connect Flags"
 msgstr "Постави/премахни флагове за липса на връзка"
 
+#: pcbnew/board_tables/board_characteristics_table.ts:114
+msgid "Plated board edge: "
+msgstr "Метализиран ръб на платката: "
+
 #: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
 msgid "Please choose a stronger password."
 msgstr "Изберете по-силна парола."
@@ -1963,6 +2727,10 @@ msgstr "Формат на чертане"
 msgid "Plugin options"
 msgstr "Опции на приставката"
 
+#: common/tool/actions.ts:1497 gerbview/menubar.ts:240
+msgid "Polar Coordinates"
+msgstr "Полярни координати"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "Режим на позициониране"
@@ -1971,9 +2739,17 @@ msgstr "Режим на позициониране"
 msgid "Position offset"
 msgstr "Отместване на позицията"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Възможни замени"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Възможни замени:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2758,10 @@ msgstr "Предварително зададени ширини на пътеч
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Предварително зададени размери на проходни връзки"
+
+#: pagelayout_editor/dialogs/properties_frame.ts:683
+msgid "Predefined Keywords"
+msgstr "Предефинирани ключови думи"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2787,25 @@ msgstr "Проекти"
 msgid "Protection features"
 msgstr "Защитни функции"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Постави инсталация в опашка"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Повдигни"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2023,9 +2819,21 @@ msgstr "Диапазон (напрежения)"
 msgid "Ratsnest line thickness"
 msgstr "Дебелина на линията на ratsnest"
 
+#: designer/src/dialogs/prefs/registry.ts:200 designer/src/dialogs/prefs/registry.ts:325
+msgid "Raytracing Renderer"
+msgstr "Рендериране с проследяване на лъчи"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Повторно свързани присвоявания на импортирани отпечатъци: %d към библиотека „%s“."
+
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
 msgstr "Четене на файлове..."
+
+#: designer/src/dialogs/prefs/registry.ts:100 designer/src/dialogs/prefs/registry.ts:199
+msgid "Realtime Renderer"
+msgstr "Рендериране в реално време"
 
 #: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
 msgid "Reason for leaving"
@@ -2054,6 +2862,10 @@ msgstr "Скорост на прерисуване"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "Филтър по обозначение"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Повторно запълване на припокриващите се зони..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2131,6 +2943,14 @@ msgstr "Премахни заместването на закъснението 
 msgid "Rename variant"
 msgstr "Преименувай варианта"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Замяна на модели"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Замяна на остарелите препратки към 3D модели WRL с актуални STEP модели"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Замени с"
@@ -2167,9 +2987,21 @@ msgstr "Преоразмери"
 msgid "Restore Project"
 msgstr "Възстанови проекта"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Възстановяване на версия"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Да се възстанови ли проектът до версията от %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Възстановяване на проекта Ви..."
+
+#: common/eda_shape.ts:129 common/eda_shape.ts:2960 pcbnew/dialogs/dialog_shape_properties.tsx:460 pcbnew/dialogs/dialog_shape_properties_base.tsx:243
+msgid "Reverse Hatch"
+msgstr "Обратна щриховка"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2194,6 +3026,18 @@ msgstr "Закръглявай позициите до"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Единици на линийката"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2238,6 +3082,10 @@ msgstr "Асоциация със схема"
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
 msgid "Schematic variants"
 msgstr "Варианти на схемата"
+
+#: common/dialogs/panel_mouse_settings.tsx:322 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:106
+msgid "Scroll Gestures"
+msgstr "Жестове за превъртане"
 
 #: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
 msgid "Search for"
@@ -2299,6 +3147,10 @@ msgstr "Избирай/подчертавай обекти, съответств
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Избраните клетки се показват с цветовете по подразбиране на системата след презапълване на таблицата."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Избраното съдържа заключени елементи. Разрешете „Игнориране на заключванията“, за да работите с тях."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Изпрати връзка за нулиране"
@@ -2327,21 +3179,53 @@ msgstr "Задай цвят за веригата %s"
 msgid "Set color for the %s netclass"
 msgstr "Задай цвят за класа на вериги %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Задаване на атрибута за изключване от позиция файлове"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Сподели този проект"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Общи компоненти:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "Файлът на листа не е в проекта: %s"
 
+#: pcbnew/dialogs/dialog_footprint_associations.tsx:84
+msgid "Sheet: "
+msgstr "Лист: "
+
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift и Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Покажи 3D навигатора"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Показване на опциите"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3250,18 @@ msgstr "Значещи цифри (напрежения)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Влизане..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Пропуснати са %d избрани елемента, които не са групи, свързани с дизайн блок."
+
+#: pcbnew/zone.ts:2761
+msgid "Smoothing Amount"
+msgstr "Степен на изглаждане"
+
+#: pcbnew/zone.ts:2747
+msgid "Smoothing Effort"
+msgstr "Усилие за изглаждане"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3303,10 @@ msgstr "Дават се решения с до 4 компонента."
 msgid "Solve for this parameter"
 msgstr "Реши за този параметър"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Някои от избраните елементи не могат да се групират."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Някои листове не можаха да се заредят: %s"
@@ -2415,6 +3315,10 @@ msgstr "Някои листове не можаха да се заредят: %s
 msgid "Sorry"
 msgstr "Съжаляваме"
 
+#: common/widgets/lib_tree.tsx:967
+msgid "Sort Alphabetically"
+msgstr "Подреждане по азбучен ред"
+
 #: common/widgets/lib_tree.tsx:1110
 msgid "Sort and expand options"
 msgstr "Опции за сортиране и разгъване"
@@ -2422,6 +3326,14 @@ msgstr "Опции за сортиране и разгъване"
 #: pcbnew/dialogs/dialog_multichannel_generate_rule_areas_base.tsx:46
 msgid "Sources"
 msgstr "Източници"
+
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
@@ -2435,7 +3347,7 @@ msgstr "Начално обозначение"
 msgid "Step for rotate commands"
 msgstr "Стъпка за командите за завъртане"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Чат за поддръжка"
 
@@ -2467,6 +3379,34 @@ msgstr "Синхронизиране на облачните проекти..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Синтезът не е наличен за правоъгълни вълноводи."
 
+#: designer/src/home/dialogs/template_selector.ts:24
+msgid "System Templates"
+msgstr "Системни шаблони"
+
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "ТА"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "ТВ"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Целевата зона с правило споделя компоненти с еталонната област"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Целеви области"
@@ -2486,6 +3426,10 @@ msgstr "Цвят на текста"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Текстова рамка"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Текст или графика на слой Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3467,10 @@ msgstr "Определящата стойност е показана с пол�
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Изтеглянето е неуспешно. Копирайте грешката по-долу и я докладвайте, моля, не презареждайте: работата Ви още може да се възстанови от този раздел."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Следните групи не можаха да бъдат обработени:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Формулата, от IPC 2221, е"
@@ -2539,6 +3487,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Целта на IEC60664-1 е да даде насоки за проектиране на изолация за продукти, свързани към захранващата мрежа."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Таблицата с библиотеки е от грешен тип"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Заявената стойност винаги се изключва от набора с решения."
@@ -2554,6 +3506,10 @@ msgstr "Височината на текста трябва да е между %
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Ширината на текста трябва да е между %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Името на единицата „%s“ вече се използва."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3583,10 @@ msgstr "Тази страница с настройки още не е реал�
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Тази таблица показва разликата в електрохимичния потенциал между различни метали и сплави. Галваничната корозия засяга различни метали в контакт и при определени условия."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Тази целева зона с правило избира същите компоненти като еталонната област. Повторението на оформлението не може да копира зона с правило върху самата нея. Задайте на всяка зона с правило за разположение отделен лист, клас компоненти или група."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Този инструмент позволява да проектирате пътечка-предпазител, но резултатът трябва да се приема само като оценка."
@@ -2634,6 +3594,14 @@ msgstr "Този инструмент позволява да проектира
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "За да изберете стойност, започнете от изчислената целева стойност и я закръглете до 2 значещи цифри за E24 и по-ниски или до 3 значещи цифри за E48 и по-високи. След това намерете в таблицата стойността, най-близка до оставащите значещи цифри, и я заместете с тях."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Превключване на атрибута за изключване от спецификацията на материали"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Превключване на атрибута за изключване от позиция файлове"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3671,38 @@ msgstr "Два извода на символа са съпоставени с �
 msgid "Type to search"
 msgstr "Въведете за търсене"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Не могат да се влачат дъгови пътечки от %.1f градуса или повече."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Таблицата с библиотеки не можа да бъде заредена."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Изтегленият символ не можа да бъде записан: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Показвани имена на единиците"
@@ -2718,6 +3718,10 @@ msgstr "Формат на единиците"
 #: designer/src/auth/auth_progress.tsx:38
 msgid "Unlocking your encrypted projects"
 msgstr "Отключване на криптираните Ви проекти"
+
+#: common/tool/actions.ts:752 common/tool/edit_table_tool_base.ts:560
+msgid "Unmerge Cells"
+msgstr "Разделяне на клетки"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:229
 msgid "Unpin (allow updates)"
@@ -2739,9 +3743,33 @@ msgstr "Имена на потребителските слоеве"
 msgid "User layers"
 msgstr "Потребителски слоеве"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Използвани са %s от %s. Изтеглете проекта си, след което изтрийте стари проекти от началния екран, за да освободите място."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "В"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3815,30 @@ msgstr "Зрител"
 msgid "Viewports (Shift+Tab):"
 msgstr "Прозорци за преглед (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Тежестта на нарушенията може да се редактира и в настройките на платката"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Тежестта на нарушенията може да се редактира и в настройките на схемата"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "Вт"
+
+#: common/rc_item.ts:687
+msgid "Warning: "
+msgstr "Предупреждение: "
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "Не съхраняваме този ключ, затова го запазете на сигурно място"
@@ -2819,6 +3871,10 @@ msgstr "При използване на конформно покритие и�
 msgid "Who's here"
 msgstr "Кой е тук"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Стил на проводника"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Ширина на проводник/шина"
@@ -2835,6 +3891,10 @@ msgstr "Позиция по X"
 msgid "X scale factor"
 msgstr "Мащабен коефициент по X"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Позиция по Y"
@@ -2842,6 +3902,10 @@ msgstr "Позиция по Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Мащабен коефициент по Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3935,22 @@ msgstr "Проектът Ви още е в паметта. Изтеглете г
 msgid "Your recovery key"
 msgstr "Вашият ключ за възстановяване"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA срещна неочаквана грешка"
@@ -2886,6 +3966,20 @@ msgstr "ZiroEDA се нуждае от по-голям екран"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "Чат за поддръжка на ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Приоритет на зоната"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Запълванията на зоните може да са неточни: итеративното повторно запълване не се сходи след %d прохода.\n"
+"\n"
+"Това може да се случи при сложни припокриващи се зони.  Помислете за опростяване на зоните."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2903,9 +3997,29 @@ msgstr "Име на зоната"
 msgid "Zone previews"
 msgstr "Прегледи на зоните"
 
+#: common/eda_draw_frame.ts:1036
+msgid "Zoom Auto"
+msgstr "Автоматично мащабиране"
+
 #: common/dialogs/panel_mouse_settings.tsx:215
 msgid "Zoom speed"
 msgstr "Скорост на мащабиране"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/tools/footprint_editor_control.ts:427
+msgid "_copy"
+msgstr "_copy"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "нулева ъглова делта при %ld обекта"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
 
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
@@ -2919,17 +4033,57 @@ msgstr "може да редактира"
 msgid "can view"
 msgstr "може да преглежда"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "оформлението на дизайн блока не можа да бъде заредено"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "дБ"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "прекъсната: път на утечка"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "дизайн блокът не съдържа елементи за прилагане"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "дизайн блокът няма записано оформление на платка"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "дизайн блокът не е в заредените библиотеки"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "не се синхронизира:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "фА"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "фВ"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "групата е празна"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "има профил, връзка за нулиране е на път. Отворете я на това устройство, за да изберете нова парола."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "нулева хоризонтална делта при %ld обекта"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +4117,74 @@ msgstr "е дебелината (височината) в mil"
 msgid "is width in mils"
 msgstr "е ширината в mil"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "кВ"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "км"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "копирането на оформлението е неуспешно"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "мА"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "мВ"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "мВт"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "нА"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "нХн"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "нВ"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "нс"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "пА"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "пФ"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "пВ"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "пс"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "плътна: хлабина"
@@ -2970,6 +4192,22 @@ msgstr "плътна: хлабина"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "до точката му на топене, както и енергията, нужна за промяната на фазата."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "мкА"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "мкВ"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "мкм"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "нулева вертикална делта при %ld обекта"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

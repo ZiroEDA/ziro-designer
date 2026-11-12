@@ -15,6 +15,10 @@ msgstr "（唯讀）"
 msgid " (you)"
 msgstr "（您）"
 
+#: eeschema/sch_io/geda/sch_io_geda.ts:2162
+msgid " Did you mean '%s'?"
+msgstr " 你是否在尋找 '%s'?"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:294
 msgid " and ≤ %s"
 msgstr " 且 ≤ %s"
@@ -39,6 +43,26 @@ msgstr "「%s」不是指向 GitHub 儲存庫的連結。"
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "已將「%s」設為目前的原理圖色彩主題"
 
+#: common/dialogs/panel_maintenance.tsx:129
+msgid "\"Don't show again\" dialogs reset."
+msgstr "「不再顯示」的對話方塊已重置。"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d 個 WRL 3D 模型無法匹配等效的 STEP 模型。"
+
+#: pcbnew/pcb_table.ts:834
+msgid "%d column table"
+msgstr "%d 列表格"
+
+#: common/local_history.ts:145
+msgid "%d minutes ago"
+msgstr "%d 分鐘之前"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:274
+msgid "%d symbols selected"
+msgstr "已選擇 %d 個符號"
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -51,9 +75,17 @@ msgstr ""
 " \n"
 "仍要重新標註嗎？"
 
+#: pcbnew/drc/drc_test_provider_misc.ts:190
+msgid "%s (gap %s)"
+msgstr "%s (間隙 %s)"
+
 #: common/widgets/widget_hotkey_list.tsx:243
 msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
 msgstr "%s 屬於瀏覽器，頁面無法攔截。僅在全螢幕模式下才會傳送給 ZiroEDA。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:542
+msgid "%s code differs."
+msgstr "%s 個 '條碼' 不一致。"
 
 #: eeschema/dialogs/dialog_table_properties_base.tsx:123 pcbnew/board_stackup_manager/panel_board_stackup.tsx:913
 msgid "%s color"
@@ -63,6 +95,18 @@ msgstr "%s 顏色"
 msgid "%s corner style"
 msgstr "%s 轉角樣式"
 
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:114
+msgid "%s doesn't match footprint given by symbol (%s)"
+msgstr "%s 與符號 (%s) 指定的封裝不匹配"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:140
+msgid "%s doesn't match symbol's footprint filters (%s)"
+msgstr "%s 與符號的封裝篩選規則 (%s) 不匹配"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:549
+msgid "%s error correction level differs."
+msgstr "%s 個 '容錯等級' 不一致。"
+
 #: designer/src/editors/schematic/prefs/resets.ts:264
 msgid "%s field names contain trailing and/or leading white space."
 msgstr "%s 欄位名稱包含開頭或結尾的空白字元。"
@@ -70,6 +114,10 @@ msgstr "%s 欄位名稱包含開頭或結尾的空白字元。"
 #: common/launch_ext.tsx:208
 msgid "%s has no \"schematic\" or \"board\" section, so it is not a color theme."
 msgstr "%s 沒有「schematic」或「board」區段，因此不是色彩主題。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:526
+msgid "%s height differs."
+msgstr "%s 個 '高度' 不一致。"
 
 #: common/launch_ext.tsx:201
 msgid "%s is not a JSON file."
@@ -135,6 +183,14 @@ msgstr "尚無法匯入 %s 原理圖。"
 msgid "%s template information"
 msgstr "%s 範本資訊"
 
+#: pcbnew/drc/drc_test_provider_library_parity.ts:502
+msgid "%s text differs."
+msgstr "%s 個 '文字' 不一致。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:534
+msgid "%s text size differs."
+msgstr "%s 個 '文字大小' 不一致。"
+
 #: pcbnew/board_stackup_manager/panel_board_stackup.tsx:875
 msgid "%s thickness"
 msgstr "%s 厚度"
@@ -155,6 +211,10 @@ msgstr "%s 單位"
 msgid "%s visible"
 msgstr "%s 可見"
 
+#: pcbnew/drc/drc_test_provider_library_parity.ts:519
+msgid "%s width differs."
+msgstr "%s 個 '寬度' 不一致。"
+
 #: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:61
 msgid "%s: add"
 msgstr "%s：新增"
@@ -167,6 +227,46 @@ msgstr "%s：移除"
 msgid "%s: sort"
 msgstr "%s：排序"
 
+#: eeschema/sch_edit_frame.ts:1111
+msgid "'%s' is a reserved variant name."
+msgstr "'%s' 是內部保留的變體名稱。"
+
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%1$s' 已在 '%3$s' 區段中指派給 '%2$s'。兩個綁定都會保留，但每次按鍵只會執行其中一個。要繼續嗎？"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' 不是 PADS Logic ASCII 檔案。"
+
+#: pcbnew/pad.ts:3622
+msgid "('castellated' pads are normally PTH)"
+msgstr "(「半孔」焊盤通常為電鍍通孔 (PTH)"
+
+#: pcbnew/pad.ts:3628
+msgid "('mechanical' pads are normally PTH)"
+msgstr "(「機械」焊盤通常為電鍍通孔 (PTH)"
+
+#: pcbnew/pad.ts:3634
+msgid "('press-fit' pads are normally PTH with round holes)"
+msgstr "(「壓接」焊盤通常為圓孔電鍍通孔 (PTH)"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:716
+msgid "(Excluding %s from reannotation.)"
+msgstr "(從重新批註中排除 %s。)"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(自動)"
+
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:1097
+msgid "(intersecting zones must have distinct priorities)"
+msgstr "(相交的填充區必須具有不同的優先順序)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(保留現有引用)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "（專案中沒有 STEP 檔案）"
@@ -175,9 +275,29 @@ msgstr "（專案中沒有 STEP 檔案）"
 msgid "(no demos bundled)"
 msgstr "（未內建示範專案）"
 
+#: pcbnew/connectivity/topo_match.ts:175 pcbnew/connectivity/topo_match.ts:176
+msgid "(no library ID)"
+msgstr "(缺少庫標識)"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:693
+msgid "(sorted by footprint location)"
+msgstr "(按封裝位置排序)"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:694
+msgid "(sorted by reference designator location)"
+msgstr "(按位號位置排序)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(未命名群組)"
+
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
 msgstr "，點擊以關閉"
+
+#: pcbnew/dialogs/dialog_drc.tsx:572
+msgid "-------- DRC canceled by user.<br><br>"
+msgstr "-------- DRC 已被使用者取消。<br><br>"
 
 #: designer/src/auth/SignIn.tsx:336
 msgid ". Please check your inbox (and spam) to complete verification."
@@ -187,17 +307,69 @@ msgstr "。請檢查您的收件匣（及垃圾郵件）以完成驗證。"
 msgid "... (step"
 msgstr "...（步驟"
 
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:122
+msgid "0 symbols selected"
+msgstr "未選擇符號"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:39
+msgid "0.1 inch"
+msgstr "0.1 英寸"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "另有 1 位檢視者"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D 檢視器 — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:831
+msgid "<br/>    RefDes: %s; footprint: %s at %s on PCB."
+msgstr "<br/>    參考位號: %s; 封裝: %s; 位於 %s。"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:698
+msgid "<br/>%d %s at %s (rounded to %s)"
+msgstr "<br/>%d %s 位於 %s (舍入為 %s)"
+
+#: eeschema/dialogs/dialog_text_properties.tsx:281 eeschema/schematic.ts:1229
+msgid "<root sheet>"
+msgstr "<根圖紙>"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "已有名為「%s」的檔案。要取代它嗎？"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "'%s' 已存在一個庫; 已匯入的封裝將保持未解析狀態。"
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +383,47 @@ msgstr "ZiroEDA 有新版本可用。"
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "正數表示該列為陽極 (-)、該欄為陰極 (+)；冷暖色調同樣表示各列的電位。"
 
-#: designer/src/ui/AccountButton.tsx:161
+#: common/libraries/library_manager.ts:296
+msgid "A reference to this library table already exists"
+msgstr "該庫表的引用已存在"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "此區域的唯一名稱, 用於在 DRC 規則中識別它"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "帳號"
 
@@ -227,13 +439,81 @@ msgstr "帳號：%s"
 msgid "Action for %s"
 msgstr "%s 的操作"
 
+#: common/lib_table_grid_tricks.ts:169
+msgid "Activate Selected"
+msgstr "啟用所選"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:266
 msgid "Active"
 msgstr "使用中"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:929
+msgid "Add %s to group '%s'."
+msgstr "將 %s 新增到群組 '%s'。"
+
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "新增 3D 模型"
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:144
+msgid "Add Custom Expression Condition"
+msgstr "新增自訂表示式條件"
+
+#: eeschema/tools/sch_drawing_tools.ts:2854
+msgid "Add Design Block"
+msgstr "新增設計區塊"
+
+#: eeschema/menubar.ts:335 eeschema/tools/sch_actions.ts:2222
+msgid "Add Design Variant..."
+msgstr "新增新的設計變體..."
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:139
+msgid "Add Footprint Condition"
+msgstr "新增封裝條件"
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:142
+msgid "Add Footprint Field Value Condition"
+msgstr "新增封裝欄位值條件"
+
+#: common/tool/actions.ts:314
+msgid "Add Items"
+msgstr "新增專案"
+
+#: common/tool/group_tool.ts:292
+msgid "Add Items to Group"
+msgstr "將專案新增到組"
+
+#: eeschema/sch_edit_frame.ts:1025
+msgid "Add New Design Variant..."
+msgstr "新增新的設計變體..."
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:138
+msgid "Add Reference Condition"
+msgstr "新增位號條件"
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:141
+msgid "Add Rotation Condition"
+msgstr "新增旋轉條件"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "新增搜尋目錄..."
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:143
+msgid "Add Sheet Condition"
+msgstr "新增圖紙條件"
+
+#: pcbnew/dialogs/panel_assign_component_classes.tsx:140
+msgid "Add Side Condition"
+msgstr "新增邊條件"
+
+#: eeschema/symbol_editor/symbol_edit_frame.ts:554
+msgid "Add Symbol Library"
+msgstr "新增符號庫"
+
+#: pcbnew/tools/pcb_actions.ts:313
+msgid "Add a barcode"
+msgstr "新增一個條碼"
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -259,6 +539,14 @@ msgstr "新增條件"
 msgid "Add current pair to presets"
 msgstr "將目前的層組合加入預設"
 
+#: pcbnew/tools/pcb_actions.ts:1623
+msgid ""
+"Add footprints from board to a new or an existing footprint library\n"
+"(does not remove other footprints from this library)"
+msgstr ""
+"將電路板上的封裝新增到新的或現有的封裝庫中\n"
+"(不會刪除此庫中的其他封裝)"
+
 #: cvpcb/dialogs/dialog_config_equfiles.tsx:282
 msgid "Add from Computer..."
 msgstr "從電腦新增..."
@@ -266,6 +554,14 @@ msgstr "從電腦新增..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "新增格線"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "將群組 '%s' 加入群組 '%s'。"
+
+#: common/tool/actions.ts:315
+msgid "Add items to group"
+msgstr "新增專案到組合中"
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -279,6 +575,22 @@ msgstr "新增成員"
 msgid "Add netclass"
 msgstr "新增網路類別"
 
+#: eeschema/tools/sch_actions.ts:2223
+msgid "Add new design variant to the schematic."
+msgstr "新增新的設計變體到原理圖中。"
+
+#: common/widgets/filedlg_hook_new_library.tsx:57
+msgid "Add new library to global library table"
+msgstr "將新庫新增到全域性庫表"
+
+#: common/widgets/filedlg_hook_new_library.tsx:63
+msgid "Add new library to project library table"
+msgstr "將新庫新增到專案庫表"
+
+#: pcbnew/toolbars_footprint_editor.ts:196 pcbnew/tools/pcb_actions.ts:345
+msgid "Add reference/snap points"
+msgstr "新增參考/捕捉點"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:435
 msgid "Add repository by URL..."
 msgstr "透過 URL 新增儲存庫..."
@@ -286,6 +598,18 @@ msgstr "透過 URL 新增儲存庫..."
 #: common/dialogs/dialog_plugin_options.tsx:147
 msgid "Add row"
 msgstr "新增列"
+
+#: common/tool/action_toolbar_actions.ts:185 eeschema/tools/sch_actions.ts:760
+msgid "Add sheet pins from existing hierarchical labels found on that sheet"
+msgstr "根據該圖紙中現有的層次標籤新增圖紙接腳"
+
+#: eeschema/tools/sch_actions.ts:1576
+msgid ""
+"Add symbols from schematic to a new or an existing symbol library\n"
+"(does not remove other symbols from this library)"
+msgstr ""
+"將原理圖中的符號新增到新符號庫或現有符號庫\n"
+"(不會從此庫移除其他符號)"
 
 #: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:70
 msgid "Add text item"
@@ -315,9 +639,21 @@ msgstr "新增變體"
 msgid "Add via delay override"
 msgstr "新增導通孔延遲覆寫"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:935
+msgid "Added %s to group '%s'."
+msgstr "將 %s 新增到群組 '%s'。"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "已將群組 '%s' 加入群組 '%s'。"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "已新增儲存庫「%s」（%s 個套件）"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:363 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:231 pcbnew/dialogs/dialog_text_properties_base.tsx:331 pcbnew/dialogs/dialog_textbox_properties_base.tsx:287
+msgid "Adjust the text thickness"
+msgstr "調整文字線寬"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -327,6 +663,38 @@ msgstr "對齊目標屬性"
 msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
 msgstr "所有 3D 模型 (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
 
+#: designer/src/home/dialogs/template_selector.ts:22
+msgid "All Templates"
+msgstr "所有模板"
+
+#: common/dialogs/panel_maintenance.tsx:144
+msgid "All dialogs reset to defaults."
+msgstr "所有對話方塊已重置為預設值。"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:418
+msgid "All pads with duplicate numbers are jumpers"
+msgstr "所有具有「編號重複的焊盤視為內部連通」特性的焊盤"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:519
+msgid "All pins with duplicate numbers are jumpers"
+msgstr "所有編號重複的接腳均為跳線"
+
+#: pcbnew/dialogs/dialog_map_layers.tsx:208
+msgid "All required layers (marked with '*') must be matched. Please click 'Auto-Match Layers' to automatically match the remaining layers"
+msgstr "所有必需板層 (標有 '*') 都必須匹配。請點選「自動匹配板層」自動匹配剩餘板層"
+
+#: eeschema/tools/sch_editor_control.ts:436
+msgid "All selected nets must be labeled to assign a netclass."
+msgstr "必須為所有所選網路新增標籤才能分配網路類。"
+
+#: pcbnew/dialogs/panel_zone_properties.tsx:605
+msgid "All zone layers already overridden."
+msgstr "所有填充區板層均已重寫。"
+
+#: common/tool/action_toolbar_controls.ts:61
+msgid "Allow moving of locked items with the mouse"
+msgstr "允許使用滑鼠移動鎖定專案"
+
 #: designer/src/ui/StorageBanner.tsx:36
 msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
 msgstr "請允許此頁面使用網站資料，或在關閉分頁前下載您的專案。私密瀏覽視窗通常會捨棄儲存的資料。"
@@ -335,9 +703,25 @@ msgstr "請允許此頁面使用網站資料，或在關閉分頁前下載您的
 msgid "Already have an account?"
 msgstr "已經有帳號了？"
 
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
+
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
 msgstr "替代接腳功能"
+
+#: pcb_calculator/galvanic_corrosion.ts:54
+msgid "Aluminium, chromated"
+msgstr "鋁, 鉻化"
+
+#: pcb_calculator/galvanic_corrosion.ts:55
+msgid "Aluminium, pure, passive"
+msgstr "鋁(純鋁), 鈍化"
 
 #: designer/src/ui/ErrorBoundary.tsx:113
 msgid "An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy."
@@ -351,9 +735,21 @@ msgstr "分析失敗，請檢查輸入值。"
 msgid "Anchor footprint"
 msgstr "錨點封裝"
 
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:75
+msgid "Anchor footprint:"
+msgstr "封裝錨點:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:644
 msgid "Annular rings"
 msgstr "環形焊環"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:445
+msgid "Anti-clockwise"
+msgstr "逆時針方向"
+
+#: common/dialogs/panel_common_settings.tsx:93
+msgid "Antialiasing:"
+msgstr "抗鋸齒:"
 
 #: designer/src/home/ShareButton.tsx:66
 msgid "Anyone with the link can edit"
@@ -367,21 +763,61 @@ msgstr "任何擁有連結的人都可以檢視"
 msgid "Anything else?"
 msgstr "還有其他問題嗎？"
 
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:116 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:346
+msgid "Aperture"
+msgstr "孔徑"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:150
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "已套用變更：已安裝 %s 個，已解除安裝 %s 個"
+
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "已將設計區塊佈局應用到 %d/%d 個群組。"
+
+#: pcbnew/tools/pcb_actions.ts:702 pcbnew/tools/pcb_control.ts:2463
+msgid "Apply Design Block Layout"
+msgstr "應用設計區塊佈局"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "套用待處理的變更（"
 
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:104
+msgid "Apply board defaults to footprint barcodes"
+msgstr "將電路板預設設定應用於封裝條碼"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:103
+msgid "Apply board defaults to footprint dimensions"
+msgstr "將電路板預設設定應用於封裝尺寸"
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "將設計區塊佈局應用到 %d 個群組"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "將設計區塊佈局應用到新群組"
+
+#: pcbnew/tools/pcb_actions.ts:703
+msgid "Apply linked design block layout to selected group"
+msgstr "將連結的設計區塊佈局應用到所選群組"
+
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
 msgstr "圓弧編輯模式"
 
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:378
+msgid "Arc/Circle Approximations"
+msgstr "圓弧/圓近似"
+
 #: designer/src/home/HomePage.tsx:1631
 msgid "Archive Project"
 msgstr "封存專案"
+
+#: designer/src/home/launcher_tiles.tsx:128 designer/src/home/menubar.ts:165
+msgid "Archive Project..."
+msgstr "打包專案..."
 
 #: designer/src/home/HomePage.tsx:1631
 msgid "Archiving project..."
@@ -411,6 +847,10 @@ msgstr "關聯層"
 msgid "Attenuation is 6 dB"
 msgstr "衰減為 6 dB"
 
+#: common/eda_text.ts:1634
+msgid "Auto Thickness"
+msgstr "自動線寬"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "自動平移速度"
@@ -418,6 +858,22 @@ msgstr "自動平移速度"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "自動指派優先順序"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "自動遷移 3D 模型引用"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "自動放置圖紙接腳"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "根據重疊區域的連線性分析自動分配填充區優先順序。"
+
+#: pcbnew/autorouter/autoplace_tool.ts:56
+msgid "Autoplace Footprints"
+msgstr "自動放置封裝"
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +883,22 @@ msgstr "可用封裝"
 msgid "Available path substitutions"
 msgstr "可用路徑替換"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:66
+msgid "BOARD CHARACTERISTICS"
+msgstr "電路板特性"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "BOM 格式預設"
@@ -434,6 +906,30 @@ msgstr "BOM 格式預設"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "BOM 修訂版本"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:237
+msgid "BOM revision:"
+msgstr "BOM 修訂:"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:690
+msgid "Back Footprints"
+msgstr "底部封裝"
+
+#: pcbnew/pcb_track.ts:3780
+msgid "Back Post-machining"
+msgstr "底層後加工"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:205
+msgid "Back copper area:"
+msgstr "底層銅箔面積:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:215
+msgid "Back footprint area:"
+msgstr "底層封裝面積:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:217
+msgid "Back footprint density:"
+msgstr "底層封裝密度:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +947,66 @@ msgstr "返回專案管理員"
 msgid "Back to sign in"
 msgstr "返回登入"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "背鑽"
+
+#: pcbnew/pad.ts:4449 pcbnew/pcb_track.ts:3614
+msgid "Backdrill Mode"
+msgstr "背鑽模式"
+
+#: pcbnew/pad.ts:4076
+msgid "Backdrill Properties"
+msgstr "背鑽屬性"
+
+#: pcbnew/padstack.ts:65
+msgid "Backdrill bottom"
+msgstr "底層背鑽"
+
+#: pcbnew/pcb_track.ts:1551
+msgid "Backdrill diameter is too small."
+msgstr "背鑽直徑過小。"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "背鑽:"
+
+#: eeschema/sch_tablecell.ts:469
+msgid "Background Fill"
+msgstr "背景填充"
+
+#: eeschema/sch_tablecell.ts:484
+msgid "Background Fill Color"
+msgstr "背景顏色"
+
+#: pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:2031 pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:2047
+msgid "Bad ZAux for CZONE_CONTAINER '%s'"
+msgstr "CZONE_CONTAINER '%s' 的 ZAux 無效"
+
+#: pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:2139
+msgid "Bad ZClearance padoption for CZONE_CONTAINER '%s'"
+msgstr "CZONE_CONTAINER '%s' 的 ZClearance padoption 無效"
+
+#: pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:2058
+msgid "Bad ZSmoothing for CZONE_CONTAINER '%s'"
+msgstr "CZONE_CONTAINER '%s' 的 ZSmoothing 無效"
+
+#: pcbnew/pcb_barcode.ts:698
+msgid "Barcode '%s' on %s"
+msgstr "%2$s 上的條碼 %1$s"
+
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:99 pcbnew/pcb_barcode.ts:1028
+msgid "Barcode Properties"
+msgstr "條碼屬性"
+
+#: pcbnew/pcb_barcode.ts:1128
+msgid "Barcode Type"
+msgstr "條碼型別"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:1226
+msgid "Barcode count differs."
+msgstr "'條碼數量' 不一致。"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "依據以下位置"
@@ -463,9 +1019,45 @@ msgstr "最佳長度"
 msgid "Best width"
 msgstr "最佳寬度"
 
+#: pcbnew/pcb_track.ts:2142
+msgid "Blind Via"
+msgstr "盲孔"
+
+#: pcbnew/pcb_track.ts:2235
+msgid "Blind via %s on %s"
+msgstr "%2$s 上的盲孔 %1$s"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:157
+msgid "Blind vias"
+msgstr "盲孔"
+
+#: pcbnew/board_statistics_report.ts:204
+msgid "Blind vias:"
+msgstr "盲孔:"
+
+#: pcbnew/widgets/appearance_controls.tsx:887
+msgid "Board Area Shadow"
+msgstr "電路板區域陰影"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:943
+msgid "Board has %lu copper layers not in footprint: %s"
+msgstr "電路板有 %lu 個封裝中沒有的銅層: %s"
+
+#: pcbnew/pcb_io/ipc2581/pcb_io_ipc2581.ts:2632
+msgid "Board outline is invalid or missing.  Please run DRC."
+msgstr "電路板外框無效或缺失。請執行 DRC。"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:209
+msgid "Board stackup thickness:"
+msgstr "電路板疊層厚度:"
+
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
 msgstr "依疊層決定板厚"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:76
+msgid "Board thickness: "
+msgstr "板厚: "
 
 #: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
 msgid "Body style"
@@ -491,6 +1083,18 @@ msgstr "邊框樣式"
 msgid "Border width"
 msgstr "邊框寬度"
 
+#: pcbnew/pad.ts:4484 pcbnew/pcb_track.ts:3647 pcbnew/widgets/pcb_properties_panel.ts:446 pcbnew/widgets/pcb_properties_panel.ts:450
+msgid "Bottom Backdrill Must-Cut"
+msgstr "底層背鑽必切"
+
+#: pcbnew/pad.ts:4461 pcbnew/pcb_track.ts:3627
+msgid "Bottom Backdrill Size"
+msgstr "底層背鑽尺寸"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:200
+msgid "Bottom Reference"
+msgstr "底層位號"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
 msgid "Bottom backdrill must-cut"
 msgstr "底部背鑽必須鑽穿"
@@ -498,6 +1102,10 @@ msgstr "底部背鑽必須鑽穿"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
 msgid "Bottom backdrill size"
 msgstr "底部背鑽尺寸"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:401 pcbnew/dialogs/dialog_track_via_properties.tsx:1380 pcbnew/dialogs/dialog_track_via_properties_base.tsx:749
+msgid "Bottom backdrill size:"
+msgstr "底層背鑽尺寸:"
 
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
 msgid "Bottom margin"
@@ -523,6 +1131,34 @@ msgstr "瀏覽符號"
 msgid "Browse for the new footprint"
 msgstr "瀏覽新封裝"
 
+#: eeschema/tools/sch_actions.ts:385
+msgid "Bulk Edit Related Symbol Fields..."
+msgstr "批次編輯相關符號欄位..."
+
+#: common/tool/action_toolbar_actions.ts:138 eeschema/menubar.ts:315 eeschema/tools/sch_actions.ts:376 eeschema/tools/sch_actions.ts:1389
+msgid "Bulk Edit Symbol Fields..."
+msgstr "批次編輯符號欄位..."
+
+#: eeschema/menubar.ts:316 eeschema/tools/sch_actions.ts:1398
+msgid "Bulk Edit Symbol Library Links..."
+msgstr "批次編輯符號庫連結..."
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:48 pcbnew/pcb_track.ts:3080
+msgid "Buried"
+msgstr "埋孔"
+
+#: pcbnew/pcb_track.ts:2145
+msgid "Buried Via"
+msgstr "埋孔"
+
+#: pcbnew/pcb_track.ts:2238
+msgid "Buried via %s on %s"
+msgstr "%2$s 上的埋孔 %1$s"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:161
+msgid "Buried vias"
+msgstr "埋孔"
+
 #: eeschema/dialogs/panel_setup_buses.tsx:331
 msgid "Bus aliases"
 msgstr "匯流排別名"
@@ -531,9 +1167,97 @@ msgstr "匯流排別名"
 msgid "Bus members"
 msgstr "匯流排成員"
 
+#: eeschema/net_navigator.ts:147 eeschema/sch_bus_entry.ts:708
+msgid "Bus to bus entry"
+msgstr "匯流排至匯流排入口"
+
+#: eeschema/net_navigator.ts:146 eeschema/sch_bus_entry.ts:555
+msgid "Bus to wire entry"
+msgstr "匯流排至連線入口"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:210
+msgid "By layer:"
+msgstr "按層:"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:244
+msgid "By parent footprint library link:"
+msgstr "按父封裝的庫連結:"
+
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: eeschema/tools/sch_edit_table_tool.ts:135
+msgid "CSV files (*.csv)|*.csv"
+msgstr "CSV 檔案 (*.csv)|*.csv"
+
+#: pcbnew/tools/pcb_actions.ts:3416
+msgid "Cancel Current Item"
+msgstr "取消目前專案"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "在 %s 後取消"
+
+#: pcbnew/tools/multichannel_tool.ts:1646
+msgid "Cannot auto-generate any placement areas because the schematic has only one or no hierarchical sheets, groups, or component classes."
+msgstr "無法自動生成任何佈置區, 因為原理圖中的層次圖紙, 群組和元件類均不超過一個。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.ts:265
+msgid "Cannot create symbol library path '%s'."
+msgstr "無法建立符號庫路徑 '%s'。"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "無法建立元件庫資料夾「%s」。"
+
+#: eeschema/symbol_editor/symbol_editor_import_export.ts:135
+msgid "Cannot import symbol '%s': %s"
+msgstr "無法匯入符號 '%s': %s"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:928
+msgid "Cannot parse '%s' as a header."
+msgstr "無法將 '%s' 解析為檔案頭。"
+
+#: common/tool/edit_table_tool_base.ts:627
+msgid "Cannot paste into merged cells"
+msgstr "無法貼上到已合併的單元格中"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:158
+msgid "Cannot read symbol library '%s'."
+msgstr "無法讀取符號庫 '%s'。"
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "無法登錄已匯入的封裝快取: 沒有專案庫表。"
+
+#: pcb_calculator/galvanic_corrosion.ts:38
+msgid "Carbon (Graphitic)"
+msgstr "碳 (石墨)"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:280 pcbnew/dialogs/dialog_pad_properties_base.tsx:1084
+msgid "Castellated pad (TH only)"
+msgstr "半孔焊盤 (僅通孔)"
+
+#: pcbnew/board_statistics_report.ts:199
+msgid "Castellated:"
+msgstr "半孔:"
+
+#: eeschema/sch_tablecell.ts:464
+msgid "Cell Properties"
+msgstr "單元格屬性"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +1267,85 @@ msgstr "儲存格內容"
 msgid "Center layer"
 msgstr "中心層"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "將 %s 的「從座標檔案中移除」特性從「%s」更改為「%s」。"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:721
+msgid "Change Log"
+msgstr "變更日誌"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1393
+msgid "Change group library link from '%s' to '%s'."
+msgstr "將組的庫連結由 '%s' 更改為 '%s'。"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1370
+msgid "Change group name from '%s' to '%s'."
+msgstr "將群組名稱從 '%s' 更改為 '%s'。"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1399
+msgid "Changed group library link from '%s' to '%s'."
+msgstr "已將組的庫連結由 '%s' 更改為 '%s'。"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1376
+msgid "Changed group name from '%s' to '%s'."
+msgstr "已將群組名稱從 '%s' 更改為 '%s'。"
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "與我們聊天（拖曳可移動）"
 
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:296 pcbnew/dialogs/dialog_exchange_footprints_base.tsx:231
+msgid "Check All Update Options"
+msgstr "選中所有更新選項"
+
+#: pcbnew/drc/drc_engine.ts:1469
+msgid "Checking %s solder mask expansion: %s."
+msgstr "正在檢查 %s 阻焊擴充套件: %s。"
+
+#: pcbnew/drc/drc_engine.ts:1479
+msgid "Checking %s solder paste absolute clearance: %s."
+msgstr "正在檢查 %s 錫膏絕對間距: %s。"
+
+#: pcbnew/drc/drc_engine.ts:1489
+msgid "Checking %s solder paste relative clearance: %s."
+msgstr "正在檢查 %s 錫膏相對間距: %s。"
+
+#: pcbnew/drc/drc_engine.ts:1388
+msgid "Checking assertion '%s'."
+msgstr "正在檢查斷言 '%s'。"
+
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:91
+msgid "Checking copper graphic hole clearances..."
+msgstr "正在檢查銅層圖形孔間距..."
+
+#: eeschema/erc/erc.ts:1969
+msgid "Checking field names..."
+msgstr "正在檢查欄位名稱..."
+
+#: pcbnew/drc/drc_test_provider_misc.ts:548
+msgid "Checking for missing tuning profiles..."
+msgstr "正在檢查缺失的調整配置..."
+
+#: pcbnew/drc/drc_engine.ts:2205
+msgid "Checking rule assertion '%s'."
+msgstr "正在檢查規則斷言 '%s'。"
+
+#: pcbnew/drc/drc_engine.ts:1829 pcbnew/drc/drc_engine.ts:2236 pcbnew/drc/drc_rules_engine.ts:365
+msgid "Checking rule condition '%s'."
+msgstr "正在檢查規則條件 '%s'。"
+
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "正在檢查淚滴間距..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "正在檢查您的帳號"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "子專案不能與其父專案分開群組。"
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -563,6 +1359,22 @@ msgstr "清除篩選"
 msgid "Clear the search"
 msgstr "清除搜尋"
 
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:465
+msgid "Clearance Overrides & Pad Connections"
+msgstr "間距覆蓋與焊盤連接"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:375
+msgid "Clearances & Pad Connections"
+msgstr "間距與焊盤連接"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:417 pcbnew/dialogs/panel_edit_options_base.tsx:440
+msgid "Click:"
+msgstr "單擊:"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:445
+msgid "Clockwise"
+msgstr "順時針方向"
+
 #: designer/src/editors/pcb/Viewer3DFrame.tsx:852
 msgid "Close 3D Viewer"
 msgstr "關閉 3D 檢視器"
@@ -571,9 +1383,29 @@ msgstr "關閉 3D 檢視器"
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "稍後關閉連結會使新使用者無法透過它開啟。已在清單中的人員在您將其移除之前仍保有存取權。"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
+
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
 msgstr "收合"
+
+#: pcbnew/menubar_pcb_editor.ts:836 pcbnew/tools/pcb_actions.ts:1795
+msgid "Collect And Embed 3D Models"
+msgstr "收集並嵌入 3D 模型"
+
+#: pcbnew/tools/pcb_actions.ts:1796
+msgid "Collect footprint 3D models and embed them into the board"
+msgstr "收集封裝的 3D 模型並將其嵌入到電路板中"
+
+#: pcbnew/widgets/appearance_controls.tsx:882
+msgid "Colliding Courtyards"
+msgstr "外框重疊 (碰撞)"
 
 #: common/launch_ext.tsx:236
 msgid "Color Themes"
@@ -591,17 +1423,41 @@ msgstr "色彩主題"
 msgid "Color theme files"
 msgstr "色彩主題檔案"
 
+#: eeschema/sch_tablecell.ts:443 pcbnew/pcb_tablecell.ts:387
+msgid "Column Width"
+msgstr "單元格寬度"
+
+#: common/widgets/widget_hotkey_list.tsx:169
+msgid "Command (double-click to edit)"
+msgstr "命令（雙擊編輯）"
+
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "常用材料"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "在 %s 內完成"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
 msgstr "元件類別"
 
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:109
+msgid "Component class:"
+msgstr "元件類:"
+
+#: pcbnew/connectivity/topo_match.ts:198
+msgid "Component pads differ between %s and %s."
+msgstr "%s 與 %s 的元件焊盤不同。"
+
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:224
 msgid "Component type"
 msgstr "元件類型"
+
+#: pcbnew/microwave/microwave_inductor.ts:309
+msgid "Component value:"
+msgstr "元件值:"
 
 #: pcbnew/dialogs/dialog_export_odbpp_base.tsx:154
 msgid "Compression format"
@@ -627,6 +1483,38 @@ msgstr "正在確認您的電子郵件"
 msgid "Connected pin is not mapped to any footprint pad"
 msgstr "所連接的接腳未對應到任何封裝焊墊"
 
+#: common/lib_table_descriptions.ts:37 common/lib_table_descriptions.ts:258 eeschema/browser/global_sym_lib_table.ts:34 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:114 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:324
+msgid "Connector"
+msgstr "板邊聯結器"
+
+#: common/widgets/kistatusbar_format.ts:227 pcbnew/tools/drawing_tool.ts:541
+msgid "Constrain to H, V"
+msgstr "約束操作於水平/垂直"
+
+#: pcbnew/pcb_io/allegro/allegro_builder.ts:3885
+msgid "Constructing caches"
+msgstr "正在構建快取"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste_base.tsx:111
+msgid "Consult your PCB manufacturer's specifications for solder mask expansion, web width, and clearance settings."
+msgstr "請參考板廠規範設定阻焊擴充套件、阻焊橋寬 (綠油橋寬) 和間距。"
+
+#: common/tool/action_toolbar_controls.ts:92
+msgid "Control to select the current variant"
+msgstr "用於選擇目前變體的控制元件"
+
+#: eeschema/tools/symbol_editor_edit_tool.ts:955
+msgid "Convert %zu Stacked Pins to '%s'"
+msgstr "將 %zu 個堆疊接腳轉換為 '%s'"
+
+#: eeschema/tools/sch_actions.ts:1240
+msgid "Convert Stacked Pins"
+msgstr "轉換堆疊接腳"
+
+#: pcbnew/pcb_io/allegro/allegro_builder.ts:3928
+msgid "Converting footprints"
+msgstr "正在轉換封裝"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:507
 msgid "Coordinate format"
 msgstr "座標格式"
@@ -635,13 +1523,33 @@ msgstr "座標格式"
 msgid "Copied"
 msgstr "已複製"
 
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "複製的銅皮未指定網路。請指定網路以連接它。"
+
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
 msgstr "銅面處理"
 
+#: pcbnew/board_tables/board_characteristics_table.ts:100
+msgid "Copper finish: "
+msgstr "鍍銅處理: "
+
+#: pcbnew/board_tables/board_characteristics_table.ts:73
+msgid "Copper layer count: "
+msgstr "銅層數量: "
+
 #: pcbnew/sel_layer.tsx:608
 msgid "Copper layer pair presets"
 msgstr "銅層組合預設"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:86 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:270 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:278 pcbnew/dialogs/dialog_pad_properties_base.tsx:1019 pcbnew/sel_layer.tsx:288
+msgid "Copper layers"
+msgstr "銅層"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1340
+msgid "Copper zone on %s at (%s, %s) has no pads connected to net \"%s\"."
+msgstr "位於 %s 層 (%s, %s) 的覆銅區沒有與網路 \"%s\" 相連的焊盤。"
 
 #: common/dialog_about/dialog_about.tsx:192
 msgid "Copy %s version info to the clipboard"
@@ -663,6 +1571,14 @@ msgstr "複製連結"
 msgid "Copy variant"
 msgstr "複製變體"
 
+#: pcbnew/tools/pcb_actions.ts:871
+msgid "Copy with Reference..."
+msgstr "按參考點複製..."
+
+#: common/eda_shape.ts:3130 eeschema/sch_tablecell.ts:428 eeschema/sch_textbox.ts:730 pcbnew/pcb_tablecell.ts:358 pcbnew/pcb_textbox.ts:916
+msgid "Corner Radius"
+msgstr "圓角半徑"
+
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
 msgid "Corner radius"
 msgstr "圓角半徑"
@@ -674,6 +1590,22 @@ msgstr "圓角平滑"
 #: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:194
 msgid "Corner style"
 msgstr "圓角樣式"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:689
+msgid "Could not compute differential pair gap"
+msgstr "無法計算差分對間隙"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:690 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:702
+msgid "Could not compute track propagation delay"
+msgstr "無法計算走線傳播延遲"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:688 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:701
+msgid "Could not compute track width"
+msgstr "無法計算走線寬度"
+
+#: eeschema/tools/sch_drawing_tools.ts:2675 eeschema/tools/sch_editor_control.ts:2436 eeschema/tools/sch_editor_control.ts:2479 pcbnew/tools/pcb_control.ts:2156 pcbnew/tools/pcb_control.ts:2496 pcbnew/tools/pcb_control.ts:2551
+msgid "Could not find design block %s."
+msgstr "找不到設計區塊 %s。"
 
 #: pcbnew/tools/drawing_tool.ts:1325
 msgid "Could not load image."
@@ -687,6 +1619,22 @@ msgstr "無法開啟 %s：%s"
 msgid "Could not open this project: %s"
 msgstr "無法開啟此專案：%s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"無法覆蓋庫檔案 \"%s\"。\n"
+"請確保您有寫入許可權，然後重試。"
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "無法將已匯入的封裝快取發佈到 '%s'。"
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "無法調和已匯入的封裝庫: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "無法寫入元件庫檔案「%s」。"
@@ -699,9 +1647,29 @@ msgstr "無法載入您的資料計數。請重試以檢視將被刪除的內容
 msgid "Couldn’t open board:"
 msgstr "無法開啟電路板："
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:305 pcbnew/dialogs/dialog_pad_properties.tsx:310 pcbnew/dialogs/dialog_pad_properties_base.tsx:372 pcbnew/dialogs/dialog_track_via_properties_base.tsx:65 pcbnew/padstack.ts:55
+msgid "Counterbore"
+msgstr "沉孔"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:304 pcbnew/dialogs/dialog_pad_properties.tsx:309 pcbnew/dialogs/dialog_pad_properties_base.tsx:372 pcbnew/dialogs/dialog_track_via_properties_base.tsx:64 pcbnew/padstack.ts:56
+msgid "Countersink"
+msgstr "沉頭孔"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:371
+msgid "Coupled Stripline"
+msgstr "耦合帶狀線"
+
 #: designer/src/fs/FileChooser.tsx:709
 msgid "Create Folder"
 msgstr "建立資料夾"
+
+#: eeschema/sch_base_frame.ts:428
+msgid "Create New Library"
+msgstr "建立新的庫"
+
+#: pcbnew/tools/pcb_actions.ts:232
+msgid "Create Outsets from Selection..."
+msgstr "從選區建立外擴..."
 
 #: designer/src/auth/SignIn.tsx:396
 msgid "Create account"
@@ -710,6 +1678,10 @@ msgstr "建立帳號"
 #: designer/src/auth/SignIn.tsx:298 designer/src/auth/SignIn.tsx:609
 msgid "Create an account"
 msgstr "建立帳號"
+
+#: eeschema/symbol_editor/symbol_editor.ts:890
+msgid "Create symbol in library:"
+msgstr "在庫中建立符號:"
 
 #: designer/src/auth/SignIn.tsx:321
 msgid "Create your free ZiroEDA account"
@@ -723,9 +1695,33 @@ msgstr "在 2026 年 9 月 10 日之前建立的帳號？它目前沒有復原�
 msgid "Creating account..."
 msgstr "正在建立帳號..."
 
+#: pcbnew/pcb_io/allegro/allegro_builder.ts:3894
+msgid "Creating nets"
+msgstr "正在建立網路"
+
+#: pcbnew/pcb_io/allegro/allegro_builder.ts:3901
+msgid "Creating tracks"
+msgstr "正在建立走線"
+
 #: designer/src/auth/auth_progress.tsx:43
 msgid "Creating your account"
 msgstr "正在建立您的帳號"
+
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
 
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
@@ -735,13 +1731,53 @@ msgstr "目前密度："
 msgid "Current exceeds the ampacity for this density."
 msgstr "電流超過此密度下的載流能力。"
 
+#: pcbnew/dialogs/dialog_global_deletion.tsx:32
+msgid "Current layer (%s) only"
+msgstr "僅目前層 (%s)"
+
+#: common/tool/action_toolbar_controls.ts:91
+msgid "Current variant"
+msgstr "目前變體"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:258
+msgid "Custom Layers"
+msgstr "自訂板層"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "自訂本體樣式至少須有 2 個項目"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "自訂比例"
 
+#: eeschema/tools/sch_actions.ts:1131
+msgid "Cycle Body Style"
+msgstr "切換圖形樣式"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
+
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
 msgstr "DRC 控制"
+
+#: pcbnew/menubar_pcb_editor.ts:807 pcbnew/tools/pcb_actions.ts:2124
+msgid "DRC Rule Editor"
+msgstr "DRC 規則編輯器"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:219
 msgid "DRC options"
@@ -750,6 +1786,10 @@ msgstr "DRC 選項"
 #: pcbnew/dialogs/dialog_drc_base.tsx:278
 msgid "DRC results"
 msgstr "DRC 結果"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
 
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
@@ -763,13 +1803,29 @@ msgstr "DXF 預設單位"
 msgid "Dash length"
 msgstr "虛線長度"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
+
+#: designer/src/dialogs/prefs/registry.ts:68 designer/src/dialogs/prefs/registry.ts:169 designer/src/pcm/PluginManagerDialog.tsx:37
+msgid "Data Sources"
+msgstr "資料來源"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
 msgstr "資料來源套件用於連接外部資料庫元件庫，這需要瀏覽器中尚未提供的後端。"
 
+#: common/lib_table_grid_tricks.ts:172
+msgid "Deactivate Selected"
+msgstr "停用所選"
+
 #: external/wx/spin_ctrl.tsx:128
 msgid "Decrease"
 msgstr "減少"
+
+#: pcbnew/dialogs/panel_setup_zones_base.tsx:24
+msgid "Default Properties for New Zones"
+msgstr "新建填充區的預設屬性"
 
 #: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
 msgid "Default field properties"
@@ -790,6 +1846,18 @@ msgstr "預設參考編號"
 #: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:314
 msgid "Default text items"
 msgstr "預設文字項目"
+
+#: eeschema/lib_symbol.ts:3154
+msgid "Define as Local Power Symbol"
+msgstr "定義為區域性電源符號"
+
+#: eeschema/lib_symbol.ts:3149
+msgid "Define as Power Symbol"
+msgstr "定義為電源符號"
+
+#: eeschema/symbol_editor/symbol_editor.ts:96 eeschema/symbol_editor/symbol_editor.ts:1000
+msgid "Delete All Listed Symbols"
+msgstr "刪除所有列出的符號"
 
 #: eeschema/tools/sch_sheet_pin_tool.ts:198 eeschema/tools/sch_sheet_pin_tool.ts:212
 msgid "Delete Sheet Pin"
@@ -823,6 +1891,10 @@ msgstr "刪除層"
 msgid "Delete preset"
 msgstr "刪除預設"
 
+#: common/dialogs/dialog_plugin_options.tsx:154 pcbnew/dialogs/panel_assign_component_classes_base.tsx:122 pcbnew/dialogs/panel_assign_component_classes_base.tsx:209
+msgid "Delete row"
+msgstr "刪除行"
+
 #: pcbnew/dialogs/dialog_layer_selection_base.tsx:132
 msgid "Delete selected presets"
 msgstr "刪除所選預設"
@@ -851,17 +1923,77 @@ msgstr "從現有符號衍生"
 msgid "Derive from symbol"
 msgstr "從符號衍生"
 
+#: pcbnew/tools/pcb_control.ts:2506
+msgid "Design block %s does not have a board file."
+msgstr "設計區塊 %s 缺少電路板檔案。"
+
+#: eeschema/tools/sch_editor_control.ts:2445
+msgid "Design block %s does not have a schematic file."
+msgstr "設計區塊 %s 缺少原理圖檔案。"
+
+#: pcbnew/tools/pcb_control.ts:2163
+msgid "Design block has no layout to place."
+msgstr "設計區塊中沒有可放置的佈局。"
+
+#: eeschema/tools/sch_drawing_tools.ts:2686
+msgid "Design block has no schematic to place."
+msgstr "設計區塊中沒有可放置的原理圖。"
+
 #: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:115 pcbnew/dialogs/dialog_plot_base.tsx:217
 msgid "Design variant"
 msgstr "設計變體"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:106 pcbnew/dialogs/dialog_plot_base.tsx:211
+msgid "Design variant:"
+msgstr "設計變體:"
+
+#: eeschema/remote_symbol_import_utils.ts:142
+msgid "Destination directory is not configured."
+msgstr "未配置目標目錄。"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:219
+msgid "Dielectric height must be greater than 0"
+msgstr "介質高度必須大於 0"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:305
+msgid "Dielectric heights must be greater than 0"
+msgstr "介質高度必須大於 0"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:202
+msgid "Diff Pair Gap"
+msgstr "差分對間隙"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:538
+msgid "Diff pair gap calculation failed"
+msgstr "差分對間隙計算失敗"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:493
+msgid "Diff pair gap must be greater than 0 to calculate width"
+msgstr "差分對間隙必須大於 0 才能計算線寬"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:444
+msgid "Direction"
+msgstr "方向"
+
+#: eeschema/sch_label.ts:1926
+msgid "Directive Label [%s (empty)]"
+msgstr "指令標籤 [%s (空)]"
 
 #: designer/src/home/dialogs/dialog_template_selector.tsx:546
 msgid "Directory '%s/%s' already exists."
 msgstr "目錄「%s/%s」已存在。"
 
+#: common/dialogs/panel_common_settings.tsx:183
+msgid "Disable custom cursors"
+msgstr "停用自訂游標"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:482
 msgid "Discard Pending"
 msgstr "捨棄待處理項"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:376
+msgid "Display Overrides"
+msgstr "顯示重寫"
 
 #: common/widgets/zoom_correction_ctrl.tsx:223
 msgid "Display PPI"
@@ -871,6 +2003,18 @@ msgstr "顯示 PPI"
 msgid "Display PPI:"
 msgstr "顯示 PPI："
 
+#: pcbnew/tools/pcb_actions.ts:1284
+msgid "Displays pad table for bulk editing of pads"
+msgstr "顯示焊盤表以批次編輯焊盤"
+
+#: common/tool/action_toolbar_controls.ts:76
+msgid "Displays the current body style"
+msgstr "顯示目前圖形樣式"
+
+#: pcbnew/tools/pcb_actions.ts:2895
+msgid "Distributes selected items between the left-most item and the right-most item so that the item centers are equally distributed"
+msgstr "在最左側和最右側專案之間分佈所選專案, 使專案中心等距分佈"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:300
 msgid "Distributor"
 msgstr "經銷商"
@@ -879,9 +2023,17 @@ msgstr "經銷商"
 msgid "Distributor P/N"
 msgstr "經銷商 P/N"
 
+#: pcbnew/exporters/export_d356.ts:380
+msgid "Do not export unconnected pads"
+msgstr "不匯出未連線的焊盤"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:82
 msgid "Do this later"
 msgstr "稍後再說"
+
+#: common/file_history.ts:100
+msgid "Do you want to remove it from list of recently opened files?"
+msgstr "是否將其從「最近開啟的檔案」列表中移除？"
 
 #: designer/src/ui/ErrorBoundary.tsx:74
 msgid "Download %s.zip"
@@ -907,25 +2059,97 @@ msgstr "請在關閉分頁前下載您的專案，或改用較新的瀏覽器。
 msgid "Downloaded"
 msgstr "已下載"
 
+#: eeschema/remote_symbol_import_job.ts:82
+msgid "Downloaded symbol payload was empty."
+msgstr "下載的符號資料為空。"
+
+#: eeschema/remote_symbol_import_job.ts:89
+msgid "Downloaded symbol payload was not a KiCad symbol library."
+msgstr "下載的符號資料不是 KiCad 符號庫。"
+
 #: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
 msgid "Drag to resize"
 msgstr "拖曳以調整大小"
+
+#: pcbnew/tools/drawing_tool.ts:1490
+msgid "Draw Barcode"
+msgstr "繪製條形碼"
 
 #: common/dialogs/dialog_page_settings_base.tsx:230
 msgid "Drawing sheet file"
 msgstr "圖框檔案"
 
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:99
+msgid "Drill X"
+msgstr "鑽孔 X"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:100
+msgid "Drill Y"
+msgstr "鑽孔 Y"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
 msgid "Drill marks"
 msgstr "鑽孔標記"
+
+#: pcbnew/widgets/search_handlers.ts:575
+msgid "Drills"
+msgstr "鑽孔"
 
 #: designer/src/auth/SignIn.tsx:479
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "由於我們端對端加密協定的特性，沒有您的密碼或復原金鑰，您的資料將無法解密。"
 
+#: designer/src/home/dialogs/dialog_template_selector.tsx:437 designer/src/home/dialogs/dialog_template_selector.tsx:528
+msgid "Duplicate Template"
+msgstr "建立副本"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table_base.tsx:74
+msgid "Duplicate pads:"
+msgstr "重複焊盤:"
+
+#: eeschema/erc/erc_item.ts:256
+msgid "Duplicate pins with different nets"
+msgstr "連線到不同網路的重複接腳"
+
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 建議電壓差低於 300mV。已知做法是在主要電偶之間使用第三種介面金屬（即 ENIG 表面處理）。"
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "鎳鈀金 (ENEPIG) (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "鎳金 (ENIG) (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +2158,14 @@ msgstr "金手指連接器"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "編輯匯流排入口"
+
+#: pcbnew/tools/pcb_actions.ts:1093
+msgid "Edit Corners..."
+msgstr "編輯角點..."
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "編輯 '%s' 的描述"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -946,6 +2178,18 @@ msgstr "編輯影像"
 #: eeschema/tools/mutate.ts:420
 msgid "Edit Label"
 msgstr "編輯標籤"
+
+#: common/lib_table_grid_tricks.ts:189
+msgid "Edit Options..."
+msgstr "編輯選項..."
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:594
+msgid "Edit Pads"
+msgstr "編輯焊盤"
+
+#: common/lib_table_grid_tricks.ts:135
+msgid "Edit Settings..."
+msgstr "編輯設定..."
 
 #: eeschema/tools/mutate.ts:543
 msgid "Edit Shape"
@@ -963,9 +2207,49 @@ msgstr "編輯圖頁接腳"
 msgid "Edit Symbol Fields"
 msgstr "編輯符號欄位"
 
+#: designer/src/home/dialogs/dialog_template_selector.tsx:425
+msgid "Edit Template"
+msgstr "編輯模板"
+
 #: eeschema/tools/mutate.ts:556
 msgid "Edit Text Box"
 msgstr "編輯文字方塊"
+
+#: pcbnew/tools/edit_tool.ts:1314
+msgid "Edit Track Layer"
+msgstr "編輯走線層"
+
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "編輯變體描述"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "編輯變體描述..."
+
+#: pcbnew/widgets/vertex_editor_pane.tsx:247
+msgid "Edit Vertex"
+msgstr "編輯頂點"
+
+#: pcbnew/pcb_base_edit_frame_ui.tsx:151
+msgid "Edit Vertices"
+msgstr "編輯頂點"
+
+#: eeschema/tools/sch_actions.ts:377
+msgid "Edit a table of fields from all symbols in the library"
+msgstr "編輯庫中所有符號的欄位表"
+
+#: common/tool/action_toolbar_actions.ts:139 eeschema/tools/sch_actions.ts:1390
+msgid "Edit a table of fields from all symbols in the schematic"
+msgstr "編輯原理圖中所有符號的欄位表"
+
+#: eeschema/tools/sch_actions.ts:386
+msgid "Edit a table of fields from all symbols related to the selected symbol"
+msgstr "編輯與所選符號相關的所有符號的欄位表"
+
+#: eeschema/tools/sch_actions.ts:1399
+msgid "Edit a table of links between schematic and library symbols"
+msgstr "編輯原理圖和庫符號之間的連結表"
 
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
@@ -979,6 +2263,14 @@ msgstr "以文字檢視器編輯"
 msgid "Edit layer"
 msgstr "編輯層"
 
+#: eeschema/tools/sch_actions.ts:228 pcbnew/tools/pcb_actions.ts:777
+msgid "Edit properties of design block"
+msgstr "編輯設計區塊屬性"
+
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "編輯現有設計變體的描述內容。"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "編輯變體描述"
@@ -986,6 +2278,14 @@ msgstr "編輯變體描述"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "經過時間："
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "已用時間: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "已用時間: 0 秒"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1007,6 +2307,10 @@ msgstr "內嵌檔案"
 msgid "Enable %s"
 msgstr "啟用 %s"
 
+#: common/dialogs/git/panel_git_repos.tsx:47
+msgid "Enable Git tracking"
+msgstr "啟用 Git 跟蹤"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:625
 msgid "End layer"
 msgstr "結束層"
@@ -1027,13 +2331,45 @@ msgstr "請輸入正的奇模阻抗。"
 msgid "Enter a positive resistivity and valid temperature."
 msgstr "請輸入正的電阻率與有效的溫度。"
 
+#: designer/src/home/dialogs/dialog_template_selector.tsx:529
+msgid "Enter name for the new template:"
+msgstr "輸入新的模板名稱:"
+
 #: designer/src/auth/SignIn.tsx:507
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "請輸入您建立帳號時儲存的復原金鑰，並選擇新密碼。"
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:231 pcbnew/pcb_barcode.ts:1147
+msgid "Error Correction"
+msgstr "容錯等級"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "錯誤詳細資料"
+
+#: cvpcb/display_footprints_frame.ts:59
+msgid "Error loading footprint: %s"
+msgstr "載入封裝時出錯: %s"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:3518
+msgid ""
+"Error loading library '%s':\n"
+"Footprint %s pad %s uses an unknown pad shape."
+msgstr ""
+"載入庫 '%s' 時出錯: \n"
+"封裝 %s 的焊盤 %s 使用了未知的焊盤形狀。"
+
+#: eeschema/sch_io/altium/sch_io_altium.ts:1589
+msgid "Error parsing Altium schematic: %s"
+msgstr "解析 Altium 原理圖時出錯: %s"
 
 #: common/dialogs/lib_table_panel.tsx:590
 msgid ""
@@ -1044,6 +2380,10 @@ msgstr ""
 "儲存全域元件庫表時發生錯誤：\n"
 "\n"
 "%s"
+
+#: eeschema/sheet.ts:489 eeschema/symbol_editor/symbol_edit_frame.ts:631 eeschema/symbol_editor/symbol_edit_frame.ts:684 eeschema/symbol_editor/symbol_edit_frame.ts:812 eeschema/symbol_editor/symbol_edit_frame.ts:866
+msgid "Error saving library table."
+msgstr "儲存庫表時出錯。"
 
 #: common/widgets/design_block_pane.ts:276 eeschema/project_rescue.ts:1019 eeschema/symbol_library_manager.ts:1069 pcbnew/footprint_edit_frame_ui.tsx:1119
 msgid ""
@@ -1065,6 +2405,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "儲存專案封裝庫表時發生錯誤。"
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +2427,45 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "寫入已匯入的封裝快取 '%s' 時發生錯誤: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "錯誤！"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:212
+msgid "Excl. Board"
+msgstr "不在電路板中繪製"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "不含位置檔案"
+
+#: eeschema/widgets/search_handlers.ts:210
+msgid "Excl. Sim"
+msgstr "不參與電路模擬"
+
+#: eeschema/dialogs/dialog_lib_fields_table.tsx:861
+msgid "Exclude From BOM"
+msgstr "從物料清單中移除"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:214
+msgid "Exclude all footprints with the Exclude from BOM flag set"
+msgstr "排除所有被標記為「從物料清單中移除」的封裝"
+
+#: eeschema/lib_symbol.ts:3219 eeschema/tools/sch_actions.ts:1363 pcbnew/tools/pcb_actions.ts:812
+msgid "Exclude from Position Files"
+msgstr "從座標檔案中移除"
+
+#: eeschema/lib_symbol.ts:2548
+msgid "Exclude from position files settings differ."
+msgstr "「從座標檔案中移除」特性設定差異。"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1099,13 +2479,93 @@ msgstr "展開"
 msgid "Expansion"
 msgstr "擴展"
 
+#: eeschema/sch_io/ltspice/ltspice_schematic.ts:920
+msgid "Expecting LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM or INVISIBLE"
+msgstr "應為 LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM 或INVISIBLE"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:427
+msgid "Explicit jumper pad groups:"
+msgstr "顯式跳線焊盤組:"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:526
+msgid "Explicit jumper pin groups:"
+msgstr "顯式跳線接腳組:"
+
+#: eeschema/tools/sch_edit_table_tool.ts:187
+msgid "Export Error"
+msgstr "匯出錯誤"
+
+#: pcbnew/tools/pcb_actions.ts:1778
+msgid "Export Footprint Association (.cmp) File..."
+msgstr "匯出封裝分配 (.cmp) 檔案..."
+
+#: pcbnew/tools/pcb_actions.ts:1621
+msgid "Export Footprints..."
+msgstr "匯出封裝..."
+
+#: pcbnew/tools/pcb_actions.ts:1742
+msgid "Export GenCAD..."
+msgstr "匯出 GenCAD..."
+
+#: pcbnew/tools/pcb_actions.ts:1760
+msgid "Export IDFv3..."
+msgstr "匯出 IDFv3..."
+
+#: pcbnew/tools/pcb_actions.ts:1770
+msgid "Export STEP, GLB, BREP, XAO, PLY or STL 3D board representation"
+msgstr "匯出 STEP/GLB/BREP/XAO/PLY/STL 格式的電路板模型"
+
+#: pcbnew/tools/pcb_actions.ts:1769
+msgid "Export STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "匯出 STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/tools/sch_editor_control.ts:941
+msgid "Export Symbols"
+msgstr "匯出符號"
+
+#: eeschema/tools/sch_actions.ts:1574
+msgid "Export Symbols..."
+msgstr "匯出符號..."
+
+#: common/tool/actions.ts:773 eeschema/tools/sch_edit_table_tool.ts:132 pcbnew/tools/pcb_edit_table_tool.ts:139
+msgid "Export Table to CSV"
+msgstr "將表格匯出為 CSV"
+
+#: common/tool/actions.ts:774
+msgid "Export Table to CSV..."
+msgstr "匯出表格為 CSV..."
+
+#: pcbnew/tools/pcb_actions.ts:1751
+msgid "Export VRML..."
+msgstr "匯出 VRML..."
+
 #: common/dialogs/panel_embedded_files.tsx:222
 msgid "Export embedded files"
 msgstr "匯出內嵌檔案"
 
+#: pcbnew/dialogs/dialog_plot_base.tsx:668
+msgid "Export selected layers into a single DXF"
+msgstr "將所選板層匯出到單個 DXF"
+
+#: eeschema/tools/sch_editor_control.ts:941
+msgid "Export symbols to library:"
+msgstr "將符號匯出到庫:"
+
+#: pcbnew/exporters/export_gencad.ts:34
+msgid "Export to GenCAD"
+msgstr "匯出到 GenCAD"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:642
 msgid "Export units"
 msgstr "匯出單位"
+
+#: eeschema/lib_symbol.ts:2412
+msgid "Extra field in schematic symbol: %s."
+msgstr "原理圖符號多餘的欄位: %s。"
+
+#: eeschema/lib_symbol.ts:2372
+msgid "Extra pin in schematic symbol: %s."
+msgstr "原理圖符號中多餘的接腳: %s。"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
@@ -1115,9 +2575,53 @@ msgstr "製造插件會執行需要沙箱執行環境的產生指令碼，瀏覽
 msgid "Fabrication property"
 msgstr "製造屬性"
 
+#: pcbnew/pcb_io/allegro/pcb_io_allegro.ts:129 pcbnew/pcb_io/allegro/pcb_io_allegro.ts:159
+msgid "Failed to build board from Allegro data"
+msgstr "無法根據 Allegro 資料構建電路板"
+
+#: eeschema/tools/symbol_editor_control.ts:598
+msgid "Failed to flatten symbol"
+msgstr "展平符號失敗"
+
+#: eeschema/sch_io/geda/sch_io_geda.ts:3183
+msgid "Failed to load page '%s': %s"
+msgstr "頁面 '%s' 載入失敗: %s"
+
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "載入原理圖失敗："
+
+#: eeschema/sch_io/geda/sch_io_geda.ts:2836
+msgid "Failed to load sub-schematic '%s': %s"
+msgstr "子原理圖 '%s' 載入失敗: '%s'"
+
+#: eeschema/tools/sch_edit_table_tool.ts:186 pcbnew/tools/pcb_edit_table_tool.ts:192
+msgid ""
+"Failed to open file:\n"
+"%s"
+msgstr ""
+"無法開啟檔案:\n"
+"%s"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "貼上 PADS Logic file '%s' 失敗。"
+
+#: eeschema/tools/sch_editor_control.ts:1409
+msgid "Failed to paste cells"
+msgstr "貼上單元格失敗"
+
+#: eeschema/remote_symbol_import_utils.ts:211
+msgid "Failed to save the library table."
+msgstr "儲存庫表失敗。"
+
+#: eeschema/tools/symbol_editor_control.ts:605
+msgid "Failed to update library with flattened symbol"
+msgstr "使用展平後的符號更新庫失敗"
+
+#: eeschema/remote_symbol_import_utils.ts:194
+msgid "Failed to update the library table."
+msgstr "更新庫表失敗。"
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1127,17 +2631,69 @@ msgstr "快速格線 1"
 msgid "Fast Grid 2"
 msgstr "快速格線 2"
 
+#: eeschema/sch_field.ts:1071
+msgid "Field %s (empty)"
+msgstr "欄位 %s (空)"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:212
+msgid "Field '%s' differs (PCB: '%s', Schematic: '%s')"
+msgstr "欄位 '%s' 不一致: (PCB: '%s', 原理圖: '%s')"
+
+#: eeschema/lib_symbol.ts:2441
+msgid "Field '%s' differs: %s; %s."
+msgstr "'欄位 '%s'' 不一致: %s; %s。"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
 msgid "Field name filter"
 msgstr "欄位名稱篩選"
+
+#: eeschema/erc/erc_item.ts:490 eeschema/erc/erc_settings.ts:312
+msgid "Field name has leading or trailing whitespace"
+msgstr "欄位名稱包含前導/尾隨空格"
+
+#: eeschema/erc/erc.ts:1379
+msgid "Field name has leading or trailing whitespace: '%s'"
+msgstr "欄位名稱 '%s' 包含尾隨/前導空格"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:377
 msgid "Field value"
 msgstr "欄位值"
 
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:371
+msgid "Field value:"
+msgstr "欄位值:"
+
+#: pagelayout_editor/files.ts:70
+msgid "File '%s' inserted"
+msgstr "檔案 '%s' 已插入"
+
+#: eeschema/sch_io/geda/sch_io_geda.ts:3065
+msgid "File '%s' is not a valid gEDA schematic."
+msgstr "檔案 '%s' 不是有效的 gEDA 原理圖。"
+
+#: pagelayout_editor/files.ts:57
+msgid "File '%s' loaded"
+msgstr "檔案 '%s' 已載入"
+
+#: common/file_history.ts:99
+msgid "File '%s' was not found.\n"
+msgstr "未找到檔案 '%s'。\n"
+
+#: common/dialogs/panel_maintenance.tsx:117
+msgid "File history cleared."
+msgstr "檔案歷史已清除。"
+
+#: common/io/cadstar/cadstar_archive_parser.ts:412 common/io/cadstar/cadstar_archive_parser.ts:2773 eeschema/sch_io/altium/sch_io_altium.ts:1569 pcbnew/pcb_io/altium/altium_pcb.ts:571 pcbnew/pcb_io/eagle/pcb_io_eagle.ts:451 pcbnew/pcb_io/eagle/pcb_io_eagle.ts:501
+msgid "File import canceled by user."
+msgstr "使用者取消了檔案匯入。"
+
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
 msgid "File name"
 msgstr "檔案名稱"
+
+#: gerbview/dialogs/panel_gerbview_excellon_settings.ts:96
+msgid "File units:"
+msgstr "檔案單位:"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
 msgid "Fill type"
@@ -1147,9 +2703,33 @@ msgstr "填充類型"
 msgid "Fill with color"
 msgstr "以顏色填充"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "篩選操作"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:209
+msgid "Filter vias by diameter:"
+msgstr "按直徑篩選貫孔:"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:3350
+msgid "Finalizing board"
+msgstr "正在完成電路板載入"
+
+#: eeschema/net_navigator.ts:586
+msgid "Find in Net Inspector"
+msgstr "在網路檢查器中查詢"
+
+#: eeschema/tools/sch_actions.ts:1123
+msgid "Find in Net Navigator"
+msgstr "在網路導航查詢"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "之後的第一個空閒編號"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:479
+msgid "First item angle:"
+msgstr "首個專案角度:"
 
 #: pcbnew/dialogs/dialog_enum_pads_base.tsx:75
 msgid "First pad number"
@@ -1159,9 +2739,33 @@ msgstr "第一個焊墊編號"
 msgid "First page option"
 msgstr "首頁選項"
 
+#: eeschema/tools/sch_actions.ts:368
+msgid "Flatten Symbol"
+msgstr "展平符號"
+
+#: pcbnew/pcb_io/ipc2581/pcb_io_ipc2581.ts:1481
+msgid "Footprint %s not found in dictionary; BOM data may be incomplete."
+msgstr "在字典中未找到封裝 %s; BOM 資料可能不完整。"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:3524
+msgid "Footprint %s pad %s uses an unknown pad shape."
+msgstr "封裝 %s 的焊盤 %s 使用了未知的焊盤形狀。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:1390
+msgid "Footprint '%s' does not match copy in library '%s'"
+msgstr "封裝 '%s' 與庫 '%s' 中的副本不匹配"
+
+#: pcbnew/pcb_io/pads/pcb_io_pads.ts:476
+msgid "Footprint '%s' not found in decal list, part skipped"
+msgstr "在 PADS Decal 列表中找不到封裝 '%s', 已跳過該元件"
+
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
 msgid "Footprint 3D model path"
 msgstr "封裝 3D 模型路徑"
+
+#: common/tool/common_tools.ts:583
+msgid "Footprint Browser"
+msgstr "封裝瀏覽器"
 
 #: pcbnew/footprint_chooser_frame.tsx:256
 msgid "Footprint Chooser (%s items loaded)"
@@ -1171,13 +2775,69 @@ msgstr "封裝選擇器（已載入 %s 項）"
 msgid "Footprint association files"
 msgstr "封裝關聯檔案"
 
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:156
+msgid "Footprint dimensions"
+msgstr "封裝標註"
+
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:366
 msgid "Footprint field"
 msgstr "封裝欄位"
 
+#: pcbnew/drc/drc_item.ts:433
+msgid "Footprint field does not match symbol field"
+msgstr "封裝欄位與符號欄位不匹配"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:356
+msgid "Footprint field:"
+msgstr "封裝欄位:"
+
+#: eeschema/lib_symbol.ts:2471
+msgid "Footprint filter count differs."
+msgstr "封裝篩選規則數量不同。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:927
+msgid "Footprint has %lu layers not on board: %s"
+msgstr "封裝有 %lu 個層未處在電路板上:%s"
+
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "封裝專案不能與其父封裝分開群組。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:891
+msgid "Footprint layers differ."
+msgstr "封裝層不一致。"
+
+#: eeschema/tools/backannotate.ts:581
+msgid "Footprint re-linking canceled by user."
+msgstr "使用者取消了封裝重連結。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:1088
+msgid "Footprint stackup differs."
+msgstr "封裝疊層不一致。"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:885
+msgid "Footprint stackup mode differs."
+msgstr "封裝疊層模式不一致。"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:154
+msgid "Footprint text items"
+msgstr "封裝文字專案"
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "封裝類型"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "封裝不能映象。請使用翻轉功能將其移動到電路板另一面。"
+
+#: pcbnew/menubar_pcb_editor.ts:173
+msgid "Footprints..."
+msgstr "封裝..."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "對於從設計區塊建立的每個新群組, 自動應用該圖塊儲存的封裝放置和佈線。"
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1191,6 +2851,14 @@ msgstr "對於高於 30kHz 的頻率，介電性能會下降。IEC60664-4 涵蓋
 msgid "Forgot password?"
 msgstr "忘記密碼？"
 
+#: gerbview/dialogs/panel_gerbview_excellon_settings.ts:102
+msgid "Format for inches:"
+msgstr "單位「英寸」的格式:"
+
+#: gerbview/dialogs/panel_gerbview_excellon_settings.ts:101
+msgid "Format for mm:"
+msgstr "單位「毫米」的格式:"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
 msgid "Format presets"
 msgstr "格式預設"
@@ -1198,6 +2866,30 @@ msgstr "格式預設"
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
 msgstr "頻率單位"
+
+#: pcbnew/pcb_track.ts:3085 pcbnew/pcb_track.ts:3091 pcbnew/pcb_track.ts:3097 pcbnew/pcb_track.ts:3103 pcbnew/pcb_track.ts:3109
+msgid "From board stackup"
+msgstr "來自電路板疊層"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:690
+msgid "Front Footprints"
+msgstr "頂部封裝"
+
+#: pcbnew/pcb_track.ts:3706
+msgid "Front Post-machining"
+msgstr "頂層後加工"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:204
+msgid "Front copper area:"
+msgstr "頂層銅箔面積:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:210
+msgid "Front footprint area:"
+msgstr "頂層封裝面積:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:212
+msgid "Front footprint density:"
+msgstr "頂層封裝密度:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
 msgid "Front prefix"
@@ -1207,9 +2899,29 @@ msgstr "正面前綴"
 msgid "Front reference start"
 msgstr "正面參考編號起始值"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: gerbview/rs274x.ts:212
+msgid "GERBER file '%s' may not display as intended."
+msgstr "GERBER 檔案 '%s' 可能無法按預期顯示。"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "間隙長度"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1219,6 +2931,10 @@ msgstr "一般存取權限"
 msgid "Generate map format"
 msgstr "產生對應格式"
 
+#: pcbnew/dialogs/dialog_export_2581.tsx:319
+msgid "Generate unique"
+msgstr "生成唯一值"
+
 #: designer/src/auth/SignIn.tsx:553
 msgid "Generating encryption keys..."
 msgstr "正在產生加密金鑰..."
@@ -1227,7 +2943,23 @@ msgstr "正在產生加密金鑰..."
 msgid "Generating your encryption keys"
 msgstr "正在產生您的加密金鑰"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: pcbnew/menubar_pcb_editor.ts:180 pcbnew/tools/pcb_actions.ts:1670
+msgid "Gerbers (.gbr)..."
+msgstr "Gerbers (.gbr)..."
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "%s 入門"
 
@@ -1243,25 +2975,105 @@ msgstr "全域防焊最小寬度和/或邊界未設為 0。"
 msgid "Global unit delay"
 msgstr "全域單位延遲"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:106
+msgid "Global unit delay:"
+msgstr "全域性單位時延:"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:474
+msgid "Go Back"
+msgstr "返回"
+
+#: eeschema/lib_symbol.ts:2355
+msgid "Graphic item differs: %s; %s."
+msgstr "'圖形專案' 不一致: %s; %s。"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:196
 msgid "Graphic style"
 msgstr "圖形樣式"
+
+#: common/tool/action_toolbar_controls.ts:45
+msgid "Grid selector"
+msgstr "柵格選擇器"
 
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "格線大小"
 
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:178
+msgid "Group Selected Pins"
+msgstr "從選中的接腳建立組"
+
+#: pcbnew/dialogs/dialog_import_netlist_base.tsx:122 pcbnew/dialogs/dialog_update_pcb_base.tsx:70
+msgid "Group footprints based on symbol group"
+msgstr "根據符號群組對封裝進行群組"
+
+#: eeschema/widgets/search_handlers.ts:465 pcbnew/dialogs/dialog_multichannel_generate_rule_areas.tsx:145 pcbnew/widgets/search_handlers.ts:420
+msgid "Groups"
+msgstr "群組"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "包含無法鏡像的封裝或其他項目的群組已被略過。"
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:287
+msgid "Hatch offset overrides:"
+msgstr "陰影偏移重寫:"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:377
+msgid "Hatched Fill"
+msgstr "柵格填充"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:220
+msgid "Hatched fill"
+msgstr "柵格填充"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
 msgstr "隱藏詳細資料"
+
+#: eeschema/sch_sheet.ts:1503
+msgid "Hierarchical Sheet '%s'"
+msgstr "層次圖紙 '%s'"
+
+#: eeschema/sch_sheet_pin.ts:423
+msgid "Hierarchical Sheet Pin '%s'"
+msgstr "層次圖紙接腳 '%s'"
 
 #: common/dialogs/cross_probing_group.tsx:57
 msgid "Highlight %s corresponding to selected %s"
 msgstr "醒目提示與所選 %s 對應的 %s"
 
+#: pcbnew/dialogs/dialog_drc.tsx:443
+msgid "Highlight corresponding items on canvas when selected in the DRC list"
+msgstr "在 DRC 列表中選中時, 在畫布上高亮顯示對應項"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table.tsx:1393
+msgid "Highlight corresponding pin on canvas when it is selected in the table"
+msgstr "在表格中選中接腳時, 在畫布上高亮對應接腳"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:144
+msgid "Highlight matching footprints"
+msgstr "高亮匹配的封裝"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:127
+msgid "Highlight net (for pads/tracks)"
+msgstr "高亮網路 (焊盤或走線)"
+
 #: common/dialogs/cross_probing_group.tsx:96
 msgid "Highlight nets when they are highlighted in the %s editor"
 msgstr "在 %s 編輯器中醒目提示網路時一併醒目提示"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1548
+msgid "Hole Post Machining"
+msgstr "孔後加工"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:798
+msgid "Hole Post-machining"
+msgstr "孔後加工"
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:878
 msgid "Hole shape"
@@ -1275,9 +3087,25 @@ msgstr "跳線尺寸"
 msgid "Horizontal Any"
 msgstr "水平任意角度"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "快捷鍵衝突"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "但此計算器未涵蓋某些情況："
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +3119,57 @@ msgstr "我記得我的密碼"
 msgid "I understand this deletes my account and all its data."
 msgstr "我了解這將刪除我的帳號及其所有資料。"
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: pcbnew/dialogs/dialog_export_2581.tsx:288
+msgid "IPC-2581 file generated successfully."
+msgstr "IPC-2581 檔案已經成功生成。"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:717
+msgid "Iadj (typ/max):"
+msgstr "Iadj (典型/最大):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "如果"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "勾選後, 板層將保留標準 KiCad 名稱, 而不會重新命名為匯入的板層名稱。"
+
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:147
+msgid "If checked, the barcode will be inverted with a margin around it"
+msgstr "如果勾選, 條形碼將反色顯示, 並在周圍留有一定邊距"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste_base.tsx:118
+msgid "If no specifications are provided, setting these values to zero is recommended."
+msgstr "如果未提供規範, 建議將這些值設定為零。"
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1306,6 +3178,10 @@ msgstr "如果瀏覽器封鎖了該資料夾（下載、桌面...），請改為
 #: designer/src/auth/SignIn.tsx:484
 msgid "If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again."
 msgstr "如果想起密碼了，請照常使用它登入，並從帳號選單儲存您的復原金鑰，這樣就不會再發生這種情況。"
+
+#: pcbnew/dialogs/dialog_drc.tsx:433
+msgid "If unchecked, only the first error will be reported for each track"
+msgstr "如果不勾選, 則每條走線僅報告第一個錯誤"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:72 designer/src/auth/RecoveryKeyDialog.tsx:48
 msgid "If you forget your password, the only way you can recover your data is with this key."
@@ -1319,9 +3195,21 @@ msgstr "如果您指定其中一個走線寬度，將計算它能承載的最大
 msgid "If you specify the maximum current, then the track widths will be calculated to suit."
 msgstr "如果您指定最大電流，將據此計算走線寬度。"
 
+#: pcbnew/pcb_edit_frame_ui.tsx:4633
+msgid "Ignore Unselected Pads"
+msgstr "忽略未連線的焊盤"
+
 #: eeschema/dialogs/dialog_erc_base.tsx:210 pcbnew/dialogs/dialog_drc_base.tsx:322
 msgid "Ignored tests"
 msgstr "已忽略的測試"
+
+#: gerbview/gerbview_frame.ts:787
+msgid "Image name: '%s'  Layer name: '%s'"
+msgstr "圖片名稱: '%s'  層名稱: '%s'"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:103
+msgid "Impedance control: "
+msgstr "阻抗控制: "
 
 #: eeschema/dialogs/dialog_import_symbol_select.tsx:603
 msgid "Import %s"
@@ -1331,6 +3219,26 @@ msgstr "匯入 %s"
 msgid "Import Layer Mapping"
 msgstr "匯入層對應"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "匯入非 KiCad 電路板檔案..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "匯入非 KiCad 原理圖..."
+
+#: designer/src/home/import_project.ts:96
+msgid "Import PADS Project Files"
+msgstr "匯入 PADS 專案檔案"
+
+#: eeschema/tools/sch_drawing_tools.ts:2854
+msgid "Import Schematic Sheet Content"
+msgstr "匯入原理圖圖紙內容"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:109
+msgid "Import Symbols from %s"
+msgstr "從 %s 匯入符號"
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "匯入向量圖形"
@@ -1339,13 +3247,53 @@ msgstr "匯入向量圖形"
 msgid "Import from"
 msgstr "匯入來源"
 
+#: designer/src/home/import_project.ts:103
+msgid "Import gEDA / Lepton EDA Project Files"
+msgstr "匯入 gEDA / Lepton EDA 專案檔案"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:246
+msgid "Import references"
+msgstr "匯入參考位號"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "匯入比例"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "匯入縮放比例必須為正數。"
+
+#: eeschema/symbol_editor/symbol_editor_import_export.ts:45
+msgid "Import symbol to library:"
+msgstr "匯入符號到庫中:"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "匯入了 %d 條長度調整規則。"
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "已匯入的封裝 '%s' 有相互衝突的放置定義; 保留第一個。"
+
+#: eeschema/sch_io/altium/sch_io_altium.ts:1566
+msgid "Importing %s"
+msgstr "匯入 %s"
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "非使用中的層 (H)："
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:127
+msgid "Include locked items"
+msgstr "包含鎖定封裝"
+
+#: eeschema/tools/sch_editor_control.ts:942
+msgid "Include power symbols in export"
+msgstr "將電源符號一同匯出"
+
+#: pcbnew/dialogs/dialog_shape_properties.tsx:590
+msgid "Included Angle"
+msgstr "夾角"
 
 #: external/wx/spin_ctrl.tsx:137
 msgid "Increase"
@@ -1354,6 +3302,18 @@ msgstr "增加"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "遞增量"
+
+#: common/dialogs/panel_toolbar_customization.tsx:382
+msgid "Insert Group"
+msgstr "插入組"
+
+#: common/dialogs/panel_toolbar_customization.tsx:523
+msgid "Insert Separator"
+msgstr "插入分隔符"
+
+#: common/dialogs/panel_toolbar_customization.tsx:381
+msgid "Insert Spacer"
+msgstr "插入間隔符"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1371,9 +3331,29 @@ msgstr "此符號的實例（"
 msgid "Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664"
 msgstr "透過液體、壓縮空氣或空氣以外的氣體進行的絕緣不在 IEC60664 的範圍內"
 
+#: pcbnew/tools/pcb_actions.ts:2984
+msgid "Interactive Offset Tool"
+msgstr "互動偏移工具"
+
+#: pcbnew/tools/pcb_actions.ts:2985
+msgid "Interactive tool for offsetting items by exact amounts"
+msgstr "用於按精確數值偏移專案的互動式工具"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:255
 msgid "Internal ID"
 msgstr "內部 ID"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:4646 pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.ts:2931
+msgid "Invalid library ID"
+msgstr "無效的庫標識"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:571
+msgid "Invalid symbol body style number %s"
+msgstr "%s 的圖形樣式數量無效"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:4552
+msgid "Invalid table: no cells defined"
+msgstr "無效的表: 未定義任何單元格"
 
 #: designer/src/home/ShareButton.tsx:247
 msgid "Invite"
@@ -1391,9 +3371,25 @@ msgstr "發行日期"
 msgid "It's missing a key feature that I need"
 msgstr "它缺少我需要的關鍵功能"
 
+#: pcbnew/tools/board_inspection_tool.ts:1618
+msgid "Items share no relevant layers.  No 'physical_clearance' constraints will be applied."
+msgstr "物件沒有分享相關的層， 'physical_clearance' 約束無法應用。"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:440
+msgid "Jumper groups:"
+msgstr "跳線組:"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
 msgid "Jumper pin groups"
 msgstr "跳線接腳群組"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:415
+msgid "Jumpers"
+msgstr "跳線"
+
+#: eeschema/net_navigator.ts:130
+msgid "Junction at (%s, %s)"
+msgstr "(%s, %s) 處的結點"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:467
 msgid "Junction color"
@@ -1407,6 +3403,26 @@ msgstr "接點圓點大小"
 msgid "Junction size"
 msgstr "接點大小"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "保留現有引用"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "保留 KiCad 板層名稱"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "兩者都保留"
@@ -1418,6 +3434,10 @@ msgstr "保留我的"
 #: pcbnew/dialogs/panel_fp_lib_table.tsx:281
 msgid "KiCad (folder) from Computer..."
 msgstr "KiCad（資料夾）從電腦..."
+
+#: common/libraries/library_manager.ts:209
+msgid "KiCad Default Libraries"
+msgstr "KiCad 預設庫"
 
 #: common/remote_provider_schemas.ts:18
 msgid "KiCad Remote Provider Metadata v1"
@@ -1439,6 +3459,18 @@ msgstr "KiCad 網表檔案 (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "KiCad 插件是原生 Python 指令碼。在瀏覽器中它們需要沙箱化的網頁執行環境，這是另一項獨立的工作。"
 
+#: gerbview/dialogs/dialog_map_gerber_layers_to_pcb.ts:407
+msgid "Layer %d:"
+msgstr "層 %d:"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:1325
+msgid "Layer '%s' could not be mapped and will be skipped."
+msgstr "無法對映板層 '%s', 將跳過該板層。"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:176
+msgid "Layer Default"
+msgstr "層預設值"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "層預設值"
@@ -1446,6 +3478,10 @@ msgstr "層預設值"
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
 msgid "Layer filter"
 msgstr "層篩選"
+
+#: pcb_calculator/galvanic_corrosion.ts:43
+msgid "Lead-free Solder"
+msgstr "無鉛焊料"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
 msgid "Leader layer"
@@ -1467,9 +3503,33 @@ msgstr "左鍵點擊（及拖曳）的動作取決於 2 個修飾鍵："
 msgid "Left margin"
 msgstr "左邊界"
 
+#: pcbnew/dialogs/dialog_copper_zones.tsx:207
+msgid "Legacy Teardrop Properties"
+msgstr "舊版淚滴屬性"
+
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "長度調整設定"
+
+#: pcbnew/microwave/microwave_inductor.ts:273
+msgid "Length of track:"
+msgstr "走線長度:"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "元件庫與色彩主題現已可安裝並使用。"
+
+#: common/libraries/library_manager.ts:862
+msgid "Library %s not found"
+msgstr "找不到庫 %s"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.ts:129
+msgid ""
+"Library '%s' loaded with errors:\n"
+"\n"
+msgstr ""
+"載入庫 '%s' 時出錯:\n"
+"\n"
 
 #: pcbnew/dialogs/dialog_footprint_associations_base.tsx:55
 msgid "Library association"
@@ -1483,17 +3543,41 @@ msgstr "元件庫 ID"
 msgid "Library link"
 msgstr "元件庫連結"
 
+#: common/lib_table_grid_tricks.ts:461
+msgid "Library must have a nickname."
+msgstr "庫必須要有一個名稱。"
+
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "元件庫名稱："
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "庫表 '%s' 為只讀"
+
+#: eeschema/symbol_editor/symbol_editor.ts:355
+msgid "Library:"
+msgstr "庫:"
+
+#: pcbnew/tools/pcb_actions.ts:1970 pcbnew/tools/pcb_actions.ts:1981 pcbnew/tools/pcb_actions.ts:1992 pcbnew/tools/pcb_actions.ts:2006
+msgid "Line Modes"
+msgstr "繪線模式"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
 msgstr "線條顏色"
 
+#: eeschema/toolbars_sch_editor.ts:119 pcbnew/toolbars_footprint_editor.ts:113 pcbnew/toolbars_pcb_editor.ts:182
+msgid "Line modes"
+msgstr "繪線模式"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:427 pcbnew/dialogs/dialog_shape_properties_base.tsx:225
 msgid "Line style"
 msgstr "線條樣式"
+
+#: pcbnew/dialogs/dialog_outset_items.tsx:152
+msgid "Line width must be a positive value."
+msgstr "線寬必須為正數。"
 
 #: eeschema/dialogs/dialog_text_properties_base.tsx:401
 msgid "Link"
@@ -1507,9 +3591,29 @@ msgstr "連結已複製"
 msgid "Load"
 msgstr "載入"
 
+#: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1263
+msgid "Load Files"
+msgstr "載入檔案"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1760 pcbnew/pcb_edit_frame_ui.tsx:8014
+msgid "Load Footprint Libraries"
+msgstr "載入封裝庫"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:8017
+msgid "Load PCB"
+msgstr "載入 PCB"
+
+#: eeschema/sch_edit_frame_ui.tsx:5615 eeschema/sch_edit_frame_ui.tsx:7032
+msgid "Load Schematic"
+msgstr "載入原理圖"
+
 #: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1587
 msgid "Load Symbol Libraries"
 msgstr "載入符號庫"
+
+#: designer/src/libraryPreload.ts:91
+msgid "Loading Footprint Libraries"
+msgstr "正在載入封裝庫"
 
 #: pcbnew/footprint_edit_frame_ui.tsx:1397 pcbnew/footprint_viewer_frame_ui.tsx:773 pcbnew/pcb_edit_frame_ui.tsx:8015 cvpcb/cvpcb_mainframe_ui.tsx:1548 cvpcb/cvpcb_mainframe_ui.tsx:1622
 msgid "Loading footprint libraries..."
@@ -1523,13 +3627,105 @@ msgstr "正在載入符號庫..."
 msgid "Loading the %s..."
 msgstr "正在載入 %s..."
 
+#: designer/src/home/LocalHistoryPane.tsx:111 designer/src/home/menubar.ts:230
+msgid "Local History"
+msgstr "本地歷史記錄"
+
 #: eeschema/erc/erc_settings.ts:217
 msgid "Local and global power symbols have same name"
 msgstr "本地與全域電源符號同名"
 
+#: pcbnew/drc/drc_engine.ts:1319
+msgid "Local override on %s; solder mask expansion: %s."
+msgstr "%s 上的區域性重寫; 阻焊擴充套件: %s。"
+
+#: pcbnew/drc/drc_engine.ts:1347
+msgid "Local override on %s; solder paste absolute clearance: %s."
+msgstr "%s 上的區域性重寫; 錫膏絕對間距: %s。"
+
+#: pcbnew/drc/drc_engine.ts:1375
+msgid "Local override on %s; solder paste relative clearance: %s."
+msgstr "%s 上的區域性重寫; 錫膏相對間距: %s。"
+
+#: eeschema/tools/sch_actions.ts:1124
+msgid "Locate the selected net in the net navigator"
+msgstr "在網路導航中定位選定的網路"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:237
+msgid "Locked footprints cannot be freely moved or oriented on the canvas and can only be selected when the 'Locked items' checkbox is checked in the selection filter."
+msgstr "鎖定的封裝無法在畫布上自由移動或調整方向, 只有在選擇篩選器中勾選 '已鎖定專案' 時才能選擇。"
+
+#: pcbnew/dialogs/dialog_global_deletion_base.tsx:137
+msgid "Locked vias"
+msgstr "鎖定貫孔"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:418 pcbnew/dialogs/panel_edit_options_base.tsx:441
+msgid "Long Click:"
+msgstr "長按:"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:90 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:140
+msgid "Loss Tan"
+msgstr "損耗角正切"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:66
+msgid "Loss Tan:"
+msgstr "損耗角正切:"
+
+#: pcbnew/board_tables/board_stackup_table.ts:76
+msgid "Loss Tangent"
+msgstr "損耗角正切"
+
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "下移"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
+#: designer/src/dialogs/prefs/registry.ts:129 designer/src/dialogs/prefs/registry.ts:253
+msgid "Maintenance"
+msgstr "維護"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:82
+msgid "Manage Data Sources..."
+msgstr "管理資料來源..."
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "製造商 P/N"
+
+#: pcbnew/pcb_barcode.ts:1184
+msgid "Margin X"
+msgstr "X 邊距"
+
+#: pcbnew/pcb_barcode.ts:1198
+msgid "Margin Y"
+msgstr "Y 邊距"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:154
+msgid "Match all"
+msgstr "匹配全部"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:162
+msgid "Match any"
+msgstr "匹配任意"
 
 #: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
 msgid "Maximum allowed deviation"
@@ -1547,9 +3743,65 @@ msgstr "最大走線寬度"
 msgid "Maximum width"
 msgstr "最大寬度"
 
+#: eeschema/dialogs/panel_setup_buses.tsx:338
+msgid "Members of '%s'"
+msgstr "'%s' 的成員"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "微型 QR 碼"
+
+#: pcbnew/pcb_track.ts:2241
+msgid "Micro via %s on %s"
+msgstr "%2$s 上的微孔 %1$s"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:153
+msgid "Microvias"
+msgstr "微孔"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "中鍵拖曳"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "遷移 3D 模型"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "遷移 3D 模型..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "遷移 3D 模型引用"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:208
+msgid "Min drill diameter:"
+msgstr "最小孔徑:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:403
+msgid "Min margin X:"
+msgstr "最小邊距 X:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:410
+msgid "Min margin Y:"
+msgstr "最小邊距 Y:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:206
+msgid "Min track clearance:"
+msgstr "最小走線間距:"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:207
+msgid "Min track width:"
+msgstr "最小走線寬度:"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:228
+msgid "Minimum clearance between two items on the same silkscreen layer. If set this can improve legibility.  (Note: does not apply to multiple shapes within a single footprint.)"
+msgstr "同一絲印層上兩個不同絲印的最小間距。設定此值可以提高絲印可讀性。(注: 不適用於單個封裝中的多個形狀)"
+
+#: pcbnew/dialogs/panel_setup_constraints.tsx:163 pcbnew/dialogs/panel_setup_constraints_base.tsx:175
+msgid "Minimum drill size:"
+msgstr "最小鑽孔孔徑:"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +3810,50 @@ msgstr "最小寬度"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "缺少的 3D 模型參照"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "缺失的 3D 模型引用:"
+
+#: eeschema/lib_symbol.ts:2460
+msgid "Missing field in schematic symbol: %s."
+msgstr "原理圖符號缺失的欄位: %s。"
+
+#: pcbnew/pcbexpr_functions.ts:1218
+msgid "Missing netclass name argument to hasExactNetclass()"
+msgstr "hasExactNetclass() 缺少網路類名稱引數"
+
+#: eeschema/lib_symbol.ts:2399
+msgid "Missing pin in schematic symbol: %s."
+msgstr "原理圖符號中缺失的接腳: %s。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:3517
+msgid "Missing sheet file property"
+msgstr "圖紙缺少檔名屬性"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:3514
+msgid "Missing sheet name property"
+msgstr "圖紙缺少名稱屬性"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:205
+msgid "Missing symbol field '%s' in footprint"
+msgstr "原理圖中缺少符號欄位 '%s'"
+
+#: pcbnew/drc/drc_item.ts:554
+msgid "Missing tuning profile"
+msgstr "缺失的調整配置"
+
+#: pcbnew/drc/drc_rule_parser.ts:410
+msgid "Mixed units for constraint values."
+msgstr "約束值的單位混用。"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:266
+msgid "Modify barcode"
+msgstr "修改條碼"
+
+#: common/local_history.ts:144
+msgid "Moments ago"
+msgstr "片刻之前"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1574,6 +3870,18 @@ msgstr "格線下移"
 #: common/dialogs/panel_grid_settings.tsx:498
 msgid "Move grid up"
 msgstr "格線上移"
+
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "移至底部"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "移至頂部"
+
+#: pcbnew/tools/pcb_actions.ts:860
+msgid "Move with Reference..."
+msgstr "按參考點移動..."
 
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
@@ -1599,6 +3907,10 @@ msgstr "網路篩選"
 msgid "Net name"
 msgstr "網路名稱"
 
+#: eeschema/dialogs/panel_setup_buses.tsx:74
+msgid "Net or Nested Bus Name"
+msgstr "網路或巢狀匯流排名稱"
+
 #: common/dialogs/panel_setup_netclasses.tsx:522
 msgid "Netclass assignments"
 msgstr "網路類別指派"
@@ -1606,6 +3918,18 @@ msgstr "網路類別指派"
 #: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
 msgid "Netlist file"
 msgstr "網表檔案"
+
+#: common/tool/design_block_control.ts:104
+msgid "New Design Block Library"
+msgstr "新建設計區塊庫"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1559
+msgid "New Footprint Library"
+msgstr "新建封裝庫"
+
+#: eeschema/symbol_editor/symbol_edit_frame.ts:554
+msgid "New Symbol Library"
+msgstr "新建符號庫"
 
 #: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
 msgid "New footprint library id"
@@ -1627,9 +3951,45 @@ msgstr "下一頁"
 msgid "No %s match your search."
 msgstr "沒有與您的搜尋相符的%s。"
 
+#: pcbnew/tools/board_inspection_tool.ts:1600
+msgid "No 'physical_clearance' constraints in effect on %s."
+msgstr "%s 上沒有起作用的 'physical_clearance' 約束。"
+
+#: pcbnew/padstack.ts:64
+msgid "No backdrill"
+msgstr "無背鑽"
+
+#: common/tool/edit_table_tool_base.ts:611
+msgid "No cells selected"
+msgstr "未選擇單元格"
+
+#: pcbnew/connectivity/topo_match.ts:495
+msgid "No compatible component found in the target area."
+msgstr "目標區域中未找到相容的元件。"
+
+#: eeschema/tools/sch_editor_control.ts:561
+msgid "No connected net selected."
+msgstr "未選擇任何已連線網路。"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:239
+msgid "No corresponding pin found in schematic"
+msgstr "在原理圖中未找到對應的接腳"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:77
+msgid "No data sources are currently installed."
+msgstr "目前未安裝任何資料來源。"
+
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "沒有可編輯的設計變體。"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "未載入封裝庫。"
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "未選擇任何連結到設計區塊的群組。"
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1647,6 +4007,14 @@ msgstr "沒有符合「"
 msgid "No matches"
 msgstr "沒有與您的搜尋相符的已安裝套件。"
 
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "未找到匹配項。"
+
+#: eeschema/tools/sch_editor_control.ts:402
+msgid "No nets selected."
+msgstr "未選擇任何網路。"
+
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
 msgstr "記憶體中沒有開啟的專案，因此沒有遺失任何內容。重新載入即可返回。"
@@ -1654,6 +4022,10 @@ msgstr "記憶體中沒有開啟的專案，因此沒有遺失任何內容。重
 #: designer/src/pcm/PluginManagerDialog.tsx:365
 msgid "No packages installed yet."
 msgstr "尚未安裝套件。"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:284
+msgid "No pad found for pin %s in schematic"
+msgstr "未找到原理圖中接腳 %s 對應的焊盤"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:333
 msgid "No pending changes. Queue installs or removals, then apply."
@@ -1667,9 +4039,33 @@ msgstr "找不到此目標阻抗的物理解。"
 msgid "No recovery key?"
 msgstr "沒有復原金鑰？"
 
+#: eeschema/remote_symbol_import_utils.ts:238
+msgid "No schematic editor is available for placement."
+msgstr "沒有可用於放置的原理圖編輯器。"
+
+#: eeschema/remote_symbol_import_job.ts:342
+msgid "No symbol asset was available to place."
+msgstr "沒有可供放置的符號資源。"
+
+#: eeschema/tools/symbol_editor_control.ts:586
+msgid "No symbol to flatten"
+msgstr "沒有可展平的符號"
+
 #: cvpcb/cvpcb_mainframe_ui.tsx:1591
 msgid "No symbols, place and annotate symbols first."
 msgstr "沒有符號，請先放置並標註符號。"
+
+#: pcbnew/pcb_track.ts:1493
+msgid "No via diameter defined."
+msgstr "未定義貫孔直徑。"
+
+#: eeschema/net_navigator.ts:138
+msgid "No-Connect at (%s, %s)"
+msgstr "(%s, %s) 處的無連線標誌"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:3804
+msgid "Non-copper pad %s uses an unknown pad shape."
+msgstr "非銅焊盤 %s 使用了未知的焊盤形狀。"
 
 #: designer/src/home/HomePage.tsx:728
 msgid "None of the files chosen is of the type %s."
@@ -1679,9 +4075,17 @@ msgstr "所選檔案皆不屬於 %s 類型。"
 msgid "Not a .kicad_sch file: %s"
 msgstr "不是 .kicad_sch 檔案：%s"
 
+#: pcbnew/padstack.ts:54
+msgid "Not post-machined"
+msgstr "未後加工"
+
 #: designer/src/home/HomePage.tsx:2699
 msgid "Nothing has been changed or copied."
 msgstr "未變更或複製任何內容。"
+
+#: eeschema/lib_symbol.ts:3231
+msgid "Number of Symbol Units"
+msgstr "符號單元數量"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
 msgid "Number of units"
@@ -1699,9 +4103,25 @@ msgstr "編號文字大小"
 msgid "Numbering step"
 msgstr "編號步進"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
+
+#: pcbnew/dialogs/dialog_offset_item.tsx:29
+msgid "Offset Item"
+msgstr "偏移專案"
 
 #: designer/src/mobile/DesktopGate.tsx:76
 msgid "On a tablet? Rotate to landscape, or connect a mouse."
@@ -1711,9 +4131,21 @@ msgstr "在平板電腦上？請旋轉為橫向，或連接滑鼠。"
 msgid "Only people invited"
 msgstr "僅受邀人員"
 
+#: pcbnew/tools/pcb_actions.ts:2125
+msgid "Open DRC rule editor window"
+msgstr "開啟 DRC 規則編輯器視窗"
+
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "開啟示範專案"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "開啟外部檔案..."
+
+#: common/lib_table_grid_tricks.ts:142
+msgid "Open Library Table"
+msgstr "開啟庫表"
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1727,13 +4159,29 @@ msgstr "從 GitHub 開啟專案..."
 msgid "Open Text Viewer"
 msgstr "開啟文字檢視器"
 
+#: pcbnew/dialogs/dialog_copper_zones_base.tsx:92
+msgid "Open Zone Manager..."
+msgstr "開啟填充區管理器..."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1059
 msgid "Open a project to add a footprint library to."
 msgstr "請先開啟專案，再為其新增封裝庫。"
 
+#: pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:583 pcbnew/pcb_io/kicad_legacy/pcb_io_kicad_legacy.ts:711
+msgid "Open canceled by user."
+msgstr "使用者取消了開啟操作。"
+
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "從電腦開啟..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "開啟 <電路板配置> 對話方塊"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "開啟 <原理圖配置> 對話方塊"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1751,9 +4199,25 @@ msgstr "正在開啟專案..."
 msgid "Opening the shared project..."
 msgstr "正在開啟共享專案..."
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "選項:"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
 msgstr "若元件供貨有問題，還可以另外最多排除兩個值。"
+
+#: common/tool/action_toolbar_controls.ts:97
+msgid "Origin selector"
+msgstr "原點選擇器"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:169
+msgid "Other footprint fields"
+msgstr "其他封裝欄位"
+
+#: pcbnew/zone.ts:629
+msgid "Outline Area"
+msgstr "外框面積"
 
 #: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
 msgid "Outline display"
@@ -1787,6 +4251,74 @@ msgstr "輸出路徑"
 msgid "Outset"
 msgstr "外擴"
 
+#: common/tool/action_toolbar_controls.ts:60 pcbnew/dialogs/dialog_update_pcb_base.tsx:95 pcbnew/pcb_edit_frame_ui.tsx:7191
+msgid "Override locks"
+msgstr "忽略鎖定設定"
+
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:303
+msgid "PADS Logic library files"
+msgstr "PADS Logic 庫檔案"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:299
+msgid "PADS Logic schematic files"
+msgstr "PADS Logic 原理圖檔案"
+
+#: designer/src/home/import_project.ts:95
+msgid "PADS Project..."
+msgstr "PADS 專案..."
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: pcbnew/pcb_point.ts:246
+msgid "PCB Point"
+msgstr "PCB 點"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:857
+msgid "PCB annotation changes should be synchronized with schematic using \"Update Schematic from PCB\"."
+msgstr "應使用 \"從 PCB 更新原理圖\" 將 PCB 批註更改同步到原理圖。"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:177
+msgid "PCB dimensions"
+msgstr "PCB標註"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:822
+msgid "PCB has %d empty or invalid reference designations."
+msgstr "PCB 中存在 %d 個空的或無效的參考位號。"
+
+#: pcbnew/toolbars_pcb_editor.ts:352
+msgid "PCB origins and points"
+msgstr "PCB 原點與參考點"
+
+#: pcbnew/pcb_textbox.ts:773
+msgid "PCB text box '%s' on %s"
+msgstr "%2$s 上的 PCB 文字框 '%1$s'"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF 輸出模式"
@@ -1795,6 +4327,18 @@ msgstr "PDF 輸出模式"
 msgid "PNG Options"
 msgstr "PNG 選項"
 
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
+
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
 msgstr "跳線焊墊群組 %2$s 中的焊墊「%1$s」在此封裝中不存在。"
@@ -1802,6 +4346,22 @@ msgstr "跳線焊墊群組 %2$s 中的焊墊「%1$s」在此封裝中不存在�
 #: pcbnew/dialogs/dialog_create_array_base.tsx:528
 msgid "Pad Numbering"
 msgstr "焊墊編號"
+
+#: pcbnew/tools/pcb_control.ts:1681
+msgid "Pad Size"
+msgstr "焊盤尺寸"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:88
+msgid "Pad Table"
+msgstr "焊盤表"
+
+#: pcbnew/menubar_footprint_editor.ts:259 pcbnew/tools/pcb_actions.ts:1283
+msgid "Pad Table..."
+msgstr "焊盤表..."
+
+#: pcbnew/pad.ts:4587
+msgid "Pad To Die Delay"
+msgstr "焊盤到 Die 延遲"
 
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:355
 msgid "Pad clearance"
@@ -1823,13 +4383,29 @@ msgstr "焊墊與鋪銅區的連接"
 msgid "Pad connections"
 msgstr "焊墊連接"
 
+#: pcbnew/dialogs/dialog_fp_edit_pad_table_base.tsx:67
+msgid "Pad count:"
+msgstr "焊盤數量:"
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:246
+msgid "Pad missing net given by schematic (%s)"
+msgstr "焊盤缺少原理圖 (%s) 指定的網路"
+
 #: pcbnew/dialogs/dialog_enum_pads_base.tsx:63
 msgid "Pad name prefix"
 msgstr "焊墊名稱前綴"
 
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:258
+msgid "Pad net (%s) doesn't match net given by schematic (%s)"
+msgstr "焊盤網路 (%s) 與原理圖 (%s) 指定的網路不匹配"
+
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:502
 msgid "Pad number"
 msgstr "焊墊編號"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table_base.tsx:56
+msgid "Pad numbers:"
+msgstr "焊盤編號:"
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:978
 msgid "Pad to die delay"
@@ -1843,6 +4419,14 @@ msgstr "焊墊到晶片長度"
 msgid "Pad type"
 msgstr "焊墊類型"
 
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:102
+msgid "Pad->Die Delay"
+msgstr "Pad->Die 延遲"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:101
+msgid "Pad->Die Length"
+msgstr "Pad->Die 長度"
+
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:564 pcbnew/dialogs/dialog_track_via_properties_base.tsx:544
 msgid "Padstack mode"
 msgstr "焊墊堆疊模式"
@@ -1851,6 +4435,14 @@ msgstr "焊墊堆疊模式"
 msgid "Page number"
 msgstr "頁碼"
 
+#: common/tool/action_toolbar_controls.ts:102
+msgid "Page selector"
+msgstr "頁面選擇器"
+
+#: common/dialogs/panel_spacemouse.tsx:75
+msgid "Pan and Rotate"
+msgstr "平移和旋轉"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "按住按鍵並移動滑鼠以平移"
@@ -1858,6 +4450,10 @@ msgstr "按住按鍵並移動滑鼠以平移"
 #: common/dialogs/panel_spacemouse.tsx:115
 msgid "Pan speed"
 msgstr "平移速度"
+
+#: common/dialogs/panel_spacemouse.tsx:109
+msgid "Pan speed:"
+msgstr "平移速度:"
 
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:256
 msgid "Parent footprint library link"
@@ -1887,9 +4483,17 @@ msgstr "密碼強度：弱"
 msgid "Passwords don't match"
 msgstr "兩次輸入的密碼不一致"
 
+#: eeschema/tools/sch_editor_control.ts:1406
+msgid "Paste Cells"
+msgstr "貼上單元格"
+
 #: designer/src/auth/SignIn.tsx:519
 msgid "Paste your 24-word recovery key"
 msgstr "貼上您的 24 字復原金鑰"
+
+#: eeschema/tools/sch_editor_control.ts:1360 pcbnew/tools/pcb_control.ts:686
+msgid "Pasting a long text text string may be very slow.  Do you want to continue?"
+msgstr "貼上長文字字串可能會引起卡頓。是否繼續?"
 
 #: designer/src/home/ShareButton.tsx:251
 msgid "People with access"
@@ -1903,6 +4507,14 @@ msgstr "選擇日期"
 msgid "Pick date"
 msgstr "選擇日期"
 
+#: eeschema/lib_symbol.ts:2382
+msgid "Pin %s differs: %s; %s"
+msgstr "'接腳 '%s' 不一致: %s; %s"
+
+#: eeschema/erc/erc.ts:1457
+msgid "Pin %s on symbol '%s' is connected to different nets: %s and %s"
+msgstr "接腳 %s 在符號 '%s' 上連線到不同的網路: %s 和 %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
 msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
 msgstr "跳線接腳群組 %2$s 中的接腳「%1$s」在此符號中不存在。"
@@ -1910,6 +4522,14 @@ msgstr "跳線接腳群組 %2$s 中的接腳「%1$s」在此符號中不存在�
 #: designer/src/pcm/PluginManagerDialog.tsx:229
 msgid "Pin (hold back updates)"
 msgstr "固定（暫停更新）"
+
+#: eeschema/lib_symbol.ts:3161
+msgid "Pin Display"
+msgstr "接腳顯示"
+
+#: eeschema/lib_symbol.ts:3190
+msgid "Pin Name Position Offset"
+msgstr "接腳名稱位置偏移"
 
 #: eeschema/dialogs/dialog_symbol_properties.tsx:938
 msgid "Pin functions"
@@ -1939,13 +4559,61 @@ msgstr "接腳編號"
 msgid "Pinned"
 msgstr "已固定"
 
+#: pcbnew/tools/pcb_control.ts:518
+msgid "Place Board Characteristics"
+msgstr "放置電路板特性表"
+
+#: pcbnew/tools/pcb_control.ts:533
+msgid "Place Board Stackup Table"
+msgstr "放置電路板疊層表"
+
+#: eeschema/tools/sch_actions.ts:631 pcbnew/tools/pcb_actions.ts:691
+msgid "Place Linked Design Block"
+msgstr "放置連結的設計區塊"
+
+#: eeschema/lib_symbol.ts:3184
+msgid "Place Pin Names Inside"
+msgstr "將接腳名稱放在符號內部"
+
+#: common/tool/action_toolbar_actions.ts:184 eeschema/menubar.ts:260 eeschema/sch_edit_frame_ui.tsx:556 eeschema/tools/sch_actions.ts:759
+msgid "Place Pins from Sheet"
+msgstr "從圖紙放置接腳"
+
+#: pcbnew/menubar_footprint_editor.ts:350 pcbnew/menubar_pcb_editor.ts:620 pcbnew/pcb_edit_frame_ui.tsx:744 pcbnew/toolbars_footprint_editor.ts:244 pcbnew/tools/pcb_actions.ts:344
+msgid "Place Point"
+msgstr "放置點"
+
+#: eeschema/tools/sch_actions.ts:632 pcbnew/tools/pcb_actions.ts:692
+msgid "Place design block linked to selected group"
+msgstr "放置連結到所選組合的設計區塊"
+
+#: pcbnew/dialogs/panel_rule_area_properties_placement_base.tsx:82
+msgid "Place items in group:"
+msgstr "將專案作為組合放置:"
+
+#: pcbnew/tools/drawing_tool.ts:984
+msgid "Place point"
+msgstr "放置點"
+
 #: eeschema/tools/mutate.ts:340
 msgid "Place symbol"
 msgstr "放置符號"
 
+#: eeschema/tools/sch_edit_tool.ts:195
+msgid "Place unit %s"
+msgstr "放置單元 %s"
+
 #: designer/src/editors/schematic/hotkeys.ts:365
 msgid "Place/Remove No Connect Flags"
 msgstr "放置/移除未連接標記"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Plain text"
+msgstr "純文字"
+
+#: pcbnew/board_tables/board_characteristics_table.ts:114
+msgid "Plated board edge: "
+msgstr "電鍍板邊: "
 
 #: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
 msgid "Please choose a stronger password."
@@ -1963,6 +4631,10 @@ msgstr "繪圖格式"
 msgid "Plugin options"
 msgstr "插件選項"
 
+#: common/eda_item.ts:918
+msgid "Point"
+msgstr "點"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "位置模式"
@@ -1971,9 +4643,25 @@ msgstr "位置模式"
 msgid "Position offset"
 msgstr "位置偏移"
 
+#: pcbnew/pcb_track.ts:3451
+msgid "Post-machining"
+msgstr "後加工"
+
+#: pcbnew/pad.ts:4075
+msgid "Post-machining Properties"
+msgstr "後加工屬性"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "可能的替代項"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "可能的替代項:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +4670,34 @@ msgstr "預先定義的走線寬度"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "預先定義的導通孔尺寸"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "預浸料 (PrePreg)"
+
+#: eeschema/tools/sch_move_tool.ts:943
+msgid "Press <ESC> to cancel break."
+msgstr "按下 <ESC> 取消拆分操作。"
+
+#: eeschema/tools/sch_move_tool.ts:946
+msgid "Press <ESC> to cancel slice."
+msgstr "按下 <ESC> 取消切割操作。"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "壓接"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:281 pcbnew/dialogs/dialog_pad_properties_base.tsx:1085
+msgid "Press-fit (round TH only)"
+msgstr "壓接焊盤 (僅圓形通孔)"
+
+#: pcbnew/pad.ts:3997
+msgid "Press-fit pad"
+msgstr "壓接焊盤"
+
+#: pcbnew/board_statistics_report.ts:200
+msgid "Press-fit:"
+msgstr "壓接:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +4723,25 @@ msgstr "專案"
 msgid "Protection features"
 msgstr "保護功能"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "標準 QR 碼 (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "加入安裝佇列"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "上移"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2023,6 +4755,14 @@ msgstr "範圍（電壓）"
 msgid "Ratsnest line thickness"
 msgstr "飛線粗細"
 
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "已將 %d 個已匯入的封裝指派重新連結到庫 '%s'。"
+
+#: eeschema/tools/sch_find_replace_tool.ts:969
+msgid "Reached end of symbol."
+msgstr "已到達符號末尾。"
+
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
 msgstr "正在讀取檔案..."
@@ -2030,6 +4770,10 @@ msgstr "正在讀取檔案..."
 #: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
 msgid "Reason for leaving"
 msgstr "離開原因"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:257
+msgid "Recent project templates"
+msgstr "最近使用的專案模板"
 
 #: common/widgets/lib_tree.tsx:1074
 msgid "Recent searches"
@@ -2051,13 +4795,49 @@ msgstr "復原金鑰"
 msgid "Redraw speed"
 msgstr "重繪速度"
 
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:708
+msgid "Reference Designator Prefixes in Use"
+msgstr "正在使用的位號字首"
+
+#: pcbnew/tools/multichannel_tool.ts:1606
+msgid ""
+"Reference area components:\n"
+"%s"
+msgstr ""
+"參考區域元件: \n"
+"%s"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "參考編號篩選"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:203
+msgid "Reference layer must be different to signal layer"
+msgstr "參考層必須不同於訊號層"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:198
+msgid "Reference layer not found in stackup"
+msgstr "在疊層中未找到參考層"
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:69
+msgid "Reference rule area:"
+msgstr "參考規則域:"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "正在重新覆銅重疊的區域..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "重新整理預覽"
+
+#: eeschema/net_navigator.ts:640
+msgid "Regex Search"
+msgstr "正則搜尋"
+
+#: eeschema/dialogs/dialog_annotate_base.tsx:197
+msgid "Regroup symbol units"
+msgstr "重組符號單元"
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
 msgid "Regroup symbols"
@@ -2075,13 +4855,37 @@ msgstr "立即重新載入"
 msgid "Reload without saving"
 msgstr "不儲存並重新載入"
 
+#: eeschema/menubar.ts:209 eeschema/tools/sch_actions.ts:173
+msgid "Remote Symbols"
+msgstr "遠端符號"
+
+#: eeschema/remote_symbol_import_utils.ts:207
+msgid "Remote download"
+msgstr "遠端下載"
+
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
 msgstr "移除 %s"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:901
+msgid "Remove %s from group '%s'."
+msgstr "將 %s 從群組 '%s' 中移除。"
+
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:85
 msgid "Remove 3D model"
 msgstr "移除 3D 模型"
+
+#: eeschema/sch_edit_frame.ts:1228
+msgid "Remove Design Variant"
+msgstr "移除設計變體"
+
+#: eeschema/menubar.ts:336 eeschema/tools/sch_actions.ts:2230
+msgid "Remove Design Variant..."
+msgstr "移除設計變體..."
+
+#: eeschema/tools/sch_actions.ts:2231
+msgid "Remove an existing design variant from the schematic."
+msgstr "從原理圖中移除現有設計變體。"
 
 #: common/dialogs/panel_setup_netclasses.tsx:535
 msgid "Remove assignment"
@@ -2091,6 +4895,10 @@ msgstr "移除指派"
 msgid "Remove damaged"
 msgstr "移除已損毀項目"
 
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:102
+msgid "Remove footprint fields not found in symbols"
+msgstr "移除無法在符號中找到的封裝欄位"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:194
 msgid "Remove from pending"
 msgstr "從待處理中移除"
@@ -2098,6 +4906,10 @@ msgstr "從待處理中移除"
 #: common/dialogs/panel_grid_settings.tsx:519
 msgid "Remove grid"
 msgstr "移除格線"
+
+#: eeschema/tools/sch_actions.ts:369
+msgid "Remove inheritance from symbol"
+msgstr "從符號中移除繼承關係"
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:428
 msgid "Remove islands"
@@ -2110,6 +4922,10 @@ msgstr "移除成員"
 #: common/dialogs/panel_setup_netclasses.tsx:491
 msgid "Remove netclass"
 msgstr "移除網路類別"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:220
+msgid "Remove text items if not in library footprint"
+msgstr "移除在來源庫封裝中不存在的文字專案"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:449
 msgid "Remove this repository"
@@ -2127,13 +4943,37 @@ msgstr "移除調校設定檔"
 msgid "Remove via delay override"
 msgstr "移除導通孔延遲覆寫"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:907
+msgid "Removed %s from group '%s'."
+msgstr "已將 %s 從群組 '%s' 中移除。"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:211
 msgid "Rename variant"
 msgstr "重新命名變體"
 
+#: pcbnew/dialogs/dialog_create_array_base.tsx:295
+msgid "Renumber pads"
+msgstr "為焊盤重新編號"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "替換模型"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:82
+msgid "Replace footprints with those specified by symbols"
+msgstr "用符號指定的封裝替換原有封裝"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "將過時的 WRL 3D 模型引用替換為目前 STEP 模型"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "取代為"
+
+#: pcbnew/dialogs/dialog_drc.tsx:432
+msgid "Report All Errors for Each Track"
+msgstr "為每條走線報告全部錯誤"
 
 #: common/dialog_about/dialog_about.tsx:197
 msgid "Report a problem with %s"
@@ -2142,6 +4982,10 @@ msgstr "回報 %s 的問題"
 #: designer/src/pcm/PluginManagerDialog.tsx:418
 msgid "Repository:"
 msgstr "儲存庫："
+
+#: eeschema/tools/sch_drawing_tools.ts:745 eeschema/tools/symbol_unit.ts:132
+msgid "Requested unit already placed."
+msgstr "所請求的單元已放置。"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Requires a runtime not yet available in the browser"
@@ -2155,21 +4999,81 @@ msgstr "需要應用程式版本 ≥"
 msgid "Resend code"
 msgstr "重新寄送驗證碼"
 
+#: common/dialogs/panel_maintenance.tsx:135
+msgid "Reset All Dialogs to Defaults"
+msgstr "重置所有對話方塊為預設值"
+
+#: common/dialogs/panel_maintenance.tsx:150
+msgid "Reset All Program Settings to Defaults"
+msgstr "重置所有程式設定為預設值"
+
+#: eeschema/dialogs/dialog_change_symbols.tsx:723 eeschema/dialogs/dialog_change_symbols.tsx:724
+msgid "Reset alternate pin functions"
+msgstr "重置接腳複用為預設值"
+
 #: common/widgets/paged_dialog.tsx:265
 msgid "Reset this page to defaults"
 msgstr "將此頁面重設為預設值"
+
+#: pcbnew/tools/pcb_actions.ts:3559
+msgid "Reset wizard parameters"
+msgstr "重置嚮導引數"
 
 #: common/widgets/wx_splitter_window.tsx:77 external/wx/wx_aui_sash.tsx:64
 msgid "Resize"
 msgstr "調整大小"
 
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:494
+msgid "Resolve Import Conflicts"
+msgstr "解決匯入衝突"
+
+#: pcbnew/tools/board_inspection_tool.ts:1856
+msgid "Resolved solder mask expansion: %s."
+msgstr "已解析阻焊擴充套件: %s。"
+
+#: pcbnew/tools/board_inspection_tool.ts:1883
+msgid "Resolved solder paste absolute clearance: %s."
+msgstr "已解析錫膏絕對間距: %s。"
+
+#: pcbnew/tools/board_inspection_tool.ts:1908
+msgid "Resolved solder paste relative clearance: %s."
+msgstr "已解析錫膏相對間距: %s。"
+
+#: common/dialogs/dialog_restore_local_history.tsx:144 common/local_history.ts:231
+msgid "Restore"
+msgstr "還原"
+
+#: designer/src/home/LocalHistoryPane.tsx:168
+msgid "Restore Commit"
+msgstr "還原提交"
+
 #: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
 msgid "Restore Project"
 msgstr "還原專案"
 
+#: common/local_history.ts:265 designer/src/home/menubar.ts:151
+msgid "Restore Project from Local History..."
+msgstr "從本地歷史記錄中還原專案..."
+
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "還原版本"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "要將專案還原到 %s 的版本嗎？"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "正在還原您的專案..."
+
+#: common/dialogs/panel_spacemouse.tsx:96
+msgid "Reverse rotation direction"
+msgstr "反轉旋轉方向"
+
+#: common/dialogs/panel_spacemouse.tsx:153
+msgid "Reverse zoom direction"
+msgstr "反轉縮放方向"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2187,17 +5091,57 @@ msgstr "旋轉錨點"
 msgid "Rotation speed"
 msgstr "旋轉速度"
 
+#: common/dialogs/panel_spacemouse.tsx:77
+msgid "Rotation speed:"
+msgstr "旋轉速度:"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:175
 msgid "Round locations to"
 msgstr "四捨五入位置至"
+
+#: eeschema/sch_tablecell.ts:455 pcbnew/pcb_tablecell.ts:399
+msgid "Row Height"
+msgstr "單元格高度"
+
+#: pcbnew/dialogs/panel_setup_rules.tsx:75
+msgid "Rule '%s' references undefined layer(s): %s."
+msgstr "規則 '%s' 引用了未定義的層: %s。"
+
+#: pcbnew/dialogs/panel_setup_rules.tsx:59
+msgid "Rule '%s' references undefined netclass '%s'."
+msgstr "規則 '%s' 引用了未定義的網路類 '%s'。"
+
+#: pcbnew/zone.ts:1999
+msgid "Rule area '%s' %s"
+msgstr "規則域 '%s' %s"
 
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "尺規單位"
 
+#: common/eda_base_frame.ts:249
+msgid "Run: %s"
+msgstr "執行: %s"
+
+#: common/eda_base_frame.ts:243
+msgid "Run: %s > %s"
+msgstr "執行: %s > %s"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
 msgstr "SVG 輸出模式"
+
+#: pcbnew/tools/pcb_actions.ts:731
+msgid "Save Board as Design Block..."
+msgstr "將電路板另存為設計區塊..."
 
 #: eeschema/sch_edit_frame_ui.tsx:5683
 msgid "Save Current Sheet Copy As"
@@ -2215,6 +5159,18 @@ msgstr "儲存專案"
 msgid "Save a copy"
 msgstr "儲存副本"
 
+#: common/lib_table_notebook_panel.tsx:236
+msgid "Save changes to nested library table?"
+msgstr "是否儲存對巢狀庫表的更改?"
+
+#: eeschema/tools/sch_actions.ts:642 pcbnew/tools/pcb_actions.ts:713
+msgid "Save selected group to linked design block"
+msgstr "儲存選中群組為連結的設計區塊"
+
+#: eeschema/tools/sch_actions.ts:641 pcbnew/tools/pcb_actions.ts:712
+msgid "Save to Linked Design Block"
+msgstr "儲存為連結的設計區塊"
+
 #: common/launch_ext.tsx:293
 msgid "Save to folder"
 msgstr "儲存到資料夾"
@@ -2227,6 +5183,10 @@ msgstr "儲存失敗，最近的編輯未被儲存。"
 msgid "Saving project..."
 msgstr "正在儲存專案..."
 
+#: common/dialogs/panel_common_settings.tsx:304 pcbnew/dialogs/dialog_plot_base.tsx:379
+msgid "Scaling"
+msgstr "縮放"
+
 #: common/widgets/zoom_correction_ctrl.tsx:244
 msgid "Scaling ruler"
 msgstr "縮放尺規"
@@ -2235,9 +5195,17 @@ msgstr "縮放尺規"
 msgid "Schematic association"
 msgstr "原理圖關聯"
 
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts:2680
+msgid "Schematic polyline has too few points"
+msgstr "原理圖折線頂點數量過少"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
 msgid "Schematic variants"
 msgstr "原理圖變體"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:185
+msgid "Schematic variants:"
+msgstr "原理圖變體:"
 
 #: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
 msgid "Search for"
@@ -2255,6 +5223,10 @@ msgstr "次軸編號"
 msgid "Securing your password on this device"
 msgstr "正在此裝置上保護您的密碼"
 
+#: pcbnew/pcb_track.ts:595
+msgid "Segment Delay"
+msgstr "走線段延遲"
+
 #: designer/src/home/HomePage.tsx:2418
 msgid "Select Files..."
 msgstr "選擇檔案..."
@@ -2267,6 +5239,10 @@ msgstr "選擇專案檔案..."
 msgid "Select a reason"
 msgstr "選擇原因"
 
+#: pcbnew/tools/board_inspection_tool.ts:1700
+msgid "Select a single item for a constraints resolution report."
+msgstr "請選擇單個物件以生成約束解析報告。"
+
 #: designer/src/home/dialogs/dialog_template_selector.tsx:391
 msgid "Select a template to see what it contains."
 msgstr "選擇範本以查看其內容。"
@@ -2275,9 +5251,37 @@ msgstr "選擇範本以查看其內容。"
 msgid "Select body style"
 msgstr "選擇本體樣式"
 
+#: pcbnew/tools/board_inspection_tool.ts:984
+msgid "Select first item for clearance resolution..."
+msgstr "選擇第一個專案以解析間距..."
+
 #: eeschema/dialogs/dialog_field_properties_base.tsx:154
 msgid "Select footprint"
 msgstr "選擇封裝"
+
+#: pcbnew/tools/board_inspection_tool.ts:1693
+msgid "Select item for constraints resolution..."
+msgstr "選擇專案以解析約束..."
+
+#: pcbnew/tools/pcb_actions.ts:3577
+msgid "Select next wizard page"
+msgstr "選擇下一向導頁"
+
+#: pcbnew/tools/pcb_actions.ts:3568
+msgid "Select previous wizard page"
+msgstr "選擇上一向導頁"
+
+#: pcbnew/tools/board_inspection_tool.ts:997
+msgid "Select second item for clearance resolution..."
+msgstr "選擇第二個專案以解析間距..."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7029
+msgid "Select the current variant to display and edit."
+msgstr "選中目前變體以顯示並編輯。"
+
+#: pcbnew/tools/board_inspection_tool.ts:1007
+msgid "Select two different items for clearance resolution."
+msgstr "請選擇兩個不同的專案以解析間距。"
 
 #: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
 msgid "Select unit to edit"
@@ -2295,13 +5299,45 @@ msgstr "選擇要編輯描述的變體：                "
 msgid "Select/highlight objects corresponding to %s selection"
 msgstr "選取/醒目提示與 %s 所選項對應的物件"
 
+#: pcbnew/tools/pcb_control.ts:1857
+msgid "Selected 2D Area"
+msgstr "選定的 2D 面積"
+
+#: pcbnew/tools/pcb_control.ts:1858
+msgid "Selected 2D Total Area"
+msgstr "選定的 2D 總面積"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "表格重新填入後，所選儲存格以系統預設配色顯示。"
 
+#: eeschema/tools/symbol_editor_edit_tool.ts:986
+msgid "Selected pin does not have valid stacked notation"
+msgstr "所選接腳不具有有效的堆疊標記"
+
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "選區包含鎖定專案。請啟用 '忽略鎖定設定' 以對其進行操作。"
+
+#: common/tool/edit_table_tool_base.ts:619
+msgid "Selection contains non-cell items"
+msgstr "選區包含非單元格專案"
+
+#: eeschema/toolbars_sch_editor.ts:154 pcbnew/toolbars_footprint_editor.ts:154 pcbnew/toolbars_pcb_editor.ts:241
+msgid "Selection modes"
+msgstr "選區模式"
+
+#: eeschema/tools/sch_actions.ts:147
+msgid "Selects a connection or expands an existing selection to pins, symbols, or entire connections"
+msgstr "選擇連線, 或將現有選區擴充套件到接腳, 符號或整個連線"
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "傳送重設連結"
+
+#: common/dialogs/panel_toolbar_customization.tsx:360
+msgid "Separator"
+msgstr "分隔符"
 
 #: eeschema/dialogs/dialog_table_properties_base.tsx:264 pcbnew/dialogs/dialog_table_properties_base.tsx:263
 msgid "Separators style"
@@ -2310,6 +5346,14 @@ msgstr "分隔線樣式"
 #: eeschema/dialogs/dialog_table_properties_base.tsx:246 pcbnew/dialogs/dialog_table_properties_base.tsx:245
 msgid "Separators width"
 msgstr "分隔線寬度"
+
+#: eeschema/sch_design_block_utils.ts:393 eeschema/sch_design_block_utils.ts:525 pcbnew/pcb_design_block_utils.ts:403 pcbnew/pcb_design_block_utils.ts:479
+msgid "Set Group Design Block Link"
+msgstr "設定群組設計區塊連結"
+
+#: common/lib_table_grid_tricks.ts:175
+msgid "Set Visible Flag"
+msgstr "設定可見標記"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:224
 msgid "Set active"
@@ -2327,25 +5371,153 @@ msgstr "設定網路 %s 的顏色"
 msgid "Set color for the %s netclass"
 msgstr "設定網路類別 %s 的顏色"
 
+#: pcbnew/tools/pcb_actions.ts:750
+msgid "Set design block layout to current board"
+msgstr "將設計區塊佈局設定為目前電路板"
+
+#: pcbnew/tools/pcb_actions.ts:759
+msgid "Set design block layout to current selection"
+msgstr "將設計區塊佈局設定為目前選區"
+
+#: eeschema/tools/sch_actions.ts:210
+msgid "Set design block schematic to current selection"
+msgstr "將設計區塊原理圖設定為目前選區"
+
+#: eeschema/tools/sch_actions.ts:201
+msgid "Set design block schematic to current sheet"
+msgstr "將設計區塊原理圖設為目前圖紙"
+
+#: common/tool/action_toolbar_actions.ts:86 common/tool/actions.ts:482
+msgid "Set selection mode to use rectangle"
+msgstr "設定選擇模式為矩形框選"
+
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "設定「從座標檔案中移除」特性"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "共享此專案"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"共用元件:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "圖頁檔案不在專案中：%s"
 
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:420
+msgid "Sheet name:"
+msgstr "圖紙名稱:"
+
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift 和 Ctrl"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
+#: common/tool/selection_tool.ts:372
+msgid "Show &More Choices...\tM"
+msgstr "顯示更多選擇 (&M)...\tM"
 
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "顯示 3D 導覽器"
 
+#: eeschema/lib_symbol.ts:3176
+msgid "Show Pin Name"
+msgstr "顯示接腳名稱"
+
+#: eeschema/lib_symbol.ts:3166
+msgid "Show Pin Number"
+msgstr "顯示接腳編號"
+
+#: eeschema/tools/sch_actions.ts:2128
+msgid "Show Simulation Console Panel"
+msgstr "顯示模擬控制檯面板"
+
+#: eeschema/tools/sch_actions.ts:2121
+msgid "Show Simulation Side Panel"
+msgstr "顯示模擬側邊欄面板"
+
+#: pcbnew/pcb_barcode.ts:1070
+msgid "Show Text"
+msgstr "顯示文字"
+
+#: pcbnew/widgets/appearance_controls.tsx:878
+msgid "Show a shadow on locked items"
+msgstr "在鎖定的專案上顯示陰影標記"
+
+#: eeschema/dialogs/dialog_erc.tsx:335
+msgid "Show all errors"
+msgstr "顯示所有錯誤"
+
+#: pcbnew/widgets/appearance_controls.tsx:888
+msgid "Show board area shadow"
+msgstr "顯示電路板區域陰影"
+
+#: pcbnew/widgets/appearance_controls.tsx:883
+msgid "Show colliding footprint courtyards"
+msgstr "顯示重疊 (碰撞) 的封裝外框"
+
+#: pcbnew/widgets/appearance_controls.tsx:874
+msgid "Show explicit snap points as crosses"
+msgstr "使用交叉十字元號凸顯捕獲點"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:337
+msgid "Show library"
+msgstr "顯示庫"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "顯示選項"
+
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:153
+msgid "Show text"
+msgstr "顯示文字"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:195
+msgid "Show the field name in addition to its value"
+msgstr "顯示欄位值及其名稱"
+
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
 msgstr "顯示使用者自訂層 %s"
+
+#: pcbnew/tools/pcb_actions.ts:3550
+msgid "Show wizards selector"
+msgstr "顯示嚮導選擇器"
+
+#: pcbnew/footprint_chooser_frame.tsx:289
+msgid "Show/hide 3D view panel"
+msgstr "顯示/隱藏 3D 視圖面板"
+
+#: pcbnew/footprint_chooser_frame.tsx:282
+msgid "Show/hide description panel"
+msgstr "顯示/隱藏 描述面板"
+
+#: pcbnew/footprint_chooser_frame.tsx:295
+msgid "Show/hide footprint view panel"
+msgstr "顯示/隱藏 封裝視圖面板"
+
+#: eeschema/tools/sch_actions.ts:174
+msgid "Show/hide the remote symbol panel"
+msgstr "顯示/隱藏 遠端符號"
 
 #: designer/src/auth/SignIn.tsx:303 designer/src/auth/SignIn.tsx:413 designer/src/auth/SignIn.tsx:585
 msgid "Sign in"
@@ -2354,6 +5526,26 @@ msgstr "登入"
 #: designer/src/auth/SignIn.tsx:328
 msgid "Sign in to ZiroEDA"
 msgstr "登入 ZiroEDA"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:198
+msgid "Signal Layer"
+msgstr "訊號層"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:208
+msgid "Signal Layer From"
+msgstr "訊號層起始"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:209
+msgid "Signal Layer To"
+msgstr "訊號層終止"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:176 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:186 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:240 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:245 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:677
+msgid "Signal layer not found in stackup"
+msgstr "在疊層中未找到訊號層"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:192 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:251
+msgid "Signal layer thickness must be greater than 0"
+msgstr "訊號層厚度必須大於 0"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:368
 msgid "Significant digits (currents)"
@@ -2366,6 +5558,30 @@ msgstr "有效位數（電壓）"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "正在登入..."
+
+#: pcbnew/drc/drc_item.ts:488
+msgid "Silkscreen clearance"
+msgstr "絲印間距"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:170
+msgid "Single"
+msgstr "單端"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:536
+msgid "Skip All"
+msgstr "全部跳過"
+
+#: pcbnew/tools/pcb_actions.ts:3417
+msgid "Skip current item and route next selected item."
+msgstr "跳過目前項, 併為下一個選中項佈線。"
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "已跳過 %d 個並非連結到設計區塊的群組的所選專案。"
+
+#: pcbnew/pcb_io/pads/pcb_io_pads.ts:1126 pcbnew/pcb_io/pads/pcb_io_pads_binary.ts:342
+msgid "Skipping track on non-copper layer %d"
+msgstr "跳過非銅層 %d 上的走線"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2387,13 +5603,43 @@ msgstr "貼齊焊墊"
 msgid "Snap to tracks and vias"
 msgstr "貼齊走線與導通孔"
 
+#: pcbnew/tools/board_inspection_tool.ts:1842
+msgid "Solder Mask"
+msgstr "阻焊"
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:373 pcbnew/dialogs/dialog_track_via_properties_base.tsx:467
 msgid "Solder mask expansion"
 msgstr "防焊擴展"
 
+#: pcbnew/tools/board_inspection_tool.ts:1843
+msgid "Solder mask expansion resolution for:"
+msgstr "阻焊擴充套件解析:"
+
+#: pcbnew/tools/board_inspection_tool.ts:1864
+msgid "Solder paste absolute clearance resolution for:"
+msgstr "焊膏絕對間距解析:"
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
 msgid "Solder paste clearance"
 msgstr "錫膏間距"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:83
+msgid ""
+"Solder paste clearance relative to pad size.\n"
+"Enter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\n"
+"This value can be superseded by local values for a footprint or a pad."
+msgstr ""
+"相對於焊盤尺寸的錫膏層間隙。\n"
+"請輸入絕對值 (例如 -0.1mm), 百分比 (例如 -5%) 或二者兼有 (例如 -0.1mm - 5%)。\n"
+"該值可以被封裝或焊盤中的區域性設定值覆蓋。"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:388 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:340 pcbnew/dialogs/dialog_pad_properties.tsx:2722 pcbnew/dialogs/panel_setup_mask_and_paste.tsx:174
+msgid "Solder paste clearance:"
+msgstr "錫膏間距:"
+
+#: pcbnew/tools/board_inspection_tool.ts:1887
+msgid "Solder paste relative clearance resolution for:"
+msgstr "焊膏相對間距解析:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:180
 msgid "Solutions are given in the following formats:"
@@ -2406,6 +5652,10 @@ msgstr "最多提供使用 4 個元件的解。"
 #: designer/src/editors/calculator/panels/panel_transline.tsx:846
 msgid "Solve for this parameter"
 msgstr "求解此參數"
+
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "部分所選專案無法群組。"
 
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
@@ -2423,6 +5673,22 @@ msgstr "排序與展開選項"
 msgid "Sources"
 msgstr "來源"
 
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:959
+msgid "Specify pad to die delay"
+msgstr "指定焊盤到 Die 的延遲"
+
+#: pcb_calculator/galvanic_corrosion.ts:28
+msgid "Stainless steel 316L"
+msgstr "316L 不鏽鋼"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias.tsx:48 pcbnew/dialogs/dialog_track_via_properties_base.tsx:59 pcbnew/pad.ts:4027
+msgid "Start and end layers only"
+msgstr "僅起始層和結束層"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "起始層"
@@ -2435,21 +5701,161 @@ msgstr "起始參考編號"
 msgid "Step for rotate commands"
 msgstr "旋轉指令的步進"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: pcbnew/dialogs/dialog_board_statistics_base.tsx:95
+msgid "Subtract holes from copper areas"
+msgstr "從銅箔面積中減去孔洞面積"
+
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "支援聊天"
+
+#: eeschema/tools/backannotate.ts:802
+msgid "Swap %s unit %s with unit %s."
+msgstr "將 %s 的單元 %s 與單元 %s 交換。"
+
+#: pcbnew/tools/edit_tool_move_fct.ts:558 pcbnew/tools/edit_tool_move_fct.ts:589 pcbnew/tools/pcb_actions.ts:993
+msgid "Swap Gate Nets"
+msgstr "交換單元網路"
+
+#: pcbnew/tools/edit_tool.ts:395
+msgid "Swap Gate Nets..."
+msgstr "交換單元網路..."
+
+#: pcbnew/tools/edit_tool_move_fct.ts:297 pcbnew/tools/edit_tool_move_fct.ts:322 pcbnew/tools/pcb_actions.ts:984
+msgid "Swap Pad Nets"
+msgstr "交換焊盤網路"
+
+#: eeschema/tools/sch_actions.ts:1009 eeschema/tools/sch_edit_tool.ts:1731
+msgid "Swap Pin Labels"
+msgstr "交換接腳標籤"
+
+#: eeschema/tools/sch_actions.ts:1000 eeschema/tools/sch_edit_tool.ts:1684
+msgid "Swap Pins"
+msgstr "交換接腳"
+
+#: eeschema/tools/sch_actions.ts:1018 eeschema/tools/sch_edit_tool.ts:1795
+msgid "Swap Unit Labels"
+msgstr "交換單元標籤"
+
+#: eeschema/sch_edit_frame.ts:2080
+msgid "Swap Units"
+msgstr "交換單元"
+
+#: eeschema/tools/sch_actions.ts:1019
+msgid "Swap labels between selected units"
+msgstr "交換所選單元的標籤"
 
 #: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
 msgid "Swap layers"
 msgstr "交換層"
 
+#: common/dialogs/panel_spacemouse.tsx:97
+msgid "Swap the direction of rotation"
+msgstr "調換旋轉方向"
+
+#: eeschema/tools/sch_actions.ts:1010
+msgid "Swap the labels attached to selected pins"
+msgstr "交換所選接腳上附著的標籤"
+
+#: eeschema/tools/sch_actions.ts:1001
+msgid "Swap the selected symbol pins' positions"
+msgstr "交換所選接腳的位置"
+
+#: pcbnew/tools/edit_tool.ts:546
+msgid "Swap with %s"
+msgstr "與 %s 交換"
+
+#: common/tool/actions.ts:811
+msgid "Switch arc editing mode to maintaining radius when endpoint are moved"
+msgstr "切換弧線編輯模式, 保持半徑不變, 調整弧的端點位置"
+
+#: eeschema/tools/sch_actions.ts:1132
+msgid "Switch between De Morgan (or other) representations"
+msgstr "在 De Morgan (或其他) 風格表示之間切換"
+
+#: pcbnew/router/router_tool.ts:841
+msgid "Switch to 45° corner when routing tracks."
+msgstr "佈線時切換至 45 度拐角。"
+
+#: pcbnew/router/router_tool.ts:850
+msgid "Switch to 90° corner when routing tracks."
+msgstr "佈線時切換至 90 度拐角。"
+
+#: pcbnew/router/router_tool.ts:859
+msgid "Switch to arc 45° corner when routing tracks."
+msgstr "佈線時切換至 45 度弧角。"
+
+#: pcbnew/router/router_tool.ts:868
+msgid "Switch to arc 90° corner when routing tracks."
+msgstr "佈線時切換至 90 度弧角。"
+
+#: eeschema/tools/sch_actions.ts:1721 pcbnew/tools/pcb_actions.ts:2007
+msgid "Switch to next angle snapping mode"
+msgstr "切換到下一個角度捕捉模式"
+
+#: pcbnew/tools/pcb_actions.ts:1035
+msgid "Switch track to next enabled copper layer"
+msgstr "將走線切換到下一個啟用的銅層"
+
+#: pcbnew/tools/pcb_actions.ts:1044
+msgid "Switch track to previous enabled copper layer"
+msgstr "將走線切換到上一個啟用的銅層"
+
+#: eeschema/sch_io/geda/sch_io_geda.ts:2160
+msgid "Symbol '%s' not found in gEDA libraries."
+msgstr "在 gEDA 庫中找不到符號 '%s'。"
+
+#: eeschema/lib_symbol.ts:3146
+msgid "Symbol Definition"
+msgstr "符號定義"
+
+#: eeschema/dialogs/dialog_lib_fields_table.tsx:693
+msgid "Symbol Fields Table ('%s' Library)"
+msgstr "符號欄位表 ('%s' 庫)"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:340
+msgid "Symbol Units"
+msgstr "符號單元"
+
+#: common/tool/action_toolbar_controls.ts:75
+msgid "Symbol body style selector"
+msgstr "符號圖形樣式選擇器"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
 msgid "Symbol filter"
 msgstr "符號篩選"
 
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:165
+msgid "Symbol library '%s' is empty."
+msgstr "符號庫 '%s' 為空。"
+
+#: eeschema/tools/symbol_editor_control.ts:221 eeschema/tools/symbol_editor_control.ts:281 eeschema/tools/symbol_editor_control.ts:315
+msgid "Symbol library '%s' not found."
+msgstr "符號庫 '%s' 未找到。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.ts:1733
+msgid "Symbol library file '%s' already exists."
+msgstr "符號庫檔案 '%s' 已存在。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.ts:1757
+msgid "Symbol library file '%s' cannot be deleted."
+msgstr "無法刪除符號庫檔案 '%s'。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.ts:1765
+msgid "Symbol library folder '%s' cannot be deleted."
+msgstr "符號庫資料夾 '%s' 無法刪除。"
+
+#: eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.ts:1738
+msgid "Symbol library path '%s' already exists."
+msgstr "符號庫路徑 '%s' 已存在。"
+
 #: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
 msgid "Symbol library references"
 msgstr "符號庫參照"
+
+#: eeschema/remote_symbol_import_utils.ts:271
+msgid "Symbol payload was empty."
+msgstr "符號 payload 為空。"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:241
 msgid "Symbol type"
@@ -2459,6 +5865,26 @@ msgstr "符號類型"
 msgid "Symbol unit notation"
 msgstr "符號單元標記法"
 
+#: eeschema/menubar.ts:141
+msgid "Symbols..."
+msgstr "符號..."
+
+#: common/tool/action_toolbar_actions.ts:188 eeschema/menubar.ts:261 eeschema/tools/sch_actions.ts:788
+msgid "Sync All Sheet Pins..."
+msgstr "同步所有圖紙接腳..."
+
+#: eeschema/tools/sch_actions.ts:778
+msgid "Sync Selected Sheet Pins..."
+msgstr "同步所選圖紙接腳..."
+
+#: common/tool/action_toolbar_actions.ts:189 eeschema/tools/sch_actions.ts:789
+msgid "Synchronize all sheet pins and hierarchical labels"
+msgstr "同步所有圖紙接腳和層次標籤"
+
+#: eeschema/tools/sch_actions.ts:779
+msgid "Synchronize selected sheet pins and hierarchical labels"
+msgstr "同步所選圖紙接腳和層次標籤"
+
 #: designer/src/home/HomePage.tsx:2760
 msgid "Syncing cloud projects..."
 msgstr "正在同步雲端專案..."
@@ -2466,6 +5892,58 @@ msgstr "正在同步雲端專案..."
 #: designer/src/editors/calculator/panels/panel_transline.tsx:596
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "矩形波導不支援合成。"
+
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/pcb_tablecell.ts:231
+msgid "Table cell %s"
+msgstr "單元格 %s"
+
+#: pcbnew/generators/pcb_tuning_pattern.ts:1394
+msgid "Target Delay"
+msgstr "目標延遲"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties.tsx:387
+msgid "Target Delay:"
+msgstr "目標延遲:"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties.tsx:375
+msgid "Target Length:"
+msgstr "目標長度:"
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:64
+msgid "Target Rule Area"
+msgstr "目標規則域"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "目標規則區域與參考區域共用元件"
+
+#: pcbnew/generators/pcb_tuning_pattern.ts:1424
+msgid "Target Skew Delay"
+msgstr "目標 Skew 延遲"
+
+#: pcbnew/tools/multichannel_tool.ts:1608
+msgid ""
+"Target area components:\n"
+"%s"
+msgstr ""
+"目標區域元件: \n"
+"%s"
+
+#: pcbnew/tools/multichannel_tool.ts:1607
+msgid "Target area total components: %d"
+msgstr "目標區域元件總數: %d"
 
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
@@ -2475,9 +5953,37 @@ msgstr "目標區域"
 msgid "Target impedance"
 msgstr "目標阻抗"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:350 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:419 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:559 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:616
+msgid "Target impedance must be greater than 0"
+msgstr "目標阻抗必須大於 0"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:174
+msgid "Target impedance:"
+msgstr "目標阻抗:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
 msgstr "溫升 (ΔT)："
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:380
+msgid "Template"
+msgstr "模板"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:538
+msgid "Template name cannot be empty."
+msgstr "模板名稱不能為空。"
+
+#: pcbnew/pcb_track.ts:1565
+msgid "Tertiary backdrill diameter is too small."
+msgstr "第三級背鑽直徑過小。"
+
+#: pcbnew/pad.ts:2486
+msgid "Test point"
+msgstr "測試點"
+
+#: eeschema/sch_textbox.ts:602
+msgid "Text box '%s'"
+msgstr "文字框 '%s'"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
 msgid "Text color"
@@ -2486,6 +5992,14 @@ msgstr "文字顏色"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "文字框"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:158
+msgid "Text items"
+msgstr "文字專案"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Edge.Cuts 層上的文字或圖形項"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +6037,14 @@ msgstr "起決定作用的值以粗體顯示。"
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "下載失敗。請複製下方的錯誤訊息並回報，請不要重新載入，您的工作仍可從此分頁復原。"
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "無法處理以下群組:"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:1354
+msgid "The footprint library '%s' was not found at '%s'"
+msgstr "在 '%2$s' 中找不到封裝庫 '%1$s'"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "IPC 2221 給出的公式為"
@@ -2539,6 +6061,54 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "IEC60664-1 的目標是為與市電連接的產品的絕緣設計提供指引。"
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "庫表型別錯誤"
+
+#: common/libraries/library_table.ts:236
+msgid "The library table path '%s' does not exist"
+msgstr "庫路徑 '%s' 不存在"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:121
+msgid "The minimum annular ring width. If set, this can only be reduced by custom rules."
+msgstr "最小焊環寬度。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:139
+msgid "The minimum clearance between a hole and an unassociated copper item. If set, this can only be reduced by custom rules."
+msgstr "孔洞與非關聯銅物件之間的最小間距。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:92
+msgid "The minimum clearance between copper items which do not belong to the same net. If set, this can only be reduced by custom rules."
+msgstr "不同網路的銅物件之間的最小間距。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:150
+msgid "The minimum clearance between the board edge and any copper item. If set, this can only be reduced by custom rules."
+msgstr "板邊與任意銅物件之間的最小間距。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:185
+msgid "The minimum clearance between two drilled holes. If set, this can only be reduced by custom rules. (Note: does not apply to milled holes.)"
+msgstr "兩個鑽孔之間的最小間距。若設定, 此值僅可透過自訂規則減小。(注: 不適用於銑孔。)"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:202
+msgid "The minimum diameter for micro-vias. If set, this can only be reduced by custom rules."
+msgstr "微孔的最小直徑。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:176
+msgid "The minimum drill size. If set, this can only be reduced by custom rules."
+msgstr "最小鑽孔尺寸。若設定, 此值只能透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:213
+msgid "The minimum micro-via hole size. If set, this can only be reduced by custom rules."
+msgstr "微孔的最小孔徑。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:103
+msgid "The minimum track width. If set, this can only be reduced by custom rules."
+msgstr "最小走線寬度。若設定, 此值僅可透過自訂規則減小。"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:130
+msgid "The minimum via diameter. If set, this can only be reduced by custom rules."
+msgstr "最小貫孔外徑。若設定, 此值僅可透過自訂規則減小。"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "所要求的值一律會從解集合中排除。"
@@ -2554,6 +6124,10 @@ msgstr "文字高度必須介於 %s 之間。"
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "文字寬度必須介於 %s 之間。"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "單元名稱 '%s' 已被使用。"
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,17 +6201,57 @@ msgstr "此設定頁面尚未實作。"
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "下表顯示各種金屬與合金之間的電化學電位差。電偶腐蝕會在特定條件下影響相互接觸的不同金屬。"
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "此目標規則區域選取的元件與參考區域相同。重複佈局無法將規則區域複製到自身。請為每個放置規則區域指定不同的圖紙、元件類別或群組。"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "此工具可用於設計走線熔斷器，但僅應作為估算使用。"
+
+#: pcbnew/drc/drc_rule_parser.ts:404
+msgid "Time based units not allowed for constraint type."
+msgstr "約束型別不允許使用基於時間的單位。"
+
+#: pcb_calculator/galvanic_corrosion.ts:31
+msgid "Titanium, passive"
+msgstr "鈦, 鈍化"
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "選擇數值時，先取計算出的目標值，然後對於 E24 及以下四捨五入為 2 位有效數字，對於 E48 及以上四捨五入為 3 位有效數字。然後在表中找到最接近剩餘有效數字的值，並用它取代這些數字。"
 
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "切換「從座標檔案中移除」特性"
+
+#: gerbview/gerber_file_image.ts:412
+msgid "Too many messages, some are skipped"
+msgstr "資訊過多, 部分被跳過"
+
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
 msgstr "工具列項目"
+
+#: common/dialogs/panel_toolbar_customization.tsx:398
+msgid "Toolbar:"
+msgstr "工具欄:"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:316 pcbnew/dialogs/dialog_pad_properties_base.tsx:1577
+msgid "Top & bottom"
+msgstr "頂層和底層"
+
+#: pcbnew/pad.ts:4260
+msgid "Top Post-machining"
+msgstr "頂部後加工"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:199
+msgid "Top Reference"
+msgstr "頂層位號"
+
+#: common/tool/ui/toolbar_configuration.ts:72
+msgid "Top auxiliary"
+msgstr "頂部輔助欄"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
 msgid "Top backdrill must-cut"
@@ -2647,13 +6261,45 @@ msgstr "頂部背鑽必須鑽穿"
 msgid "Top backdrill size"
 msgstr "頂部背鑽尺寸"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:400 pcbnew/dialogs/dialog_track_via_properties.tsx:1379 pcbnew/dialogs/dialog_track_via_properties_base.tsx:709
+msgid "Top backdrill size:"
+msgstr "頂層背鑽尺寸:"
+
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
 msgid "Top margin"
 msgstr "頂部邊界"
 
+#: pcbnew/router/router_tool.ts:840
+msgid "Track Corner Mode 45"
+msgstr "45 度拐角走線模式"
+
+#: pcbnew/router/router_tool.ts:849
+msgid "Track Corner Mode 90"
+msgstr "90 度拐角走線模式"
+
+#: pcbnew/router/router_tool.ts:858
+msgid "Track Corner Mode Arc 45"
+msgstr "45 度弧角走線模式"
+
+#: pcbnew/router/router_tool.ts:867
+msgid "Track Corner Mode Arc 90"
+msgstr "90 度弧角走線模式"
+
+#: pcbnew/router/router_tool.ts:829
+msgid "Track Corner Mode Switch"
+msgstr "走線拐角模式切換"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:65
+msgid "Track Propagation"
+msgstr "走線傳播引數"
+
 #: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
 msgid "Track Width and Via Size"
 msgstr "走線寬度與導通孔尺寸"
+
+#: pcbnew/drc/drc_item.ts:569
+msgid "Track endpoint not centered on via"
+msgstr "走線端點未位於貫孔中心"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
 msgid "Track layer"
@@ -2691,6 +6337,22 @@ msgstr "梯形軸"
 msgid "Try again"
 msgstr "重試"
 
+#: common/dialogs/panel_setup_netclasses.tsx:211
+msgid "Tuning Profile"
+msgstr "調整配置"
+
+#: pcbnew/dialogs/dialog_board_setup.tsx:729 pcbnew/dialogs/dialog_import_settings_base.tsx:119
+msgid "Tuning Profiles"
+msgstr "調整配置"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:694
+msgid "Tuning profile must have a name"
+msgstr "調整配置必須具有名稱"
+
+#: pcbnew/drc/drc_item.ts:559
+msgid "Tuning profile track geometries"
+msgstr "調整配置檔案走線幾何圖形"
+
 #: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
 msgid "Tuning profiles"
 msgstr "調校設定檔"
@@ -2699,9 +6361,177 @@ msgstr "調校設定檔"
 msgid "Two symbol pins are mapped to the same footprint pad"
 msgstr "兩個符號接腳對應到了同一個封裝焊墊"
 
+#: pcbnew/via_protection_ui_mixin.ts:125
+msgid "Type I-a (tented bottom)"
+msgstr "底層蓋油 (Type I-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:123
+msgid "Type I-a (tented top)"
+msgstr "頂層蓋油 (Type I-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:124
+msgid "Type I-b (tented both sides)"
+msgstr "雙面蓋油 (Type I-b)"
+
+#: pcbnew/via_protection_ui_mixin.ts:128
+msgid "Type II-a (covered and tented bottom)"
+msgstr "底層封孔蓋油 (Type II-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:126
+msgid "Type II-a (covered and tented top)"
+msgstr "頂層封孔蓋油 (Type II-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:127
+msgid "Type II-b (covered and tented both sides)"
+msgstr "雙面封孔蓋油 (Type II-b)"
+
+#: pcbnew/via_protection_ui_mixin.ts:131
+msgid "Type III-a (plugged bottom)"
+msgstr "底層塞孔 (Type III-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:129
+msgid "Type III-a (plugged top)"
+msgstr "頂層塞孔 (Type III-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:130
+msgid "Type III-b (plugged both sides)"
+msgstr "雙面塞孔 (Type III-b)"
+
+#: pcbnew/via_protection_ui_mixin.ts:134
+msgid "Type IV-a (plugged and tented bottom)"
+msgstr "底層塞孔 + 蓋油 (Type IV-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:132
+msgid "Type IV-a (plugged and tented top)"
+msgstr "頂層塞孔 + 蓋油 (Type IV-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:133
+msgid "Type IV-b (plugged and tented both sides)"
+msgstr "雙面塞孔 + 蓋油 (Type IV-b)"
+
+#: pcbnew/via_protection_ui_mixin.ts:135
+msgid "Type V (filled )"
+msgstr "填孔 (Type V)"
+
+#: pcbnew/via_protection_ui_mixin.ts:138
+msgid "Type VI-a (filled and tented bottom)"
+msgstr "填孔 + 底層蓋油 (Type VI-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:136
+msgid "Type VI-a (filled and tented top)"
+msgstr "填孔 + 頂層蓋油 (Type VI-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:137
+msgid "Type VI-b (filled and tented both sides)"
+msgstr "填孔 + 雙面蓋油 (Type VI-a)"
+
+#: pcbnew/via_protection_ui_mixin.ts:139
+msgid "Type VII (filled and capped)"
+msgstr "填孔 + 電鍍填平 (Type VII)"
+
 #: common/widgets/search_pane_tab.tsx:101
 msgid "Type to search"
 msgstr "輸入以搜尋"
+
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: eeschema/remote_symbol_import_utils.ts:180
+msgid "Unable to access the library table."
+msgstr "無法訪問庫表。"
+
+#: eeschema/remote_symbol_import_utils.ts:254
+msgid "Unable to access the schematic placement tools."
+msgstr "無法訪問原理圖佈置工具。"
+
+#: eeschema/remote_symbol_import_utils.ts:112
+msgid "Unable to create '%s'."
+msgstr "無法建立' %s'。"
+
+#: eeschema/remote_symbol_import_utils.ts:278 eeschema/remote_symbol_import_utils.ts:283
+msgid "Unable to create a temporary file for the symbol payload."
+msgstr "無法為符號資料建立臨時檔案。"
+
+#: eeschema/remote_symbol_import_utils.ts:150
+msgid "Unable to create directory '%s'."
+msgstr "無法建立目錄 '%s'。"
+
+#: eeschema/remote_symbol_import_utils.ts:298
+msgid "Unable to decode the symbol payload: %s"
+msgstr "無法解析符號資料: %s"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "無法拖曳 %.1f 度或更大的圓弧走線。"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:146
+msgid "Unable to find a plugin to read this library."
+msgstr "找不到可以讀取此庫的外掛。"
+
+#: pcbnew/pcb_io/cadstar/cadstar_pcb_archive_loader.ts:1498
+msgid "Unable to find component '%s' in the library (Symdef ID: '%s')"
+msgstr "無法在庫中找到元件 '%s' (Symdef ID: '%s')"
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "無法載入庫表。"
+
+#: eeschema/remote_symbol_import_utils.ts:249
+msgid "Unable to load the downloaded symbol for placement."
+msgstr "無法載入已下載的符號以進行放置。"
+
+#: eeschema/remote_symbol_import_utils.ts:117
+msgid "Unable to open '%s' for writing."
+msgstr "無法開啟 '%s' 進行寫入。"
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "無法解析遠端資料來源清單: %s"
+
+#: common/remote_provider_metadata.ts:136
+msgid "Unable to parse remote provider metadata: %s"
+msgstr "無法解析遠端資料來源元資料: %s"
+
+#: eeschema/remote_symbol_import_job.ts:306
+msgid "Unable to save the downloaded symbol."
+msgstr "無法儲存下載的符號。"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "無法儲存已下載的符號: %s"
+
+#: designer/src/home/launcher_tiles.tsx:134 designer/src/home/menubar.ts:166
+msgid "Unarchive Project..."
+msgstr "解包專案..."
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:321 pcbnew/dialogs/dialog_exchange_footprints_base.tsx:243
+msgid "Uncheck All Update Options"
+msgstr "取消選中所有更新選項"
+
+#: pcbnew/pad.ts:4000
+msgid "Undefined"
+msgstr "未定義"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:203
+msgid "Unit Delay"
+msgstr "單位時延"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
@@ -2711,9 +6541,25 @@ msgstr "單元顯示名稱"
 msgid "Unit filter"
 msgstr "單元篩選"
 
+#: eeschema/lib_symbol.ts:3226
+msgid "Units and Body Styles"
+msgstr "單元和圖形樣式"
+
+#: eeschema/lib_symbol.ts:3240
+msgid "Units are Interchangeable"
+msgstr "單元可以互換"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:288
 msgid "Units format"
 msgstr "單位格式"
+
+#: pcbnew/pcb_io/altium/altium_parser_pcb.ts:666
+msgid "Unknown mapping of the Altium layer kind '%s'."
+msgstr "Altium 板層型別 '%s' 的對映未知。"
+
+#: pcbnew/dialogs/dialog_global_deletion_base.tsx:140
+msgid "Unlocked vias"
+msgstr "解鎖貫孔"
 
 #: designer/src/auth/auth_progress.tsx:38
 msgid "Unlocking your encrypted projects"
@@ -2723,13 +6569,125 @@ msgstr "正在解鎖您的加密專案"
 msgid "Unpin (allow updates)"
 msgstr "取消固定（允許更新）"
 
+#: common/libeval_compiler/libeval_compiler.ts:1150
+msgid "Unresolved text variable reference"
+msgstr "未解析的文字變數引用"
+
+#: pcbnew/drc/drc_rule_parser.ts:130
+msgid "Unresolved text variable."
+msgstr "未解析的文字變數。"
+
+#: pcbnew/tools/pcb_actions.ts:3032 pcbnew/tools/pcb_selection_tool.ts:2112
+msgid "Unroute Segment"
+msgstr "取消選中段的佈線"
+
+#: pcbnew/tools/pcb_actions.ts:3033
+msgid "Unroutes segment to the nearest segment."
+msgstr "取消走線段至最近走線段的佈線。"
+
+#: pcbnew/tools/edit_tool_move_fct.ts:83
+msgid "Unselected pads:"
+msgstr "未連線的焊盤:"
+
+#: common/lib_table_grid_tricks.ts:178
+msgid "Unset Visible Flag"
+msgstr "取消可見標記"
+
+#: common/remote_provider_metadata.ts:120
+msgid "Unsupported provider capability '%s'."
+msgstr "不支援的資料來源功能 '%s'。"
+
+#: common/dsnlexer.ts:525
+msgid "Unterminated delimited string"
+msgstr "未閉合的分隔字串"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1148
+msgid "Update %s unit metadata."
+msgstr "更新 %s 單元的元資料。"
+
+#: pcbnew/tools/pcb_actions.ts:749
+msgid "Update Design Block from Board"
+msgstr "從電路板更新設計區塊"
+
+#: eeschema/tools/sch_actions.ts:200 eeschema/tools/sch_design_block_control.ts:40
+msgid "Update Design Block from Current Sheet"
+msgstr "從目前圖紙更新設計區塊"
+
+#: eeschema/tools/sch_actions.ts:209 eeschema/tools/sch_design_block_control.ts:41 pcbnew/tools/pcb_actions.ts:758
+msgid "Update Design Block from Selection"
+msgstr "從所選內容更新設計區塊"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:80
+msgid "Update Footprints"
+msgstr "更新封裝"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:160
+msgid "Update clearance overrides"
+msgstr "更新間距重寫"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:101
+msgid "Update footprint fields from symbols"
+msgstr "從符號更新封裝欄位"
+
 #: common/dialogs/git/panel_git_repos.tsx:68
 msgid "Update interval"
 msgstr "更新間隔"
 
+#: eeschema/dialogs/dialog_change_symbols.tsx:720
+msgid "Update pin name/number visibilities"
+msgstr "更新接腳名稱/編號可見性設定"
+
+#: eeschema/dialogs/dialog_update_from_pcb_base.tsx:114
+msgid "Update schematic net labels to match net names from the PCB editor."
+msgstr "更新原理圖網路標籤, 使其與 PCB 編輯器中的網路名稱匹配。"
+
+#: eeschema/dialogs/dialog_update_from_pcb_base.tsx:119
+msgid "Update symbol attribute flags like Do Not Populate to match the footprint."
+msgstr "更新符號特性標誌 (如「不作裝配(DNP)」) , 以與封裝保持匹配。"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:157
+msgid "Update text positions"
+msgstr "更新文字位置"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:156
+msgid "Update text sizes and styles"
+msgstr "更新文字大小和樣式"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:144
+msgid "Update/reset clearance overrides"
+msgstr "更新/重置 間距重寫"
+
+#: eeschema/dialogs/dialog_change_symbols.tsx:719
+msgid "Update/reset pin name/number visibilities"
+msgstr "更新/重置 接腳名稱/編號可見性設定"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:141
+msgid "Update/reset text positions"
+msgstr "更新/重置文字位置"
+
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:140
+msgid "Update/reset text sizes and styles"
+msgstr "更新/重置 文字大小和樣式"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:263
 msgid "Update:"
 msgstr "更新："
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1163
+msgid "Updated %s unit metadata."
+msgstr "已更新 %s 單元的元資料。"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:264
+msgid "Use custom stackup"
+msgstr "使用自訂疊層"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:61 designer/src/dialogs/prefs/registry.ts:87 designer/src/dialogs/prefs/registry.ts:183
+msgid "User Layer Names"
+msgstr "使用者層名稱"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:282
+msgid "User Layers"
+msgstr "使用者層"
 
 #: pcbnew/dialogs/panel_fp_user_layer_names.tsx:317
 msgid "User layer names"
@@ -2739,9 +6697,37 @@ msgstr "使用者層名稱"
 msgid "User layers"
 msgstr "使用者層"
 
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:47
+msgid "User layers:"
+msgstr "使用者層:"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "已使用 %s，共 %s。請下載您的專案，然後從主畫面刪除舊專案以釋出空間。"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
+
+#: pcbnew/drc/drc_test_provider_schematic_parity.ts:98
+msgid "Value (%s) doesn't match symbol value (%s)"
+msgstr "值 (%s) 與符號的值 (%s) 不匹配"
+
+#: eeschema/sch_edit_frame.ts:1122
+msgid "Variant '%s' already exists."
+msgstr "變體 '%s' 已存在。"
+
+#: eeschema/sch_edit_frame.ts:1104
+msgid "Variant name cannot be empty."
+msgstr "變體名稱不能為空。"
+
+#: eeschema/menubar.ts:328
+msgid "Variants"
+msgstr "變體"
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2751,17 +6737,57 @@ msgstr "頂點編輯器"
 msgid "Vertical %s"
 msgstr "垂直 %s"
 
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:210
+msgid "Via Layer From"
+msgstr "貫孔層起始"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:211
+msgid "Via Layer To"
+msgstr "貫孔層終止"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:102
+msgid "Via Propagation"
+msgstr "貫孔傳播"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:256
+msgid "Via annular rings:"
+msgstr "貫孔孔環:"
+
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
 msgstr "導通孔延遲覆寫"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:123
+msgid "Via delay overrides:"
+msgstr "貫孔時延重寫:"
+
+#: pcbnew/pcb_track.ts:1475
+msgid "Via diameter is too small."
+msgstr "貫孔直徑過小。"
+
+#: pcbnew/pcb_track.ts:1481
+msgid "Via drill is too small."
+msgstr "貫孔孔徑過小。"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:576
 msgid "Via hole"
 msgstr "導通孔孔徑"
 
+#: pcbnew/pcb_track.ts:1517
+msgid "Via layer must be a copper layer."
+msgstr "貫孔層必須是銅層。"
+
+#: pcbnew/dialogs/dialog_global_edit_tracks_and_vias_base.tsx:262
+msgid "Via protection features:"
+msgstr "貫孔保護特性:"
+
 #: pcbnew/pcb_edit_frame_ui.tsx:7080
 msgid "Via size"
 msgstr "導通孔尺寸"
+
+#: pcbnew/pcb_io/geda/pcb_io_geda.ts:970
+msgid "Via token contains %d parameters, expected at least 10."
+msgstr "貫孔標記包含 %d 個引數, 預期至少 10 個。"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
 msgid "Via type"
@@ -2786,6 +6812,54 @@ msgstr "檢視者"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "視埠 (Shift+Tab)："
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "也可在 <電路板配置> 中編輯違規嚴重級別"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "違規的嚴重級別也可以在 <原理圖配置> 中編輯"
+
+#: pcb_calculator/regulators_funct.ts:136
+msgid "Vout must be greater than Vref"
+msgstr "Vout 必須大於 Vref"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:691
+msgid "Vref (min/typ/max):"
+msgstr "Vref (最小/典型/最大):"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
+#: common/dialogs/dialog_print_generic.tsx:52
+msgid "Warning: custom scale is not a number."
+msgstr "警告: 自訂縮放比例值非數字值。"
+
+#: common/dialogs/dialog_print_generic.tsx:62
+msgid ""
+"Warning: custom scale is too large.\n"
+"It will be clamped to %f."
+msgstr ""
+"警告: 自訂縮放比例過大。\n"
+"將被限制為 %f。"
+
+#: common/dialogs/dialog_print_generic.tsx:73
+msgid ""
+"Warning: custom scale is too small.\n"
+"It will be clamped to %f."
+msgstr ""
+"警告: 自訂縮放比例過小。\n"
+"將被限制為 %f。"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +6893,22 @@ msgstr "使用保形塗層或灌封膠來防護汙染時，若符合 IEC60664-3 
 msgid "Who's here"
 msgstr "目前在線上"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:399 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:470 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:535
+msgid "Width calculation failed"
+msgstr "線寬計算失敗"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:498
+msgid "Width must be greater than 0 to calculate diff pair gap"
+msgstr "線寬必須大於 0 才能計算差分對間隙"
+
+#: eeschema/net_navigator.ts:638
+msgid "Wildcard Search"
+msgstr "萬用字元搜尋"
+
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "連線樣式"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "線/匯流排寬度"
@@ -2835,6 +6925,10 @@ msgstr "X 位置"
 msgid "X scale factor"
 msgstr "X 縮放係數"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y 位置"
@@ -2842,6 +6936,10 @@ msgstr "Y 位置"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y 縮放係數"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2854,6 +6952,10 @@ msgstr "您可以使用此計算器檢查細走線能否在短時間內承載大
 #: eeschema/sch_edit_frame_ui.tsx:5983
 msgid "You have view-only access to this project. Ask the owner for edit access to make changes."
 msgstr "您對此專案僅有檢視權限。請聯絡擁有者申請編輯權限以進行變更。"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:825
+msgid "You may wish to run DRC with 'Test for parity between PCB and schematic' checked."
+msgstr "您可能需要勾選「檢查 PCB 和原理圖是否一致」並執行 DRC。"
 
 #: designer/src/ui/StorageBanner.tsx:24
 msgid "Your browser's storage is full, edits are no longer being saved."
@@ -2871,6 +6973,14 @@ msgstr "您的專案仍在記憶體中。請在重新載入前下載，重新載
 msgid "Your recovery key"
 msgstr "您的復原金鑰"
 
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: gerbview/dialogs/panel_gerbview_excellon_settings.ts:97
+msgid "Zero format:"
+msgstr "數字「零」的格式:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA 發生未預期的錯誤"
@@ -2886,6 +6996,24 @@ msgstr "ZiroEDA 需要更大的螢幕"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA 支援聊天"
+
+#: pcbnew/dialogs/dialog_board_setup.tsx:617
+msgid "Zone Hatch Offsets"
+msgstr "填充區柵格線偏移"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "填充區優先順序"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"覆銅填充可能不正確: 反覆重新覆銅在 %d 次之後仍未收斂。\n"
+"\n"
+"複雜的重疊區域可能發生這種情況。請考慮簡化您的區域。"
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2903,13 +7031,37 @@ msgstr "鋪銅區名稱"
 msgid "Zone previews"
 msgstr "鋪銅區預覽"
 
+#: common/tool/action_toolbar_controls.ts:50
+msgid "Zoom selector"
+msgstr "縮放選擇器"
+
 #: common/dialogs/panel_mouse_settings.tsx:215
 msgid "Zoom speed"
 msgstr "縮放速度"
 
+#: pcbnew/dialogs/dialog_footprint_properties.tsx:176
+msgid "all pads with duplicate numbers"
+msgstr "所有編號重複的焊盤"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "%ld 個物件的角度增量為零"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "下方設定您的密碼。無需復原金鑰。"
+
+#: pcbnew/drc/drc_engine.ts:1948 pcbnew/drc/drc_engine.ts:1953 pcbnew/drc/drc_engine.ts:1958
+msgid "board setup"
+msgstr "電路板配置"
+
+#: pcbnew/drc/drc_engine.ts:419
+msgid "board setup constraints micro-via"
+msgstr "<電路板配置> 中的 \"微孔\" 約束"
 
 #: designer/src/home/ShareButton.tsx:60
 msgid "can edit"
@@ -2919,17 +7071,85 @@ msgstr "可編輯"
 msgid "can view"
 msgstr "可檢視"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "無法載入設計區塊佈局"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "虛線：爬電距離"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "設計區塊中沒有可套用的項目"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "設計區塊中沒有已儲存的 PCB 佈局"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "設計區塊不在已載入的庫中"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "未同步："
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: eeschema/tools/backannotate.ts:845
+msgid "false"
+msgstr "否"
+
+#: designer/src/editors/calculator/unit_selector.ts:111
+msgid "feet"
+msgstr "英尺"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/pcb_io/geda/pcb_io_geda.ts:709
+msgid "gEDA / Lepton EDA PCB footprint file"
+msgstr "gEDA / Lepton EDA PCB 封裝檔案"
+
+#: pcbnew/pcb_io/geda/pcb_io_geda.ts:716
+msgid "gEDA / Lepton EDA PCB footprint library directory"
+msgstr "gEDA / Lepton EDA PCB 封裝庫目錄"
+
+#: designer/src/home/import_project.ts:102
+msgid "gEDA / Lepton EDA Project..."
+msgstr "gEDA / Lepton EDA 專案..."
+
+#: eeschema/sch_io/geda/sch_io_geda.ts:425
+msgid "gEDA / Lepton EDA schematic files"
+msgstr "gEDA / Lepton EDA 原理圖檔案"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "群組為空"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "已有帳號，重設連結已在寄送途中。請在此裝置上開啟它以選擇新密碼。"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "%ld 個物件的水平增量為零"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +7183,118 @@ msgstr "為厚度（高度），單位 mil"
 msgid "is width in mils"
 msgstr "為寬度，單位 mil"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: pcbnew/drc/drc_engine.ts:667
+msgid "keepout area '%s' of %s"
+msgstr "%2$s 的 keepout 域 '%1$s'"
+
+#: pcbnew/drc/drc_engine.ts:658
+msgid "keepout area of %s"
+msgstr "%s 的 keepout 域"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "佈局複製失敗"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: common/eda_draw_frame.ts:1336 eeschema/dialogs/panel_setup_formatting.tsx:131 pagelayout_editor/pl_editor_frame.ts:664
+msgid "mils"
+msgstr "mil"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: pcbnew/connectivity/topo_match.ts:368 pcbnew/connectivity/topo_match.ts:369
+msgid "net %d"
+msgstr "網路 %d"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: pcbnew/drc/drc_rule_parser.ts:696
+msgid "number"
+msgstr "數字"
+
+#: designer/src/cloud/bip39_english.ts:1272
+msgid "outer"
+msgstr "外層"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: pcbnew/drc/drc_rule_parser.ts:306 pcbnew/drc/drc_rule_parser.ts:369 pcbnew/drc/drc_rule_parser.ts:712
+msgid "quoted expression"
+msgstr "引號表示式"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "實線：電氣間隙"
@@ -2970,6 +7302,50 @@ msgstr "實線：電氣間隙"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "至其熔點所需的能量，以及相變所需的能量。"
+
+#: eeschema/tools/backannotate.ts:845
+msgid "true"
+msgstr "是"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:546
+msgid "typ"
+msgstr "典型值"
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/drc/drc_rule_parser.ts:187 pcbnew/drc/drc_rule_parser.ts:242
+msgid "version number"
+msgstr "版本號"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "%ld 個物件的垂直增量為零"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:59
+msgid "~20% (Level L)"
+msgstr "~20% (L 級)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:60
+msgid "~37% (Level M)"
+msgstr "~37% (M 級)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:61
+msgid "~55% (Level Q)"
+msgstr "~55% (Q 級)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:62
+msgid "~65% (Level H)"
+msgstr "~65% (H 級)"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

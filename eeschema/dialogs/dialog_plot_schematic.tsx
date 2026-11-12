@@ -355,8 +355,9 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                 <Combo
                   value={String(dxfUnits)}
                   options={[
-                    { value: String('in'), label: _('Inches') },
-                    { value: String(_('mm')), label: _('Millimeters') },
+                    { value: 'in', label: _('Inches') },
+                    // The value is the unit itself (data); only the label is a message.
+                    { value: 'mm', label: _('Millimeters') },
                   ]}
                   disabled={format !== 'dxf'}
                   title={_('The units to use for the exported DXF file')}

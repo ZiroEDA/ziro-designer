@@ -39,6 +39,10 @@ msgstr "Το «%s» δεν είναι σύνδεσμος προς αποθετή
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "Το «%s» ορίστηκε ως το ενεργό θέμα χρωμάτων σχηματικού"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "Δεν ήταν δυνατή η αντιστοίχιση %d μοντέλου WRL 3D με ισοδύναμο μοντέλο STEP."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: αφαίρεση"
 msgid "%s: sort"
 msgstr "%s: ταξινόμηση"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "Το '%1$s' έχει ήδη αντιστοιχιστεί στο '%2$s' στην ενότητα '%3$s'. Και οι δύο αντιστοιχίσεις διατηρούνται, αλλά μόνο μία εκτελείται σε κάθε πάτημα πλήκτρου. Συνέχεια;"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "Το '%s' δεν είναι αρχείο PADS Logic ASCII."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(αυτόματο)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(διατήρηση υπάρχουσας αναφοράς)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(δεν υπάρχουν αρχεία STEP στο έργο)"
@@ -174,6 +194,10 @@ msgstr "(δεν υπάρχουν αρχεία STEP στο έργο)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(δεν περιλαμβάνονται επιδείξεις)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(ομάδα χωρίς όνομα)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +211,49 @@ msgstr ". Ελέγξτε τα εισερχόμενά σας (και τα ανε�
 msgid "... (step"
 msgstr "... (βήμα"
 
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:39
+msgid "0.1 inch"
+msgstr "0,1 ίντσα"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "1 άλλος θεατής"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "Προβολέας 3D — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Υπάρχει ήδη αρχείο με όνομα «%s».  Θέλετε να το αντικαταστήσετε;"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Υπάρχει ήδη βιβλιοθήκη στο '%s'· τα εισαγόμενα αποτυπώματα παραμένουν ανεπίλυτα."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +267,43 @@ msgstr "Διατίθεται νέα έκδοση του ZiroEDA."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Ένας θετικός αριθμός δείχνει ότι η γραμμή είναι ανοδική (-) και η στήλη καθοδική (+). Οι ψυχρές και θερμές αποχρώσεις δείχνουν επίσης το δυναμικό των γραμμών."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Ένα μοναδικό όνομα για αυτή τη ζώνη, που χρησιμοποιείται για την αναγνώρισή της στους κανόνες DRC"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Λογαριασμός"
 
@@ -234,6 +326,10 @@ msgstr "Ενεργό"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Προσθήκη μοντέλου 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Προσθήκη καταλόγου αναζήτησης..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +362,10 @@ msgstr "Προσθήκη από τον υπολογιστή..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Προσθήκη πλέγματος"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Προσθήκη της ομάδας '%s' στην ομάδα '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +415,10 @@ msgstr "Προσθήκη παραλλαγής"
 msgid "Add via delay override"
 msgstr "Προσθήκη παράκαμψης καθυστέρησης διέλευσης"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Η ομάδα '%s' προστέθηκε στην ομάδα '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Προστέθηκε το αποθετήριο «%s» (%s πακέτα)"
@@ -334,6 +438,14 @@ msgstr "Επιτρέψτε τα δεδομένα ιστότοπου για αυ�
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Έχετε ήδη λογαριασμό;"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +483,21 @@ msgstr "Κάτι άλλο;"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Εφαρμόστηκαν αλλαγές: %s εγκαταστάθηκαν, %s απεγκαταστάθηκαν"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Η διάταξη του μπλοκ σχεδίασης εφαρμόστηκε σε %d από %d ομάδες."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Εφαρμογή εκκρεμών αλλαγών ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Εφαρμογή διάταξης μπλοκ σχεδίασης σε %d ομάδες"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Εφαρμογή διατάξεων μπλοκ σχεδίασης σε νέες ομάδες"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -419,6 +543,18 @@ msgstr "Ταχύτητα αυτόματης μετατόπισης"
 msgid "Auto-assign priorities"
 msgstr "Αυτόματη ανάθεση προτεραιοτήτων"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Αυτόματη μετεγκατάσταση αναφορών μοντέλων 3D"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Αυτόματη τοποθέτηση ακροδεκτών φύλλου"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Αυτόματη αντιστοίχιση προτεραιοτήτων ζωνών με βάση την ανάλυση συνδεσιμότητας των επικαλυπτόμενων περιοχών."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "Διαθέσιμα αποτυπώματα"
@@ -427,6 +563,18 @@ msgstr "Διαθέσιμα αποτυπώματα"
 msgid "Available path substitutions"
 msgstr "Διαθέσιμες αντικαταστάσεις διαδρομής"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Προρυθμίσεις μορφοποίησης BOM"
@@ -434,6 +582,10 @@ msgstr "Προρυθμίσεις μορφοποίησης BOM"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Αναθεώρηση BOM"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +603,18 @@ msgstr "Επιστροφή στη διαχείριση έργων"
 msgid "Back to sign in"
 msgstr "Επιστροφή στη σύνδεση"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "Backdrill"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "Backdrill:"
+
+#: common/eda_item.ts:923 pcbnew/pcb_barcode.ts:587
+msgid "Barcode"
+msgstr "Barcode"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "Με βάση τη θέση του"
@@ -462,6 +626,14 @@ msgstr "Βέλτιστο μήκος"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Βέλτιστο πλάτος"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Bitmap"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:493
+msgid "Bitmap DPI:"
+msgstr "DPI Bitmap:"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -531,9 +703,33 @@ msgstr "Ψευδώνυμα διαύλου"
 msgid "Bus members"
 msgstr "Μέλη διαύλου"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Ακυρώθηκε μετά από %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Δεν είναι δυνατή η δημιουργία του φακέλου βιβλιοθήκης '%s'."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Δεν είναι δυνατή η καταχώριση της προσωρινής μνήμης εισαγόμενων αποτυπωμάτων: δεν υπάρχει πίνακας βιβλιοθηκών έργου."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +739,25 @@ msgstr "Περιεχόμενα κελιού"
 msgid "Center layer"
 msgstr "Κεντρικό επίπεδο"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Αλλαγή του 'Εξαίρεση από αρχεία θέσης' του %s από '%s' σε '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Συνομιλήστε μαζί μας (σύρετε για μετακίνηση)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Έλεγχος διακένων δακρύων..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Έλεγχος του λογαριασμού σας"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Τα θυγατρικά στοιχεία δεν μπορούν να ομαδοποιηθούν ξεχωριστά από το γονικό τους στοιχείο."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +778,18 @@ msgstr "Κλείσιμο προβολέα 3D"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Το κλείσιμο του συνδέσμου αργότερα εμποδίζει νέους ανθρώπους να τον ανοίξουν. Όσοι βρίσκονται ήδη στη λίστα διατηρούν την πρόσβαση μέχρι να τους αφαιρέσετε."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +814,10 @@ msgstr "Αρχεία θεμάτων χρωμάτων"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Συνήθη υλικά"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Ολοκληρώθηκε σε %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +858,10 @@ msgstr "Μορφή συντεταγμένων"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "Αντιγράφηκε"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Ο αντιγραμμένος χαλκός δεν έχει αντιστοιχισμένο δίκτυο. Αντιστοιχίστε δίκτυα για να τον συνδέσετε."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +915,22 @@ msgstr "Δεν ήταν δυνατό το άνοιγμα του %s: %s"
 msgid "Could not open this project: %s"
 msgstr "Δεν ήταν δυνατό το άνοιγμα αυτού του έργου: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Δεν ήταν δυνατή η αντικατάσταση του αρχείου βιβλιοθήκης '%s'.\n"
+"Βεβαιωθείτε ότι έχετε δικαιώματα εγγραφής και δοκιμάστε ξανά."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Δεν ήταν δυνατή η δημοσίευση της προσωρινής μνήμης εισαγόμενων αποτυπωμάτων στο '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Δεν ήταν δυνατή η συμφιλίωση των εισαγόμενων βιβλιοθηκών αποτυπωμάτων: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Δεν ήταν δυνατή η εγγραφή του αρχείου βιβλιοθήκης '%s'."
@@ -727,6 +971,22 @@ msgstr "Δημιουργία λογαριασμού..."
 msgid "Creating your account"
 msgstr "Δημιουργία του λογαριασμού σας"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Πυκνότητα ρεύματος:"
@@ -735,9 +995,41 @@ msgstr "Πυκνότητα ρεύματος:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Το ρεύμα υπερβαίνει τη φέρουσα ικανότητα για αυτήν την πυκνότητα."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Τα προσαρμοσμένα στιλ σώματος πρέπει να έχουν τουλάχιστον 2 καταχωρίσεις"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Προσαρμοσμένη κλίμακα"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: gerbview/gerber_draw_item.ts:675
+msgid "D Code %d"
+msgstr "D Code %d"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: gerbview/gerbview_frame_ui.tsx:622
+msgid "DCode:"
+msgstr "DCode:"
+
+#: gerbview/dialogs/panel_gerbview_color_settings.ts:98 gerbview/widgets/gerbview_layer_widget.ts:65
+msgid "DCodes"
+msgstr "DCodes"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1043,10 @@ msgstr "Επιλογές DRC"
 msgid "DRC results"
 msgstr "Αποτελέσματα DRC"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "Προεπιλεγμένο πλάτος γραμμής DXF"
@@ -762,6 +1058,10 @@ msgstr "Προεπιλεγμένες μονάδες DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Μήκος παύλας"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -923,9 +1223,41 @@ msgstr "Σημάδια διάτρησης"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Λόγω της φύσης του πρωτοκόλλου κρυπτογράφησης από άκρο σε άκρο, τα δεδομένα σας δεν μπορούν να αποκρυπτογραφηθούν χωρίς τον κωδικό ή το κλειδί ανάκτησης."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "Το EN 50310 προτείνει διαφορά τάσης κάτω από 300 mV. Γνωστές πρακτικές χρησιμοποιούν ένα τρίτο μέταλλο διεπιφάνειας ανάμεσα στο κύριο ζεύγος (π.χ. το φινίρισμα επιφάνειας ENIG)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1266,10 @@ msgstr "Συνδέσμοι ακμής κάρτας"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Επεξεργασία εισόδου διαύλου"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Επεξεργασία περιγραφής για '%s'"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1303,14 @@ msgstr "Επεξεργασία πεδίων συμβόλου"
 msgid "Edit Text Box"
 msgstr "Επεξεργασία πλαισίου κειμένου"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Επεξεργασία περιγραφής παραλλαγής"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Επεξεργασία περιγραφής παραλλαγής..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Επεξεργασία πλέγματος"
@@ -979,6 +1323,10 @@ msgstr "Επεξεργασία σε προβολέα κειμένου"
 msgid "Edit layer"
 msgstr "Επεξεργασία επιπέδου"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Επεξεργασία της περιγραφής μιας υπάρχουσας παραλλαγής σχεδίασης."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Επεξεργασία περιγραφής παραλλαγής"
@@ -986,6 +1334,14 @@ msgstr "Επεξεργασία περιγραφής παραλλαγής"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Χρόνος που πέρασε:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Διάρκεια: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Διάρκεια: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1387,14 @@ msgstr "Εισαγάγετε θετική ειδική αντίσταση και
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Εισαγάγετε το κλειδί ανάκτησης που αποθηκεύσατε όταν δημιουργήσατε τον λογαριασμό σας και επιλέξτε νέο κωδικό."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Λεπτομέρειες σφάλματος"
@@ -1065,6 +1429,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Σφάλμα κατά την αποθήκευση του πίνακα βιβλιοθηκών αποτυπωμάτων του έργου."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1451,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Σφάλμα κατά την εγγραφή της προσωρινής μνήμης εισαγόμενων αποτυπωμάτων '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Σφάλμα!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Εξαίρ. από αρχ. θέσης"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1487,10 @@ msgstr "Εξαγωγή ενσωματωμένων αρχείων"
 msgid "Export units"
 msgstr "Μονάδες εξαγωγής"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "Τα πρόσθετα κατασκευής εκτελούν σενάρια δημιουργίας που χρειάζονται απομονωμένο περιβάλλον εκτέλεσης, μη διαθέσιμο ακόμη στο πρόγραμμα περιήγησης."
@@ -1118,6 +1502,10 @@ msgstr "Ιδιότητα κατασκευής"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "Αποτυχία φόρτωσης σχηματικού:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Αποτυχία ανάλυσης του αρχείου PADS Logic '%s'."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1535,10 @@ msgstr "Τύπος γεμίσματος"
 msgid "Fill with color"
 msgstr "Γέμισμα με χρώμα"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Φιλτράρισμα ενεργειών"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Πρώτος ελεύθερος αριθμός μετά το"
@@ -1175,9 +1567,21 @@ msgstr "Αρχεία συσχέτισης αποτυπωμάτων"
 msgid "Footprint field"
 msgstr "Πεδίο αποτυπώματος"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Τα στοιχεία αποτυπώματος δεν μπορούν να ομαδοποιηθούν ξεχωριστά από το γονικό τους αποτύπωμα."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Τύπος αποτυπώματος"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Τα αποτυπώματα δεν μπορούν να καθρεφτιστούν. Χρησιμοποιήστε την Αναστροφή για να τα μετακινήσετε στην άλλη πλευρά της πλακέτας."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "Για κάθε νέα ομάδα που δημιουργείται από μπλοκ σχεδίασης, εφαρμόζεται αυτόματα η αποθηκευμένη τοποθέτηση αποτυπωμάτων και η όδευση του μπλοκ."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1611,25 @@ msgstr "Πρόθεμα εμπρός όψης"
 msgid "Front reference start"
 msgstr "Έναρξη αναφοράς εμπρός όψης"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Μήκος διακένου"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1647,23 @@ msgstr "Δημιουργία κλειδιών κρυπτογράφησης..."
 msgid "Generating your encryption keys"
 msgstr "Δημιουργία των κλειδιών κρυπτογράφησής σας"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: pcbnew/menubar_pcb_editor.ts:180 pcbnew/tools/pcb_actions.ts:1670
+msgid "Gerbers (.gbr)..."
+msgstr "Gerbers (.gbr)..."
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Ξεκινώντας με το %s"
 
@@ -1250,6 +1686,14 @@ msgstr "Γραφικό στυλ"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "Μέγεθος πλέγματος"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Παραλείφθηκαν οι ομάδες που περιέχουν αποτυπώματα ή άλλα στοιχεία που δεν μπορούν να καθρεφτιστούν."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1719,21 @@ msgstr "Μέγεθος παράκαμψης"
 msgid "Horizontal Any"
 msgstr "Οριζόντια οποιαδήποτε"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Σύγκρουση συντόμευσης"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Ωστόσο ορισμένες περιπτώσεις δεν καλύπτονται από αυτόν τον υπολογιστή:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1747,41 @@ msgstr "Θυμάμαι τον κωδικό μου"
 msgid "I understand this deletes my account and all its data."
 msgstr "Κατανοώ ότι αυτό διαγράφει τον λογαριασμό μου και όλα τα δεδομένα του."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Αν"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Αν επιλεγεί, τα επίπεδα θα διατηρήσουν τα τυπικά ονόματά τους στο KiCad αντί να μετονομαστούν σύμφωνα με τα ονόματα των εισαγόμενων επιπέδων."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1815,14 @@ msgstr "Εισαγωγή %s"
 msgid "Import Layer Mapping"
 msgstr "Εισαγωγή αντιστοίχισης επιπέδων"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Εισαγωγή αρχείου πλακέτας εκτός KiCad..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Εισαγωγή σχηματικού εκτός KiCad..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Εισαγωγή διανυσματικών γραφικών"
@@ -1342,6 +1834,18 @@ msgstr "Εισαγωγή από"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "Κλίμακα εισαγωγής"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Η κλίμακα εισαγωγής πρέπει να είναι θετικός αριθμός."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "Εισήχθησαν %d μοτίβα συντονισμού μήκους."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Το εισαγόμενο αποτύπωμα '%s' έχει αντικρουόμενους ορισμούς τοποθέτησης· διατηρείται ο πρώτος."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1911,14 @@ msgstr "Μέγεθος τελείας κόμβου"
 msgid "Junction size"
 msgstr "Μέγεθος κόμβου"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Διατήρηση υπαρχόντων"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Διατήρηση των ονομάτων επιπέδων του KiCad"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "Διατήρηση και των δύο"
@@ -1467,6 +1979,10 @@ msgstr "Οι ενέργειες του αριστερού κλικ (και σύ�
 msgid "Left margin"
 msgstr "Αριστερό περιθώριο"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Ρυθμίσεις συντονισμού μήκους"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Οι βιβλιοθήκες και τα θέματα χρωμάτων εγκαθίστανται και λειτουργούν ήδη σήμερα."
@@ -1486,6 +2002,10 @@ msgstr "Σύνδεσμος βιβλιοθήκης"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "Όνομα βιβλιοθήκης:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Ο πίνακας βιβλιοθηκών '%s' είναι μόνο για ανάγνωση"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2047,22 @@ msgstr "Φόρτωση %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Τα τοπικά και τα καθολικά σύμβολα τροφοδοσίας έχουν το ίδιο όνομα"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Χαμήλωμα"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Αρ. εξαρτήματος κατασκευαστή"
@@ -1547,9 +2083,25 @@ msgstr "Μέγιστο πλάτος διαδρόμου"
 msgid "Maximum width"
 msgstr "Μέγιστο πλάτος"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Σύρσιμο με το μεσαίο κουμπί"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Μετεγκατάσταση μοντέλων 3D"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Μετεγκατάσταση μοντέλων 3D..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Μετεγκατάσταση αναφορών μοντέλων 3D"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2110,10 @@ msgstr "Ελάχιστο πλάτος"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Λείπουν αναφορές μοντέλων 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Αναφορές μοντέλων 3D που λείπουν:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2131,25 @@ msgstr "Μετακίνηση πλέγματος προς τα κάτω"
 msgid "Move grid up"
 msgstr "Μετακίνηση πλέγματος προς τα πάνω"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Μετακίνηση στο τέλος"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Μετακίνηση στην αρχή"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Ο λόγος μου δεν υπάρχει στη λίστα"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1627,9 +2199,17 @@ msgstr "Επόμενη σελίδα"
 msgid "No %s match your search."
 msgstr "Κανένα %s δεν ταιριάζει με την αναζήτησή σας."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Δεν υπάρχουν παραλλαγές σχεδίασης για επεξεργασία."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Δεν έχουν φορτωθεί βιβλιοθήκες αποτυπωμάτων."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Δεν έχει επιλεγεί καμία ομάδα με συνδεδεμένο μπλοκ σχεδίασης."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2226,10 @@ msgstr "Καμία βιβλιοθήκη"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Κανένα αποτέλεσμα"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Δεν βρέθηκαν αντιστοιχίες."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2283,18 @@ msgstr "Μέγεθος κειμένου αριθμού"
 msgid "Numbering step"
 msgstr "Βήμα αρίθμησης"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2310,10 @@ msgstr "Μόνο όσοι έχουν προσκληθεί"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Άνοιγμα επιδεικτικού έργου"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Άνοιγμα εξωτερικού αρχείου..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2335,14 @@ msgstr "Ανοίξτε ένα έργο για να προσθέσετε βιβλ
 msgid "Open from Computer..."
 msgstr "Άνοιγμα από τον υπολογιστή..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Άνοιγμα του διαλόγου Ρύθμισης Πλακέτας"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Άνοιγμα του διαλόγου Ρύθμισης Σχηματικού"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "Άνοιγμα του σχεδιασμένου αρχείου σε νέα καρτέλα του προγράμματος περιήγησης μετά από επιτυχή σχεδιογράφηση (μόνο τρέχουσα σελίδα)"
@@ -1750,6 +2358,10 @@ msgstr "Άνοιγμα έργου..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "Άνοιγμα του κοινόχρηστου έργου..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "Επιλογή:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2399,34 @@ msgstr "Διαδρομή εξόδου"
 msgid "Outset"
 msgstr "Εξωτερική μετατόπιση"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "Λειτουργία εξόδου PDF"
@@ -1794,6 +2434,22 @@ msgstr "Λειτουργία εξόδου PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "Επιλογές PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1903,6 +2559,10 @@ msgstr "Επιλογή ημερομηνίας"
 msgid "Pick date"
 msgstr "Επιλογή ημερομηνίας"
 
+#: eeschema/sch_pin.ts:1812
+msgid "Pin %s [%s, %s]"
+msgstr "Ακροδέκτης %s [%s, %s]"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
 msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
 msgstr "Ο ακροδέκτης '%s' στην ομάδα ακροδεκτών βραχυκυκλωτήρα %s δεν υπάρχει σε αυτό το σύμβολο."
@@ -1971,9 +2631,17 @@ msgstr "Λειτουργία θέσης"
 msgid "Position offset"
 msgstr "Μετατόπιση θέσης"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Πιθανές αντικαταστάσεις"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Πιθανές αντικαταστάσεις:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -2007,9 +2675,25 @@ msgstr "Έργα"
 msgid "Protection features"
 msgstr "Χαρακτηριστικά προστασίας"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Ουρά εγκατάστασης"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Ανύψωση"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2706,10 @@ msgstr "Εύρος (τάσεις)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Πάχος γραμμής ratsnest"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Επανασυνδέθηκαν %d αντιστοιχίσεις εισαγόμενων αποτυπωμάτων στη βιβλιοθήκη '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2054,6 +2742,10 @@ msgstr "Ταχύτητα επανασχεδίασης"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "Φίλτρο αναφοράς"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Επαναπλήρωση επικαλυπτόμενων ζωνών..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2131,6 +2823,14 @@ msgstr "Αφαίρεση παράκαμψης καθυστέρησης διέλ�
 msgid "Rename variant"
 msgstr "Μετονομασία παραλλαγής"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Αντικατάσταση μοντέλων"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Αντικατάσταση παρωχημένων αναφορών μοντέλων WRL 3D με τρέχοντα μοντέλα STEP"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Αντικατάσταση με"
@@ -2167,6 +2867,14 @@ msgstr "Αλλαγή μεγέθους"
 msgid "Restore Project"
 msgstr "Επαναφορά έργου"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Επαναφορά έκδοσης"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Επαναφορά του έργου στην έκδοση από %s;"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Επαναφορά του έργου σας..."
@@ -2194,6 +2902,18 @@ msgstr "Στρογγυλοποίηση θέσεων σε"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Μονάδες χάρακα"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3019,10 @@ msgstr "Επιλογή/επισήμανση αντικειμένων που αν
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Τα επιλεγμένα κελιά εμφανίζονται με την προεπιλεγμένη επιλογή χρώματος του συστήματος μετά από επαναγέμισμα του πίνακα."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Η επιλογή περιέχει κλειδωμένα στοιχεία. Ενεργοποιήστε την 'Παράκαμψη κλειδωμάτων' για να ενεργήσετε σε αυτά."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Αποστολή συνδέσμου επαναφοράς"
@@ -2327,21 +3051,49 @@ msgstr "Ορισμός χρώματος για το δίκτυο %s"
 msgid "Set color for the %s netclass"
 msgstr "Ορισμός χρώματος για την κατηγορία δικτύων %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Ορισμός του χαρακτηριστικού εξαίρεσης από αρχεία θέσης"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Κοινοποίηση αυτού του έργου"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Κοινά εξαρτήματα:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "Το αρχείο φύλλου δεν υπάρχει στο έργο: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift και Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Εμφάνιση πλοηγού 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Εμφάνιση επιλογών"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3118,10 @@ msgstr "Σημαντικά ψηφία (τάσεις)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Σύνδεση..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "Παραλείφθηκαν %d επιλεγμένα στοιχεία που δεν είναι ομάδες συνδεδεμένες με μπλοκ σχεδίασης."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3163,10 @@ msgstr "Δίνονται λύσεις που χρησιμοποιούν έως 4
 msgid "Solve for this parameter"
 msgstr "Επίλυση για αυτήν την παράμετρο"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Ορισμένα επιλεγμένα στοιχεία δεν μπορούν να ομαδοποιηθούν."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Ορισμένα φύλλα απέτυχαν να φορτωθούν: %s"
@@ -2423,6 +3183,14 @@ msgstr "Επιλογές ταξινόμησης και ανάπτυξης"
 msgid "Sources"
 msgstr "Πηγές"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Αρχικό επίπεδο"
@@ -2435,7 +3203,7 @@ msgstr "Αρχικός προσδιοριστής αναφοράς"
 msgid "Step for rotate commands"
 msgstr "Βήμα για εντολές περιστροφής"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Συνομιλία υποστήριξης"
 
@@ -2467,6 +3235,26 @@ msgstr "Συγχρονισμός έργων cloud..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Η σύνθεση δεν είναι διαθέσιμη για ορθογώνιους κυματοδηγούς."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Η περιοχή κανόνων-στόχος μοιράζεται εξαρτήματα με την περιοχή αναφοράς"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Περιοχές-στόχοι"
@@ -2486,6 +3274,10 @@ msgstr "Χρώμα κειμένου"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Πλαίσιο κειμένου"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Κείμενο ή γραφικό στο επίπεδο Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3315,10 @@ msgstr "Η καθοριστική τιμή εμφανίζεται με έντο�
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Η λήψη απέτυχε. Αντιγράψτε το παρακάτω σφάλμα και αναφέρετέ το, μην κάνετε επαναφόρτωση, η δουλειά σας εξακολουθεί να είναι ανακτήσιμη από αυτήν την καρτέλα."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Οι ακόλουθες ομάδες δεν ήταν δυνατό να επεξεργαστούν:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Ο τύπος, από το IPC 2221, είναι"
@@ -2539,6 +3335,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Στόχος του IEC60664-1 είναι να παρέχει καθοδήγηση για τη σχεδίαση μόνωσης προϊόντων που συνδέονται με το δίκτυο τροφοδοσίας."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Ο πίνακας βιβλιοθηκών είναι λανθασμένου τύπου"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Η ζητούμενη τιμή εξαιρείται πάντα από το σύνολο λύσεων."
@@ -2554,6 +3354,10 @@ msgstr "Το ύψος κειμένου πρέπει να είναι ανάμεσ
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Το πλάτος κειμένου πρέπει να είναι ανάμεσα σε %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Το όνομα μονάδας '%s' χρησιμοποιείται ήδη."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3431,10 @@ msgstr "Αυτή η σελίδα ρύθμισης δεν έχει υλοποιη
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Αυτός ο πίνακας δείχνει τη διαφορά ηλεκτροχημικού δυναμικού μεταξύ διαφόρων μετάλλων και κραμάτων. Η γαλβανική διάβρωση επηρεάζει διαφορετικά μέταλλα σε επαφή και υπό ορισμένες συνθήκες."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Αυτή η περιοχή κανόνων-στόχος επιλέγει τα ίδια εξαρτήματα με την περιοχή αναφοράς. Η επανάληψη διάταξης δεν μπορεί να αντιγράψει μια περιοχή κανόνων πάνω στον εαυτό της. Δώστε σε κάθε περιοχή κανόνων τοποθέτησης διαφορετικό φύλλο, κλάση εξαρτημάτων ή ομάδα."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Αυτό το εργαλείο σάς επιτρέπει να σχεδιάσετε ασφάλεια διαδρόμου, αλλά πρέπει να χρησιμοποιείται μόνο ως εκτίμηση."
@@ -2634,6 +3442,10 @@ msgstr "Αυτό το εργαλείο σάς επιτρέπει να σχεδι
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Για να επιλέξετε τιμή, ξεκινήστε από την υπολογισμένη τιμή-στόχο και στρογγυλοποιήστε την σε 2 σημαντικά ψηφία για E24 ή χαμηλότερα ή σε 3 σημαντικά ψηφία για E48 και πάνω. Έπειτα βρείτε στον πίνακα την τιμή που πλησιάζει περισσότερο τα υπόλοιπα σημαντικά ψηφία και αντικαταστήστε τα με αυτήν."
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Εναλλαγή του χαρακτηριστικού εξαίρεσης από αρχεία θέσης"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3515,38 @@ msgstr "Δύο ακροδέκτες συμβόλου αντιστοιχίζον�
 msgid "Type to search"
 msgstr "Πληκτρολογήστε για αναζήτηση"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Δεν είναι δυνατή η μεταφορά τόξων διαδρόμων %.1f μοιρών ή μεγαλύτερων."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Δεν είναι δυνατή η φόρτωση του πίνακα βιβλιοθηκών."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Δεν είναι δυνατή η αποθήκευση του ληφθέντος συμβόλου: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "Εμφανιζόμενα ονόματα μονάδων"
@@ -2739,9 +3583,33 @@ msgstr "Ονόματα επιπέδων χρήστη"
 msgid "User layers"
 msgstr "Επίπεδα χρήστη"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Χρήση %s από %s. Κατεβάστε το έργο σας και μετά διαγράψτε παλιά έργα από την αρχική οθόνη για να ελευθερώσετε χώρο."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3655,30 @@ msgstr "Προβολέας"
 msgid "Viewports (Shift+Tab):"
 msgstr "Οπτικές γωνίες (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Οι σοβαρότητες παραβιάσεων μπορούν επίσης να επεξεργαστούν στη Ρύθμιση Πλακέτας"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Οι σοβαρότητες παραβιάσεων μπορούν επίσης να επεξεργαστούν στη Ρύθμιση Σχηματικού"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "Δεν αποθηκεύουμε αυτό το κλειδί, γι' αυτό αποθηκεύστε το σε ασφαλές μέρος"
@@ -2819,6 +3711,10 @@ msgstr "Όταν χρησιμοποιείται προστατευτική επ�
 msgid "Who's here"
 msgstr "Ποιος είναι εδώ"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Στιλ καλωδίου"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Πλάτος σύρματος/διαύλου"
@@ -2842,6 +3738,10 @@ msgstr "Θέση Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Συντελεστής κλίμακας Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3771,18 @@ msgstr "Το έργο σας βρίσκεται ακόμη στη μνήμη. Κ
 msgid "Your recovery key"
 msgstr "Το κλειδί ανάκτησής σας"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "Το ZiroEDA αντιμετώπισε μη αναμενόμενο σφάλμα"
@@ -2886,6 +3798,20 @@ msgstr "Το ZiroEDA χρειάζεται μεγαλύτερη οθόνη"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "Συνομιλία υποστήριξης ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Προτεραιότητα ζώνης"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Οι πληρώσεις ζωνών μπορεί να είναι εσφαλμένες: η επαναληπτική επαναπλήρωση δεν συγκλίνει μετά από %d περάσματα.\n"
+"\n"
+"Αυτό μπορεί να συμβεί με πολύπλοκες επικαλυπτόμενες ζώνες.  Εξετάστε το ενδεχόμενο απλοποίησης των ζωνών σας."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,9 +3833,25 @@ msgstr "Προεπισκοπήσεις ζώνης"
 msgid "Zoom speed"
 msgstr "Ταχύτητα ζουμ"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "γωνιακό δέλτα μηδέν με %ld αντικείμενα"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "παρακάτω για να ορίσετε ξανά τον κωδικό σας. Δεν χρειάζεται κλειδί ανάκτησης."
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:201
+msgid "bits"
+msgstr "bit"
 
 #: designer/src/home/ShareButton.tsx:60
 msgid "can edit"
@@ -2919,17 +3861,61 @@ msgstr "μπορεί να επεξεργαστεί"
 msgid "can view"
 msgstr "μπορεί να δει"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "δεν ήταν δυνατή η φόρτωση της διάταξης του μπλοκ σχεδίασης"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "διακεκομμένη: απόσταση ερπυσμού"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "το μπλοκ σχεδίασης δεν περιέχει στοιχεία προς εφαρμογή"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "το μπλοκ σχεδίασης δεν έχει αποθηκευμένη διάταξη PCB"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "το μπλοκ σχεδίασης δεν υπάρχει στις φορτωμένες βιβλιοθήκες"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "δεν συγχρονίστηκε:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "η ομάδα είναι κενή"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "έχει λογαριασμό, ένας σύνδεσμος επαναφοράς είναι καθ' οδόν. Ανοίξτε τον σε αυτήν τη συσκευή για να επιλέξετε νέο κωδικό."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "οριζόντιο δέλτα μηδέν με %ld αντικείμενα"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,13 +3949,109 @@ msgstr "είναι το πάχος (ύψος) σε mils"
 msgid "is width in mils"
 msgstr "είναι το πλάτος σε mils"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "η αντιγραφή της διάταξης απέτυχε"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "συνεχής: απόσταση"
 
+#: common/validators.ts:128
+msgid "tab"
+msgstr "καρτέλα"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "το σημείο τήξης του καθώς και την ενέργεια που απαιτείται για την αλλαγή φάσης."
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "κάθετο δέλτα μηδέν με %ld αντικείμενα"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

@@ -39,6 +39,14 @@ msgstr "A(z) „%s” nem GitHub-tárolóra mutató hivatkozás."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "„%s” beállítva aktív kapcsolásirajz-színtémaként"
 
+#: eeschema/sch_table.ts:494
+msgid "%d Column Table"
+msgstr "%d oszlopos táblázat"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d WRL 3D modellhez nem található egyenértékű STEP modell."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -86,6 +94,10 @@ msgstr "%s anyaga"
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
 msgid "%s must be between the minimum and maximum text size."
 msgstr "A(z) %s értékének a legkisebb és a legnagyobb szövegméret között kell lennie."
+
+#: common/remote_provider_utils.ts:121
+msgid "%s must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL."
+msgstr "%s csak HTTPS-t használhat, kivéve ha az allow_insecure_localhost engedélyezve van egy visszacsatolási (loopback) URL-hez."
 
 #: pcbnew/dialogs/panel_setup_layers.tsx:400
 msgid "%s name"
@@ -167,6 +179,26 @@ msgstr "%s: eltávolítás"
 msgid "%s: sort"
 msgstr "%s: rendezés"
 
+#: pcbnew/tools/edit_tool_move_fct.ts:75
+msgid "%zu unselected pad(s) are connected to these nets. How do you want to proceed?"
+msgstr "%zu ki nem jelölt forrszem csatlakozik ezekhez a hálózatokhoz. Hogyan szeretné folytatni?"
+
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "A(z) '%s' már hozzá van rendelve a következőhöz: '%s' (szakasz: '%s'). Mindkét hozzárendelés megmarad, de billentyűleütésenként csak az egyik fut le. Folytatja?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "A(z) '%s' nem PADS Logic ASCII fájl."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(automatikus)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(meglévő hivatkozás megtartása)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(nincs STEP-fájl a projektben)"
@@ -174,6 +206,10 @@ msgstr "(nincs STEP-fájl a projektben)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(nincs mellékelt bemutató)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(névtelen csoport)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -191,13 +227,41 @@ msgstr "... (lépés"
 msgid "1 other viewer"
 msgstr "1 további megtekintő"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
+
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D-nézet — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Már létezik „%s” nevű fájl. Le szeretné cserélni?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Már létezik könyvtár itt: '%s'; az importált lábkiosztások feloldatlanok maradnak."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +275,19 @@ msgstr "A ZiroEDA új verziója érhető el."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "A pozitív szám azt jelzi, hogy a sor anódos (-), az oszlop pedig katódos (+); a hideg és meleg színárnyalatok szintén a sorok potenciálját jelzik."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "A zóna egyedi neve, amellyel a DRC-szabályokban azonosítható"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Fiók"
 
@@ -234,6 +310,10 @@ msgstr "Aktív"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "3D-modell hozzáadása"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Keresési könyvtár hozzáadása..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +346,10 @@ msgstr "Hozzáadás a számítógépről..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Rács hozzáadása"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "'%s' csoport hozzáadása a(z) '%s' csoporthoz."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,9 +399,17 @@ msgstr "Változat hozzáadása"
 msgid "Add via delay override"
 msgstr "Via-késleltetés felülbírálásának hozzáadása"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "'%s' csoport hozzáadva a(z) '%s' csoporthoz."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "A(z) „%s” tároló hozzáadva (%s csomag)"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:73
+msgid "Alias"
+msgstr "Álnév"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -327,6 +419,10 @@ msgstr "Igazítási cél tulajdonságai"
 msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
 msgstr "Minden 3D-modell (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
 
+#: pcbnew/dialogs/panel_setup_mask_and_paste_base.tsx:137
+msgid "Allow bridged solder mask apertures between pads within footprints"
+msgstr "Áthidalt forrasztásgátló nyílások engedélyezése a lábkiosztáson belüli forrszemek között"
+
 #: designer/src/ui/StorageBanner.tsx:36
 msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
 msgstr "Engedélyezze a webhelyadatokat ehhez az oldalhoz, vagy a lap bezárása előtt töltse le a projektet. A privát böngészési ablakok gyakran elvetik a tárolt adatokat."
@@ -334,6 +430,14 @@ msgstr "Engedélyezze a webhelyadatokat ehhez az oldalhoz, vagy a lap bezárása
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Már van fiókja?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +475,21 @@ msgstr "Valami más?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Alkalmazott változtatások: %s telepítve, %s eltávolítva"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Tervezési blokk elrendezése alkalmazva %d/%d csoportra."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Függő változtatások alkalmazása ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Tervezési blokk elrendezésének alkalmazása %d csoportra"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Tervezési blokk elrendezések alkalmazása új csoportokra"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -411,6 +527,10 @@ msgstr "Társított réteg"
 msgid "Attenuation is 6 dB"
 msgstr "A csillapítás 6 dB"
 
+#: eeschema/dialogs/dialog_label_properties_base.tsx:140 eeschema/project_settings.ts:135 eeschema/schematic_settings.ts:43 eeschema/schematic_settings.ts:58 eeschema/schematic_settings.ts:134 eeschema/schematic_settings.ts:136
+msgid "Auto"
+msgstr "Automatikus"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "Automatikus pásztázás sebessége"
@@ -418,6 +538,18 @@ msgstr "Automatikus pásztázás sebessége"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "Prioritások automatikus kiosztása"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "3D modell hivatkozások automatikus migrálása"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Lapcsatlakozók automatikus elhelyezése"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Zónaprioritások automatikus kiosztása az átfedő területek összeköttetés-elemzése alapján."
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +559,10 @@ msgstr "Elérhető lábkiosztások"
 msgid "Available path substitutions"
 msgstr "Elérhető útvonalhelyettesítések"
 
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Anyagjegyzék-formázási előbeállítások"
@@ -434,6 +570,10 @@ msgstr "Anyagjegyzék-formázási előbeállítások"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Anyagjegyzék revíziója"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +591,10 @@ msgstr "Vissza a projektkezelőhöz"
 msgid "Back to sign in"
 msgstr "Vissza a bejelentkezéshez"
 
+#: eeschema/sch_tablecell.ts:484
+msgid "Background Fill Color"
+msgstr "Háttér kitöltőszíne"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "Ennek elhelyezkedése alapján:"
@@ -463,9 +607,21 @@ msgstr "Legjobb hossz"
 msgid "Best width"
 msgstr "Legjobb szélesség"
 
+#: common/eda_shape.ts:2941 eeschema/sch_io/altium/sch_io_altium.ts:2713
+msgid "Bezier"
+msgstr "Bézier"
+
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
 msgstr "Panelvastagság a rétegfelépítésből"
+
+#: eeschema/sch_shape.ts:582
+msgid "Body background color"
+msgstr "Test háttérszíne"
+
+#: eeschema/sch_shape.ts:581
+msgid "Body outline color"
+msgstr "Test körvonalának színe"
 
 #: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
 msgid "Body style"
@@ -531,9 +687,33 @@ msgstr "Buszálnevek"
 msgid "Bus members"
 msgstr "Busztagok"
 
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Megszakítva ennyi után: %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Nem hozható létre a(z) „%s” könyvtármappa."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Az importált lábkiosztás-gyorsítótár nem regisztrálható: nincs projekt-könyvtártáblázat."
+
+#: pcbnew/pad.ts:2492
+msgid "Castellated"
+msgstr "Félfuratos"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +723,29 @@ msgstr "Cella tartalma"
 msgid "Center layer"
 msgstr "Középső réteg"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "%s 'Kizárás a pozíciófájlokból' módosítása '%s' értékről '%s' értékre."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Beszélgessen velünk (húzza az áthelyezéshez)"
 
+#: pcbnew/dialogs/panel_setup_rules_base.tsx:84
+msgid "Check rule syntax"
+msgstr "Szabály szintaxisának ellenőrzése"
+
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Csepp szigetelési távolságainak ellenőrzése..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Fiók ellenőrzése"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "A gyermekelemek nem csoportosíthatók a szülőelemüktől külön."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +766,18 @@ msgstr "3D-nézet bezárása"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "A hivatkozás későbbi bezárása megakadályozza, hogy új emberek megnyissák. A listán már szereplők hozzáférése megmarad, amíg el nem távolítja őket."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +802,10 @@ msgstr "Színtéma-fájlok"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Gyakori anyagok"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Befejezve: %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -635,6 +847,10 @@ msgstr "Koordinátaformátum"
 msgid "Copied"
 msgstr "Másolva"
 
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "A másolt réznek nincs hálózat hozzárendelve. Rendeljen hozzá hálózatokat a csatlakoztatáshoz."
+
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
 msgstr "Réz felületkezelése"
@@ -675,6 +891,14 @@ msgstr "Sarokkisimítás"
 msgid "Corner style"
 msgstr "Sarokstílus"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:689
+msgid "Could not compute differential pair gap"
+msgstr "A differenciális jelvezeték hézagja nem számítható ki"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:690 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:702
+msgid "Could not compute track propagation delay"
+msgstr "A vezetősáv jelterjedési késleltetése nem számítható ki"
+
 #: pcbnew/tools/drawing_tool.ts:1325
 msgid "Could not load image."
 msgstr "A kép nem tölthető be."
@@ -686,6 +910,22 @@ msgstr "Nem nyitható meg: %s: %s"
 #: eeschema/sch_edit_frame_ui.tsx:3791
 msgid "Could not open this project: %s"
 msgstr "A projekt nem nyitható meg: %s"
+
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"A(z) '%s' könyvtárfájl nem írható felül.\n"
+"Győződjön meg róla, hogy van írási jogosultsága, majd próbálja újra."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Az importált lábkiosztás-gyorsítótár nem tehető közzé itt: '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Az importált lábkiosztás-könyvtárak nem egyeztethetők: %s"
 
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
@@ -727,6 +967,22 @@ msgstr "Fiók létrehozása..."
 msgid "Creating your account"
 msgstr "Fiók létrehozása folyamatban"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Áramsűrűség:"
@@ -735,9 +991,29 @@ msgstr "Áramsűrűség:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Az áram meghaladja a megengedett terhelhetőséget ennél a sűrűségnél."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Az egyéni testformáknak legalább 2 elemet kell tartalmazniuk"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Egyéni méretarány"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -750,6 +1026,10 @@ msgstr "DRC-beállítások"
 #: pcbnew/dialogs/dialog_drc_base.tsx:278
 msgid "DRC results"
 msgstr "DRC-eredmények"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
 
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
@@ -770,6 +1050,14 @@ msgstr "Az adatforrás-csomagok külső adatbázis-könyvtárakat kapcsolnak be,
 #: external/wx/spin_ctrl.tsx:128
 msgid "Decrease"
 msgstr "Csökkentés"
+
+#: common/settings/bom_settings.ts:82
+msgid "Default Editing"
+msgstr "Alapértelmezett szerkesztés"
+
+#: pcbnew/dialogs/panel_setup_text_and_graphics_base.tsx:30
+msgid "Default Properties for New Graphics and Text"
+msgstr "Új grafikák és szövegek alapértelmezett tulajdonságai"
 
 #: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
 msgid "Default field properties"
@@ -859,6 +1147,10 @@ msgstr "Tervváltozat"
 msgid "Directory '%s/%s' already exists."
 msgstr "A(z) „%s/%s” könyvtár már létezik."
 
+#: pcbnew/dialogs/panel_setup_mask_and_paste_base.tsx:138
+msgid "Disable DRC error checking for solder mask aperture bridging between pads in the same footprint."
+msgstr "A forrasztásgátló nyílások áthidalására vonatkozó DRC-hibaellenőrzés kikapcsolása ugyanazon lábkiosztás forrszemei között."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:482
 msgid "Discard Pending"
 msgstr "Függők elvetése"
@@ -923,9 +1215,45 @@ msgstr "Fúrásjelölések"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "A végpontok közötti titkosítási protokollunk jellegéből adódóan az adatai jelszó vagy helyreállítási kulcs nélkül nem fejthetők vissza."
 
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:701
+msgid "Duplicated signal layer configuration in tuning profile"
+msgstr "Ismétlődő jelréteg-konfiguráció a hangolási profilban"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "Az EN 50310 300 mV alatti feszültségkülönbséget javasol. A bevált gyakorlat a fő pár közé harmadik határfelületi fémet alkalmaz (pl. ENIG felületkezelés)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1262,10 @@ msgstr "Éldugós csatlakozók"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Buszbejegyzés szerkesztése"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "'%s' leírásának szerkesztése"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1299,14 @@ msgstr "Rajzjelmezők szerkesztése"
 msgid "Edit Text Box"
 msgstr "Szövegdoboz szerkesztése"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Változat leírásának szerkesztése"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Változat leírásának szerkesztése..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Rács szerkesztése"
@@ -979,6 +1319,10 @@ msgstr "Szerkesztés szövegnézegetőben"
 msgid "Edit layer"
 msgstr "Réteg szerkesztése"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Meglévő tervváltozat leírásának szerkesztése."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Változat leírásának szerkesztése"
@@ -986,6 +1330,14 @@ msgstr "Változat leírásának szerkesztése"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Eltelt idő:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Eltelt: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Eltelt: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1065,6 +1417,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Hiba a projekt lábkiosztás-könyvtártáblázatának mentésekor."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,13 +1439,33 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Hiba az importált lábkiosztás-gyorsítótár írásakor ('%s'): %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Hiba!"
 
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Kiz. poz.fájl"
+
+#: eeschema/sch_sheet.ts:263 eeschema/sch_symbol.ts:1474 eeschema/sch_text.ts:283 eeschema/sch_textbox.ts:231
+msgid "Exclude from"
+msgstr "Kizárás innen"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
 msgstr "Hivatkozások kizárása"
+
+#: eeschema/sch_marker.ts:378 pcbnew/pcb_marker.ts:344
+msgid "Excluded"
+msgstr "Kizárt"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Expand"
@@ -1098,6 +1474,18 @@ msgstr "Kibontás"
 #: pcbnew/dialogs/dialog_shape_properties_base.tsx:319
 msgid "Expansion"
 msgstr "Tágítás"
+
+#: eeschema/sch_io/ltspice/ltspice_schematic.ts:958
+msgid "Expecting CELL or BLOCK"
+msgstr "CELL vagy BLOCK várható"
+
+#: eeschema/sch_io/ltspice/ltspice_schematic.ts:920
+msgid "Expecting LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM or INVISIBLE"
+msgstr "LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM vagy INVISIBLE várható"
+
+#: eeschema/sch_io/ltspice/ltspice_schematic.ts:945
+msgid "Expecting NONE, BOTTOM, TOP, LEFT, RIGHT, VBOTTOM, VTOP, VCENTER, VLEFT or VRIGHT"
+msgstr "NONE, BOTTOM, TOP, LEFT, RIGHT, VBOTTOM, VTOP, VCENTER, VLEFT vagy VRIGHT várható"
 
 #: common/dialogs/panel_embedded_files.tsx:222
 msgid "Export embedded files"
@@ -1118,6 +1506,10 @@ msgstr "Gyártási tulajdonság"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "A kapcsolási rajz betöltése sikertelen:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "A(z) '%s' PADS Logic fájl feldolgozása sikertelen."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1539,10 @@ msgstr "Kitöltés típusa"
 msgid "Fill with color"
 msgstr "Kitöltés színnel"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Műveletek szűrése"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Első szabad szám ez után:"
@@ -1175,9 +1571,21 @@ msgstr "Lábkiosztás-társítási fájlok"
 msgid "Footprint field"
 msgstr "Lábkiosztás mező"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "A lábkiosztás elemei nem csoportosíthatók a szülő lábkiosztástól külön."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Lábkiosztás típusa"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "A lábkiosztások nem tükrözhetők. Az átfordítással (Flip) helyezheti őket a panel másik oldalára."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "A tervezési blokkból létrehozott minden új csoportnál a blokk mentett lábkiosztás-elhelyezésének és huzalozásának automatikus alkalmazása."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1615,29 @@ msgstr "Elülső előtag"
 msgid "Front reference start"
 msgstr "Elülső jelölés kezdete"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias.tsx:344
+msgid "Gap"
+msgstr "Hézag"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Rés hossza"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,13 +1655,37 @@ msgstr "Titkosítási kulcsok előállítása..."
 msgid "Generating your encryption keys"
 msgstr "Titkosítási kulcsok előállítása folyamatban"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Első lépések: %s"
 
 #: designer/src/home/HomePage.tsx:2602
 msgid "GitHub link:"
 msgstr "GitHub-hivatkozás:"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:86
+msgid ""
+"Global clearance ratio between pads and the solder paste as a percentage of the pad size.\n"
+"A value of 10 means the clearance value is 10 percent of the pad size.\n"
+"This value can be superseded by local values for a footprint or a pad.\n"
+"Final clearance value is the sum of this value and the absolute clearance value."
+msgstr ""
+"A forrszemek és a forraszpaszta közötti globális szigetelési arány a forrszem méretének százalékában.\n"
+"10-es érték azt jelenti, hogy a szigetelési távolság a forrszem méretének 10 százaléka.\n"
+"Ezt az értéket felülírhatják a lábkiosztás vagy a forrszem helyi értékei.\n"
+"A végső szigetelési érték ennek az értéknek és az abszolút szigetelési értéknek az összege."
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:433
 msgid "Global solder mask minimum width and/or margin are not set to 0."
@@ -1243,6 +1695,10 @@ msgstr "A globális forrasztásgátló minimális szélessége és/vagy margója
 msgid "Global unit delay"
 msgstr "Globális egységkésleltetés"
 
+#: eeschema/sch_text.ts:668
+msgid "Graphic Text '%s'"
+msgstr "Grafikus szöveg '%s'"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:196
 msgid "Graphic style"
 msgstr "Grafikai stílus"
@@ -1251,9 +1707,29 @@ msgstr "Grafikai stílus"
 msgid "Grid size"
 msgstr "Rácsméret"
 
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "A tükrözhetetlen lábkiosztásokat vagy más elemeket tartalmazó csoportok kimaradtak."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
 msgstr "Részletek elrejtése"
+
+#: eeschema/sch_sheet.ts:243
+msgid "Hierarchical Path"
+msgstr "Hierarchikus útvonal"
+
+#: eeschema/sch_label.ts:1584
+msgid "Hierarchical Sheet Pin"
+msgstr "Hierarchikus lapcsatlakozó"
+
+#: eeschema/sch_sheet_pin.ts:423
+msgid "Hierarchical Sheet Pin '%s'"
+msgstr "Hierarchikus lapcsatlakozó '%s'"
 
 #: common/dialogs/cross_probing_group.tsx:57
 msgid "Highlight %s corresponding to selected %s"
@@ -1275,9 +1751,25 @@ msgstr "Átbújtatási méret"
 msgid "Horizontal Any"
 msgstr "Vízszintes, bármely"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Gyorsbillentyű-ütközés"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Ez a számológép azonban nem fed le minden esetet:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1783,41 @@ msgstr "Eszembe jutott a jelszavam"
 msgid "I understand this deletes my account and all its data."
 msgstr "Megértettem, hogy ez törli a fiókomat és minden adatomat."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Ha"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Ha be van jelölve, a rétegek megtartják szabványos KiCad nevüket, és nem kapják meg az importált rétegek nevét."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1851,14 @@ msgstr "%s importálása"
 msgid "Import Layer Mapping"
 msgstr "Rétegleképezés importálása"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Nem KiCad NYÁK fájl importálása..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Nem KiCad kapcsolási rajz importálása..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Vektorgrafika importálása"
@@ -1343,6 +1871,18 @@ msgstr "Importálás innen"
 msgid "Import scale"
 msgstr "Importálási méretarány"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Az importálási méretaránynak pozitív számnak kell lennie."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "%d hosszhangolási minta importálva."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Az importált '%s' lábkiosztás ütköző elhelyezett definíciókkal rendelkezik; az első marad meg."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Inaktív rétegek (H):"
@@ -1354,6 +1894,10 @@ msgstr "Növelés"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Növekmény"
+
+#: pcb_calculator/galvanic_corrosion.ts:30
+msgid "Indium"
+msgstr "Indium"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1391,6 +1935,10 @@ msgstr "Kiadás dátuma"
 msgid "It's missing a key feature that I need"
 msgstr "Hiányzik egy fontos funkció, amire szükségem van"
 
+#: eeschema/sch_reference_list.ts:473 eeschema/sch_reference_list.ts:1270
+msgid "Item not annotated: %s%s"
+msgstr "Az elem nincs sorszámozva: %s%s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
 msgid "Jumper pin groups"
 msgstr "Áthidaló láb-csoportok"
@@ -1406,6 +1954,18 @@ msgstr "Csomópontpont mérete"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
 msgid "Junction size"
 msgstr "Csomópont mérete"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Meglévő megtartása"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "KiCad rétegnevek megtartása"
 
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
@@ -1467,6 +2027,10 @@ msgstr "A bal kattintás (és húzás) műveletei két módosítóbillentyűtől
 msgid "Left margin"
 msgstr "Bal margó"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Hosszhangolási beállítások"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "A könyvtárak és színtémák már ma telepíthetők és működnek."
@@ -1487,6 +2051,10 @@ msgstr "Könyvtár-hivatkozás"
 msgid "Library name:"
 msgstr "Könyvtár neve:"
 
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "A(z) '%s' könyvtártáblázat csak olvasható"
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
 msgstr "Vonal színe"
@@ -1502,6 +2070,10 @@ msgstr "Hivatkozás"
 #: designer/src/mobile/DesktopGate.tsx:69
 msgid "Link copied"
 msgstr "Hivatkozás másolva"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:375
+msgid "Link:"
+msgstr "Hivatkozás:"
 
 #: common/launch_ext.tsx:275
 msgid "Load"
@@ -1527,9 +2099,41 @@ msgstr "A(z) %s betöltése..."
 msgid "Local and global power symbols have same name"
 msgstr "A helyi és a globális tápellátás-rajzjelek neve megegyezik"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Lejjebb"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "Gyártói cikkszám"
+
+#: pcbnew/dialogs/panel_setup_teardrops_base.tsx:250
+msgid ""
+"Max track width ratio to create a teardrop.\n"
+"100 always creates a teardrop."
+msgstr ""
+"A csepp létrehozásához szükséges maximális vezetősáv-szélesség arány.\n"
+"100 esetén mindig létrejön csepp."
 
 #: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
 msgid "Maximum allowed deviation"
@@ -1551,6 +2155,34 @@ msgstr "Legnagyobb szélesség"
 msgid "Middle button drag"
 msgstr "Középső gomb húzása"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "3D modellek migrálása"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "3D modellek migrálása..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "3D modell hivatkozások migrálása"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:80
+msgid ""
+"Minimum distance between a solder mask opening and a copper item with a different net than the solder mask opening's parent.\n"
+"Distances smaller than this minimum will create a DRC error."
+msgstr ""
+"A forrasztásgátló nyílás és a nyílás szülőjétől eltérő hálózatú rézelem közötti minimális távolság.\n"
+"Az ennél kisebb távolságok DRC-hibát okoznak."
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:77
+msgid ""
+"Minimum distance between openings in the solder mask.\n"
+"Pad openings closer than this distance will be plotted as a single opening."
+msgstr ""
+"A forrasztásgátló nyílásai közötti minimális távolság.\n"
+"Az ennél közelebbi forrszem-nyílások egyetlen nyílásként lesznek megrajzolva."
+
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
 msgstr "Legkisebb szélesség"
@@ -1558,6 +2190,10 @@ msgstr "Legkisebb szélesség"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Hiányzó 3D-modell-hivatkozások"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Hiányzó 3D modell hivatkozások:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2211,25 @@ msgstr "Rács mozgatása lefelé"
 msgid "Move grid up"
 msgstr "Rács mozgatása felfelé"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Áthelyezés alulra"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Áthelyezés felülre"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Az én okom nincs a listán"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1627,9 +2279,25 @@ msgstr "Következő oldal"
 msgid "No %s match your search."
 msgstr "Egy %s sem felel meg a keresésnek."
 
+#: eeschema/sch_no_connect.ts:162 eeschema/tools/sch_edit_tool.ts:329
+msgid "No Connect"
+msgstr "Nincs csatlakozás"
+
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Nincs szerkeszthető tervváltozat."
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias.tsx:152
+msgid "No differential pair gap defined."
+msgstr "Nincs differenciális jelvezeték-hézag megadva."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Nincs betöltött lábkiosztás-könyvtár."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Nincs kijelölve csoport csatolt tervezési blokkal."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2314,10 @@ msgstr "Nincsenek könyvtárak"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Nincs találat"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Nincs találat."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2371,22 @@ msgstr "Számszöveg mérete"
 msgid "Numbering step"
 msgstr "Számozási lépés"
 
+#: common/remote_provider_models.ts:75
+msgid "OAuth metadata must include authorization_endpoint and token_endpoint."
+msgstr "Az OAuth-metaadatoknak tartalmazniuk kell az authorization_endpoint és a token_endpoint mezőt."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2402,10 @@ msgstr "Csak a meghívottak"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Bemutatóprojekt megnyitása"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Külső fájl megnyitása..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1734,6 +2426,14 @@ msgstr "Nyisson meg egy projektet, amelyhez lábkiosztás-könyvtárat adhat."
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "Megnyitás a számítógépről..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "A NYÁK Panel beállítások párbeszédablak megnyitása"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "A Kapcsolási rajz beállítások párbeszédablak megnyitása"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1787,6 +2487,38 @@ msgstr "Kimeneti útvonal"
 msgid "Outset"
 msgstr "Kitolás"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:303
+msgid "PADS Logic library files"
+msgstr "PADS Logic könyvtárfájlok"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:299
+msgid "PADS Logic schematic files"
+msgstr "PADS Logic kapcsolásirajz-fájlok"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF kimeneti módja"
@@ -1794,6 +2526,22 @@ msgstr "PDF kimeneti módja"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG beállítások"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1895,6 +2643,10 @@ msgstr "Illessze be a 24 szavas helyreállítási kulcsot"
 msgid "People with access"
 msgstr "Hozzáféréssel rendelkezők"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "Válasszon dátumot"
@@ -1971,9 +2723,17 @@ msgstr "Helyzet módja"
 msgid "Position offset"
 msgstr "Helyzet eltolása"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Lehetséges helyettesítők"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Lehetséges helyettesítők:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +2742,14 @@ msgstr "Előre meghatározott vezetősáv-szélességek"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Előre meghatározott via-méretek"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "PrePreg"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "Préselt"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2003,13 +2771,29 @@ msgstr "Projektsablonok"
 msgid "Projects"
 msgstr "Projektek"
 
+#: pcbnew/dialogs/panel_setup_teardrops_base.tsx:246
+msgid "Properties for Track-to-Track Teardrops"
+msgstr "Vezetősáv–vezetősáv csepp tulajdonságai"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:661
 msgid "Protection features"
 msgstr "Védelmi funkciók"
 
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Telepítés sorba állítása"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Feljebb"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2806,10 @@ msgstr "Tartomány (feszültségek)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Légvezeték vonalvastagsága"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "%d importált lábkiosztás-hozzárendelés újra összekapcsolva a(z) '%s' könyvtárral."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2843,10 @@ msgstr "Újrarajzolási sebesség"
 msgid "Reference filter"
 msgstr "Hivatkozás szűrő"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Átfedő zónák újrakitöltése..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "Előnézet frissítése"
@@ -2074,6 +2866,10 @@ msgstr "Újratöltés most"
 #: designer/src/ui/ErrorBoundary.tsx:81
 msgid "Reload without saving"
 msgstr "Újratöltés mentés nélkül"
+
+#: common/remote_provider_models.ts:148
+msgid "Remote provider manifest failed schema validation: %s"
+msgstr "A távoli szolgáltató manifestje nem felelt meg a séma ellenőrzésének: %s"
 
 #: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
 msgid "Remove %s"
@@ -2131,6 +2927,14 @@ msgstr "Via-késleltetés felülbírálásának eltávolítása"
 msgid "Rename variant"
 msgstr "Változat átnevezése"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Modellek cseréje"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Az elavult WRL 3D modell hivatkozások cseréje aktuális STEP modellekre"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Csere erre:"
@@ -2163,9 +2967,21 @@ msgstr "Az oldal visszaállítása az alapértékekre"
 msgid "Resize"
 msgstr "Átméretezés"
 
+#: eeschema/sch_rule_area.ts:125
+msgid "Resolved netclass"
+msgstr "Feloldott hálózatosztály"
+
 #: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
 msgid "Restore Project"
 msgstr "Projekt visszaállítása"
+
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Verzió helyreállítása"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Visszaállítja a projektet a következő időpontú verzióra: %s?"
 
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
@@ -2194,6 +3010,26 @@ msgstr "Helyek kerekítése erre:"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Vonalzó mértékegysége"
+
+#: pcbnew/dialogs/panel_setup_rules.tsx:50
+msgid "Rules '%s' and '%s' share the same condition."
+msgstr "A(z) '%s' és '%s' szabály feltétele megegyezik."
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2234,6 +3070,10 @@ msgstr "Méretezési vonalzó"
 #: pcbnew/dialogs/dialog_footprint_associations_base.tsx:69
 msgid "Schematic association"
 msgstr "Kapcsolásirajz-társítás"
+
+#: eeschema/sch_screen.ts:707
+msgid "Schematic symbol reference '%s' library identifier is not valid. Unable to link library symbol."
+msgstr "A(z) '%s' kapcsolásirajz-rajzjel hivatkozás könyvtárazonosítója érvénytelen. A könyvtári rajzjel nem kapcsolható."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
 msgid "Schematic variants"
@@ -2299,6 +3139,10 @@ msgstr "A(z) %s kijelöléséhez tartozó objektumok kijelölése/kiemelése"
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "A kijelölt cellák a rendszer alapértelmezett színválasztásával jelennek meg a tábla újratöltése után."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "A kijelölés zárolt elemeket tartalmaz. A művelet elvégzéséhez engedélyezze a 'Zárolások felülírása' beállítást."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Visszaállító hivatkozás küldése"
@@ -2327,21 +3171,49 @@ msgstr "A(z) %s hálózat színének beállítása"
 msgid "Set color for the %s netclass"
 msgstr "A(z) %s hálózatosztály színének beállítása"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "A pozíciófájlokból való kizárás attribútum beállítása"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Projekt megosztása"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Közös alkatrészek:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "A lapfájl nincs a projektben: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift és Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "3D-navigátor megjelenítése"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Beállítások megjelenítése"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2355,6 +3227,10 @@ msgstr "Bejelentkezés"
 msgid "Sign in to ZiroEDA"
 msgstr "Bejelentkezés a ZiroEDA-ba"
 
+#: pcbnew/dialogs/panel_setup_tuning_profile_info.ts:176 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:186 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:240 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:245 pcbnew/dialogs/panel_setup_tuning_profile_info.ts:677
+msgid "Signal layer not found in stackup"
+msgstr "A jelréteg nem található a rétegrendben"
+
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:368
 msgid "Significant digits (currents)"
 msgstr "Értékes számjegyek (áramok)"
@@ -2366,6 +3242,10 @@ msgstr "Értékes számjegyek (feszültségek)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Bejelentkezés..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "%d kijelölt elem kimaradt, mert nem tervezési blokkhoz kapcsolt csoport."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2391,6 +3271,14 @@ msgstr "Illesztés vezetősávokhoz és viákhoz"
 msgid "Solder mask expansion"
 msgstr "Forrasztásgátló kiterjesztése"
 
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:118
+msgid "Solder mask minimum web width:"
+msgstr "Forrasztásgátló minimális stégszélessége:"
+
+#: pcbnew/dialogs/panel_setup_mask_and_paste.tsx:119
+msgid "Solder mask to copper clearance:"
+msgstr "Forrasztásgátló–réz szigetelési távolság:"
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
 msgid "Solder paste clearance"
 msgstr "Forrasztópaszta szigetelési távolsága"
@@ -2406,6 +3294,10 @@ msgstr "Legfeljebb 4 alkatrészt használó megoldásokat adunk meg."
 #: designer/src/editors/calculator/panels/panel_transline.tsx:846
 msgid "Solve for this parameter"
 msgstr "Megoldás erre a paraméterre"
+
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Egyes kijelölt elemek nem csoportosíthatók."
 
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
@@ -2423,6 +3315,22 @@ msgstr "Rendezési és kibontási beállítások"
 msgid "Sources"
 msgstr "Források"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:436 eeschema/tools/sch_edit_tool.ts:229
+msgid "Standard"
+msgstr "Szabványos"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:257
+msgid "Standard (1,2,3)"
+msgstr "Szabványos (1,2,3)"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Kezdőréteg"
@@ -2435,7 +3343,11 @@ msgstr "Kezdő hivatkozási jelölő"
 msgid "Step for rotate commands"
 msgstr "Forgatási parancsok lépése"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: designer/src/editors/calculator/panels/transline_ident.ts:389
+msgid "Stripline"
+msgstr "Stripline"
+
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Támogatási csevegés"
 
@@ -2446,6 +3358,10 @@ msgstr "Rétegek cseréje"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
 msgid "Symbol filter"
 msgstr "Rajzjel szűrő"
+
+#: eeschema/sch_screen.ts:728
+msgid "Symbol library '%s' not found and no fallback cache library available.  Unable to link library symbol."
+msgstr "A(z) '%s' rajzjel-könyvtár nem található, és nincs tartalék gyorsítótár-könyvtár.  A könyvtári rajzjel nem kapcsolható."
 
 #: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
 msgid "Symbol library references"
@@ -2467,6 +3383,30 @@ msgstr "Felhőprojektek szinkronizálása..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "A szintézis téglalap alakú hullámvezetőkhöz nem érhető el."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "A célszabály-terület alkatrészei közösek a referenciaterülettel"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Célterületek"
@@ -2479,6 +3419,14 @@ msgstr "Célimpedancia"
 msgid "Temperature rise (ΔT):"
 msgstr "Hőmérséklet-emelkedés (ΔT):"
 
+#: pcbnew/dialogs/panel_setup_mask_and_paste_base.tsx:54
+msgid ""
+"Tented: vias are covered with solder mask.\n"
+"Not tented: vias are not covered with solder mask."
+msgstr ""
+"Letakart: a viákat forrasztásgátló fedi.\n"
+"Nem letakart: a viákat nem fedi forrasztásgátló."
+
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
 msgid "Text color"
 msgstr "Szöveg színe"
@@ -2486,6 +3434,10 @@ msgstr "Szöveg színe"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Szövegkeret"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Szöveg vagy grafika az Edge.Cuts rétegen"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3475,10 @@ msgstr "A meghatározó érték félkövéren látható."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "A letöltés sikertelen. Másolja ki az alábbi hibát és jelentse, kérjük, ne töltse újra az oldalt, a munkája még visszaállítható ezen a lapon."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "A következő csoportok nem dolgozhatók fel:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Az IPC 2221 szerinti képlet:"
@@ -2539,9 +3495,21 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Az IEC60664-1 célja útmutatást adni a hálózati tápellátáshoz csatlakozó termékek szigetelésének tervezéséhez."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "A könyvtártáblázat típusa hibás"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "A kért érték mindig ki van zárva a megoldáshalmazból."
+
+#: eeschema/sheet.ts:111
+msgid "The schematic '%s' has not had its symbol library links remapped to the symbol library table.  The project this schematic belongs to must first be remapped before it can be imported into the current project."
+msgstr "A(z) '%s' kapcsolási rajz rajzjel-könyvtár hivatkozásai nem lettek átképezve a rajzjel-könyvtártáblázatra.  Az a projekt, amelyhez ez a kapcsolási rajz tartozik, először át kell képezni, mielőtt importálható lenne az aktuális projektbe."
+
+#: eeschema/sheet.ts:567
+msgid "The sheet changes cannot be made because the destination sheet already has the sheet '%s' or one of its subsheets as a parent somewhere in the schematic hierarchy."
+msgstr "A lapmódosítások nem hajthatók végre, mert a cél lapnak a kapcsolási rajz hierarchiájában valahol már szülője a(z) '%s' lap vagy annak valamelyik allapja."
 
 #: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:581 eeschema/dialogs/dialog_symbol_properties_base.tsx:378
 msgid "The simulator is not available in this build"
@@ -2554,6 +3522,10 @@ msgstr "A szövegmagasságnak %s között kell lennie."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "A szövegszélességnek %s között kell lennie."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "A(z) '%s' egységnév már használatban van."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3599,10 @@ msgstr "Ez a beállítási oldal még nincs megvalósítva."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Ez a táblázat a különböző fémek és ötvözetek elektrokémiai potenciáljának különbségét mutatja. A galvanikus korrózió az érintkező különböző fémeket érinti bizonyos körülmények között."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Ez a célszabály-terület ugyanazokat az alkatrészeket választja ki, mint a referenciaterület. Az elrendezés ismétlése nem másolhat egy szabály-területet önmagára. Adjon minden elhelyezési szabály-területnek külön lapot, alkatrészosztályt vagy csoportot."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Ez az eszköz vezetősáv-biztosíték tervezését teszi lehetővé, de csak becslésként használható."
@@ -2634,6 +3610,14 @@ msgstr "Ez az eszköz vezetősáv-biztosíték tervezését teszi lehetővé, de
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Érték kiválasztásához induljon ki a kiszámított célértékből, majd kerekítse E24 vagy az alatti sorozatnál 2, E48 vagy a feletti sorozatnál 3 értékes számjegyre. Ezután keresse meg a táblázatban a megmaradt értékes számjegyekhez legközelebbi értéket, és helyettesítse be azokra a számjegyekre."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Az anyagjegyzékből való kizárás attribútum váltása"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "A pozíciófájlokból való kizárás attribútum váltása"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2683,6 +3667,10 @@ msgstr "A vezetősáv szélessége legalább %s legyen."
 msgid "Track: %s mm (%s mils)"
 msgstr "Vezetősáv: %s mm (%s mil)"
 
+#: pcbnew/dialogs/panel_setup_teardrops_base.tsx:253
+msgid "Tracks which are similar in size do not need teardrops."
+msgstr "A hasonló méretű vezetősávoknak nincs szükségük cseppre."
+
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:633
 msgid "Trapezoid axis"
 msgstr "Trapéz tengelye"
@@ -2690,6 +3678,10 @@ msgstr "Trapéz tengelye"
 #: designer/src/auth/DeleteAccountDialog.tsx:253
 msgid "Try again"
 msgstr "Próbálja újra"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:694
+msgid "Tuning profile must have a name"
+msgstr "A hangolási profilnak rendelkeznie kell névvel"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
 msgid "Tuning profiles"
@@ -2702,6 +3694,30 @@ msgstr "Két rajzjellábat ugyanahhoz a lábkiosztás-forrszemhez rendeltek"
 #: common/widgets/search_pane_tab.tsx:101
 msgid "Type to search"
 msgstr "Írjon a kereséshez"
+
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "%.1f fokos vagy nagyobb ívű vezetősávok nem húzhatók."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "A könyvtártáblázat nem tölthető be."
+
+#: common/remote_provider_models.ts:188
+msgid "Unable to parse remote provider manifest: %s"
+msgstr "A távoli szolgáltató manifestje nem dolgozható fel: %s"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "A letöltött rajzjel nem menthető: %s"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
@@ -2743,6 +3759,14 @@ msgstr "Felhasználói rétegek"
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "%s használatban ennyiből: %s. Töltse le a projektet, majd törölje a régi projekteket a kezdőképernyőn a hely felszabadításához."
 
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
+
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
 msgstr "Csúcspont-szerkesztő"
@@ -2750,6 +3774,14 @@ msgstr "Csúcspont-szerkesztő"
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
 msgid "Vertical %s"
 msgstr "Függőleges %s"
+
+#: common/eda_item.ts:910 pcbnew/board_statistics_report.ts:664 pcbnew/board_statistics_report.ts:774 pcbnew/dialogs/dialog_board_statistics.tsx:276 pcbnew/widgets/search_handlers.ts:751
+msgid "Via"
+msgstr "Via"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias.tsx:345
+msgid "Via Gap"
+msgstr "Via hézag"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
@@ -2766,6 +3798,10 @@ msgstr "Via mérete"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
 msgid "Via type"
 msgstr "Via típusa"
+
+#: pcbnew/toolbars_pcb_editor.ts:500
+msgid "Via: %s (%s)"
+msgstr "Via: %s (%s)"
 
 #: pcbnew/pcb_edit_frame_ui.tsx:7089
 msgid "Via: %s / %s mm (%s / %s mils)"
@@ -2786,6 +3822,26 @@ msgstr "Megtekintő"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Nézetablakok (Shift+Tab):"
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "A szabálysértések súlyossága a NYÁK Panel beállításokban is szerkeszthető"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "A szabálysértések súlyossága a Kapcsolási rajz beállításokban is szerkeszthető"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +3875,10 @@ msgstr "Ha a szennyeződés elleni védelemre védőbevonatot vagy öntést hasz
 msgid "Who's here"
 msgstr "Ki van itt"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Vezetékstílus"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Vezeték/busz szélessége"
@@ -2835,6 +3895,10 @@ msgstr "X pozíció"
 msgid "X scale factor"
 msgstr "X méretezési tényező"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y pozíció"
@@ -2842,6 +3906,10 @@ msgstr "Y pozíció"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y méretezési tényező"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3939,14 @@ msgstr "A projekt még a memóriában van. Újratöltés előtt töltse le, mert
 msgid "Your recovery key"
 msgstr "Az Ön helyreállítási kulcsa"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "A ZiroEDA váratlan hibába ütközött"
@@ -2886,6 +3962,20 @@ msgstr "A ZiroEDA nagyobb képernyőt igényel"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA támogatási csevegés"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Zónaprioritás"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"A zónakitöltések hibásak lehetnek: az iteratív újrakitöltés %d menet után sem konvergált.\n"
+"\n"
+"Ez összetett, átfedő zónáknál fordulhat elő.  Fontolja meg a zónák egyszerűsítését."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3997,14 @@ msgstr "Zóna-előnézetek"
 msgid "Zoom speed"
 msgstr "Nagyítás sebessége"
 
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "nulla szögdelta %ld objektummal"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "alább, hogy újra beállítsa a jelszavát. Helyreállítási kulcs nem szükséges."
@@ -2919,17 +4017,57 @@ msgstr "szerkesztheti"
 msgid "can view"
 msgstr "megtekintheti"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "a tervezési blokk elrendezése nem tölthető be"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "szaggatott: kúszóáramú távolság"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "a tervezési blokk nem tartalmaz alkalmazható elemet"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "a tervezési blokknak nincs mentett NYÁK-elrendezése"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "a tervezési blokk nincs a betöltött könyvtárakban"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "nem szinkronizálódott:"
 
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: eeschema/sch_line.ts:201
+msgid "from netclass"
+msgstr "hálózatosztályból"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "a csoport üres"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "rendelkezik fiókkal, a visszaállító hivatkozás úton van. Nyissa meg ezen az eszközön az új jelszó kiválasztásához."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "nulla vízszintes eltérés %ld objektummal"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +4101,94 @@ msgstr "a vastagság (magasság) mil-ben"
 msgid "is width in mils"
 msgstr "a szélesség mil-ben"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "az elrendezés másolása sikertelen"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:547
+msgid "max"
+msgstr "max"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: common/remote_provider_metadata.ts:197
+msgid "session_bootstrap_url must share the same origin as panel_url."
+msgstr "A session_bootstrap_url-nek ugyanazzal az eredettel kell rendelkeznie, mint a panel_url."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "folytonos: szigetelési távolság"
@@ -2970,6 +4196,10 @@ msgstr "folytonos: szigetelési távolság"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "az olvadáspontig, valamint a halmazállapot-változáshoz szükséges energiát."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "nulla függőleges eltérés %ld objektummal"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

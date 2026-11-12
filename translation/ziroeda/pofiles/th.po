@@ -39,6 +39,10 @@ msgstr "\"%s\" ไม่ใช่ลิงก์ไปยังที่เก�
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "ตั้ง \"%s\" เป็นธีมสีวงจรที่ใช้งานอยู่แล้ว"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "ไม่สามารถจับคู่โมเดล WRL 3D จำนวน %d รายการกับโมเดล STEP ที่เทียบเท่าได้"
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: นำออก"
 msgid "%s: sort"
 msgstr "%s: เรียงลำดับ"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' ถูกกำหนดให้ '%s' ในหมวด '%s' แล้ว ระบบจะเก็บการผูกทั้งสองไว้ แต่การกดแป้นหนึ่งครั้งจะทำงานเพียงอย่างเดียว ดำเนินการต่อหรือไม่?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' ไม่ใช่ไฟล์ PADS Logic ASCII"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(อัตโนมัติ)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(คงเรฟเฟอเรนซ์เดิมไว้)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(ไม่มีไฟล์ STEP ในโครงการ)"
@@ -174,6 +194,10 @@ msgstr "(ไม่มีไฟล์ STEP ในโครงการ)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(ไม่มีตัวอย่างที่รวมมา)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(กลุ่มไม่มีชื่อ)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +211,41 @@ msgstr ". โปรดตรวจสอบกล่องจดหมาย (�
 msgid "... (step"
 msgstr "... (ขั้นตอน"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0.00 in / 0 mils / 0.0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "ผู้ชมอื่น 1 คน"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "ตัวดู 3D — %s"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "มีไฟล์ชื่อ “%s” อยู่แล้ว ต้องการแทนที่หรือไม่?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "มีไลบรารีอยู่แล้วที่ '%s' จะปล่อยฟุ้ทพรินท์ที่นำเข้าไว้โดยไม่แก้ไขการอ้างอิง"
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +259,43 @@ msgstr "มี ZiroEDA เวอร์ชันใหม่พร้อมใช
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "ตัวเลขบวกหมายความว่าแถวเป็นแอโนด (-) และคอลัมน์เป็นแคโทด (+) โทนสีเย็นและอุ่นยังบอกศักย์ของแถวด้วย"
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "ชื่อเฉพาะของโซนนี้ ใช้ระบุโซนในกฎ DRC"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "บัญชี"
 
@@ -234,6 +318,10 @@ msgstr "ใช้งานอยู่"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "เพิ่มโมเดล 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "เพิ่มไดเรกทอรีค้นหา…"
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +354,10 @@ msgstr "เพิ่มจากคอมพิวเตอร์..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "เพิ่มกริด"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "เพิ่มกลุ่ม '%s' ไปยังกลุ่ม '%s'"
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +407,10 @@ msgstr "เพิ่มตัวแปรออกแบบ"
 msgid "Add via delay override"
 msgstr "เพิ่มการแทนที่หน่วงเวลาเวีย"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "เพิ่มกลุ่ม '%s' ไปยังกลุ่ม '%s' แล้ว"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "เพิ่มที่เก็บ \"%s\" แล้ว (%s แพ็กเกจ)"
@@ -334,6 +430,14 @@ msgstr "อนุญาตข้อมูลไซต์สำหรับหน
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "มีบัญชีอยู่แล้วใช่หรือไม่?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +475,21 @@ msgstr "มีอะไรอีกไหม?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "ใช้การเปลี่ยนแปลงแล้ว: ติดตั้ง %s ถอนการติดตั้ง %s"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "ใช้เลย์เอาต์ดีไซน์บล็อกกับ %d จาก %d กลุ่มแล้ว"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "ใช้การเปลี่ยนแปลงที่รอดำเนินการ ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "ใช้เลย์เอาต์ดีไซน์บล็อกกับ %d กลุ่ม"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "ใช้เลย์เอาต์ดีไซน์บล็อกกับกลุ่มใหม่"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -419,6 +535,18 @@ msgstr "ความเร็วแพนอัตโนมัติ"
 msgid "Auto-assign priorities"
 msgstr "กำหนดลำดับความสำคัญอัตโนมัติ"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "ย้ายการอ้างอิงโมเดล 3D อัตโนมัติ"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "วางพินชีตอัตโนมัติ"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "กำหนดลำดับความสำคัญของโซนอัตโนมัติจากการวิเคราะห์การเชื่อมต่อของพื้นที่ที่ซ้อนทับกัน"
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "ฟุ้ทพรินท์ที่ใช้ได้"
@@ -427,6 +555,18 @@ msgstr "ฟุ้ทพรินท์ที่ใช้ได้"
 msgid "Available path substitutions"
 msgstr "การแทนที่พาธที่ใช้ได้"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "ค่าที่ตั้งไว้ล่วงหน้าการจัดรูปแบบ BOM"
@@ -434,6 +574,10 @@ msgstr "ค่าที่ตั้งไว้ล่วงหน้าการ
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "การแก้ไข BOM"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +595,14 @@ msgstr "กลับไปยังตัวจัดการโครงกา
 msgid "Back to sign in"
 msgstr "กลับไปที่การลงชื่อเข้าใช้"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "การเจาะถอย"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "การเจาะถอย:"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "อ้างอิงจากตำแหน่งของ"
@@ -462,6 +614,10 @@ msgstr "ความยาวที่ดีที่สุด"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "ความกว้างที่ดีที่สุด"
+
+#: pcbnew/menubar_pcb_editor.ts:190 pcbnew/tools/pcb_actions.ts:1733
+msgid "Bill of Materials..."
+msgstr "รายการวัสดุ…"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -531,9 +687,33 @@ msgstr "ชื่อแทนบัส"
 msgid "Bus members"
 msgstr "สมาชิกบัส"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "ยกเลิกหลังจาก %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "ไม่สามารถสร้างโฟลเดอร์ไลบรารี '%s'"
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "ไม่สามารถลงทะเบียนแคชฟุ้ทพรินท์ที่นำเข้าได้: ไม่มีตารางไลบรารีของโปรเจกต์"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +723,25 @@ msgstr "เนื้อหาเซลล์"
 msgid "Center layer"
 msgstr "เลเยอร์กลาง"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "เปลี่ยน %s 'ไม่รวมในไฟล์ตำแหน่ง' จาก '%s' เป็น '%s'"
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "แชทกับเรา (ลากเพื่อย้าย)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "กำลังตรวจสอบระยะห่างของทีร์ดรอป…"
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "กำลังตรวจสอบบัญชีของคุณ"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "ไม่สามารถจัดกลุ่มรายการลูกแยกจากรายการแม่ได้"
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -570,6 +762,18 @@ msgstr "ปิดตัวดู 3D"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "การปิดลิงก์ภายหลังจะทำให้คนใหม่เปิดไม่ได้ ผู้ที่อยู่ในรายการแล้วยังเข้าถึงได้จนกว่าคุณจะนำออก"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -594,6 +798,10 @@ msgstr "ไฟล์ธีมสี"
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "วัสดุทั่วไป"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "เสร็จสิ้นใน %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +842,10 @@ msgstr "รูปแบบพิกัด"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "คัดลอกแล้ว"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "ทองแดงที่คัดลอกยังไม่ได้กำหนดเน็ต กำหนดเน็ตเพื่อเชื่อมต่อ"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +899,22 @@ msgstr "ไม่สามารถเปิด %s: %s"
 msgid "Could not open this project: %s"
 msgstr "ไม่สามารถเปิดโครงการนี้: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"ไม่สามารถเขียนทับไฟล์ไลบรารี '%s' ได้\n"
+"ตรวจสอบว่ามีสิทธิ์เขียนแล้วลองอีกครั้ง"
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "ไม่สามารถเผยแพร่แคชฟุ้ทพรินท์ที่นำเข้าไปยัง '%s' ได้"
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "ไม่สามารถกระทบยอดไลบรารีฟุ้ทพรินท์ที่นำเข้าได้: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "ไม่สามารถเขียนไฟล์ไลบรารี '%s'"
@@ -727,6 +955,22 @@ msgstr "กำลังสร้างบัญชี..."
 msgid "Creating your account"
 msgstr "กำลังสร้างบัญชีของคุณ"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "ความหนาแน่นกระแสปัจจุบัน:"
@@ -735,9 +979,33 @@ msgstr "ความหนาแน่นกระแสปัจจุบัน
 msgid "Current exceeds the ampacity for this density."
 msgstr "กระแสเกินความจุกระแสสำหรับความหนาแน่นนี้"
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "รูปแบบตัวถังแบบกำหนดเองต้องมีอย่างน้อย 2 รายการ"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "มาตราส่วนกำหนดเอง"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1019,10 @@ msgstr "ตัวเลือก DRC"
 msgid "DRC results"
 msgstr "ผลลัพธ์ DRC"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "ความกว้างเส้นเริ่มต้นของ DXF"
@@ -762,6 +1034,10 @@ msgstr "หน่วยเริ่มต้นของ DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "ความยาวเส้นประ"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -855,6 +1131,10 @@ msgstr "สร้างจากสัญลักษณ์"
 msgid "Design variant"
 msgstr "ตัวแปรการออกแบบ"
 
+#: pcbnew/board_tables/board_stackup_table.ts:94
+msgid "Dielectric"
+msgstr "ไดอิเล็กทริก"
+
 #: designer/src/home/dialogs/dialog_template_selector.tsx:546
 msgid "Directory '%s/%s' already exists."
 msgstr "ไดเรกทอรี '%s/%s' มีอยู่แล้ว"
@@ -882,6 +1162,10 @@ msgstr "P/N ของผู้จัดจำหน่าย"
 #: designer/src/auth/RecoveryKeyContents.tsx:82
 msgid "Do this later"
 msgstr "ทำภายหลัง"
+
+#: pcbnew/footprint.ts:2608 pcbnew/footprint.ts:2671
+msgid "Doc: %s"
+msgstr "Doc: %s"
 
 #: designer/src/ui/ErrorBoundary.tsx:74
 msgid "Download %s.zip"
@@ -923,9 +1207,29 @@ msgstr "เครื่องหมายการเจาะ"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "เนื่องจากลักษณะของโปรโตคอลการเข้ารหัสแบบ end-to-end ของเรา จึงไม่สามารถถอดรหัสข้อมูลของคุณได้หากไม่มีรหัสผ่านหรือคีย์กู้คืน"
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 แนะนำให้ผลต่างแรงดันต่ำกว่า 300mV แนวปฏิบัติที่เป็นที่รู้จักใช้โลหะพื้นผิวชั้นที่สามคั่นระหว่างคู่หลัก (เช่น ผิวเคลือบ ENIG)"
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1238,10 @@ msgstr "ตัวเชื่อมต่อการ์ดขอบ"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "แก้ไขรายการบัส"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "แก้ไขคำอธิบายของ '%s'"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1275,14 @@ msgstr "แก้ไขฟิลด์สัญลักษณ์"
 msgid "Edit Text Box"
 msgstr "แก้ไขกล่องข้อความ"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "แก้ไขคำอธิบายตัวแปร"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "แก้ไขคำอธิบายตัวแปร…"
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "แก้ไขกริด"
@@ -979,6 +1295,10 @@ msgstr "แก้ไขในตัวดูข้อความ"
 msgid "Edit layer"
 msgstr "แก้ไขเลเยอร์"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "แก้ไขคำอธิบายของตัวแปรดีไซน์ที่มีอยู่"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "แก้ไขคำอธิบายตัวแปรออกแบบ"
@@ -986,6 +1306,14 @@ msgstr "แก้ไขคำอธิบายตัวแปรออกแบ
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "เวลาที่ผ่านไป:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "เวลาที่ผ่านไป: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "เวลาที่ผ่านไป: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1065,6 +1393,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "เกิดข้อผิดพลาดในการบันทึกตารางไลบรารีฟุ้ทพรินท์ของโปรเจกต์"
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1415,21 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "เกิดข้อผิดพลาดในการเขียนแคชฟุ้ทพรินท์ที่นำเข้า '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "ข้อผิดพลาด!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "ไม่รวมในไฟล์ตำแหน่ง"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1119,6 +1463,10 @@ msgstr "คุณสมบัติการผลิต"
 msgid "Failed to load schematic:"
 msgstr "โหลดวงจรไม่สำเร็จ:"
 
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "ไม่สามารถแยกวิเคราะห์ไฟล์ PADS Logic '%s' ได้"
+
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
 msgstr "กริดด่วน 1"
@@ -1146,6 +1494,10 @@ msgstr "ประเภทการเติม"
 #: eeschema/dialogs/dialog_shape_properties_base.tsx:206
 msgid "Fill with color"
 msgstr "เติมด้วยสี"
+
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "กรองการดำเนินการ"
 
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
@@ -1175,9 +1527,21 @@ msgstr "ไฟล์การเชื่อมโยงฟุ้ทพริน
 msgid "Footprint field"
 msgstr "ฟิลด์ฟุ้ทพรินท์"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "ไม่สามารถจัดกลุ่มรายการของฟุ้ทพรินท์แยกจากฟุ้ทพรินท์แม่ได้"
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "ประเภทฟุ้ทพรินท์"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "ไม่สามารถกลับกระจกฟุ้ทพรินท์ได้ ใช้ Flip เพื่อย้ายไปยังอีกด้านของบอร์ด"
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "สำหรับแต่ละกลุ่มใหม่ที่สร้างจากดีไซน์บล็อก ให้ใช้การวางฟุ้ทพรินท์และการเดินสายที่บันทึกไว้ของบล็อกโดยอัตโนมัติ"
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1207,9 +1571,29 @@ msgstr "คำนำหน้าด้านหน้า"
 msgid "Front reference start"
 msgstr "จุดเริ่มต้นการอ้างอิงด้านหน้า"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:208
+msgid "Functional"
+msgstr "ฟังก์ชัน"
+
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "ความยาวช่องว่าง"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1611,11 @@ msgstr "กำลังสร้างคีย์เข้ารหัส..."
 msgid "Generating your encryption keys"
 msgstr "กำลังสร้างคีย์เข้ารหัสของคุณ"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "เริ่มต้นใช้งาน %s"
 
@@ -1250,6 +1638,14 @@ msgstr "รูปแบบกราฟิก"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "ขนาดกริด"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "ข้ามกลุ่มที่มีฟุ้ทพรินท์หรือรายการอื่นที่กลับกระจกไม่ได้"
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1671,21 @@ msgstr "ขนาดการข้าม"
 msgid "Horizontal Any"
 msgstr "แนวนอนใดก็ได้"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "คีย์ร้อนขัดแย้งกัน"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "อย่างไรก็ตาม บางกรณีเครื่องคิดเลขนี้ไม่ครอบคลุม:"
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1699,45 @@ msgstr "ฉันจำรหัสผ่านได้"
 msgid "I understand this deletes my account and all its data."
 msgstr "ฉันเข้าใจว่าการดำเนินการนี้จะลบบัญชีและข้อมูลทั้งหมดของฉัน"
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "ถ้า"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "หากเลือก เลเยอร์จะคงชื่อ KiCad มาตรฐานไว้แทนที่จะถูกเปลี่ยนเป็นชื่อเลเยอร์ที่นำเข้า"
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1771,14 @@ msgstr "นำเข้า %s"
 msgid "Import Layer Mapping"
 msgstr "นำเข้าการแมปเลเยอร์"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "นำเข้าไฟล์บอร์ดที่ไม่ใช่ KiCad…"
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "นำเข้าวงจรที่ไม่ใช่ KiCad…"
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "นำเข้ากราฟิกเวกเตอร์"
@@ -1342,6 +1790,18 @@ msgstr "นำเข้าจาก"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "มาตราส่วนการนำเข้า"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "สเกลการนำเข้าต้องเป็นจำนวนบวก"
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "นำเข้าลายปรับความยาว %d รายการแล้ว"
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "ฟุ้ทพรินท์ที่นำเข้า '%s' มีคำนิยามการวางที่ขัดแย้งกัน เก็บรายการแรกไว้"
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1867,26 @@ msgstr "ขนาดจุดเชื่อม"
 msgid "Junction size"
 msgstr "ขนาดจุดเชื่อม"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "คงของเดิมไว้"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "คงชื่อเลเยอร์ของ KiCad"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "เก็บทั้งสองไว้"
@@ -1467,6 +1947,10 @@ msgstr "การกระทำของการคลิกซ้าย (แ�
 msgid "Left margin"
 msgstr "ขอบซ้าย"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "การตั้งค่าการปรับความยาว"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "ไลบรารีและธีมสีติดตั้งและใช้งานได้แล้ววันนี้"
@@ -1486,6 +1970,10 @@ msgstr "ลิงก์ไลบรารี"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "ชื่อไลบรารี:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "ตารางไลบรารี '%s' เป็นแบบอ่านอย่างเดียว"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2015,38 @@ msgstr "กำลังโหลด %s..."
 msgid "Local and global power symbols have same name"
 msgstr "สัญลักษณ์ไฟแบบโลคัลและส่วนกลางมีชื่อเดียวกัน"
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:90 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:140
+msgid "Loss Tan"
+msgstr "Loss Tan"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:66
+msgid "Loss Tan:"
+msgstr "Loss Tan:"
+
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "ลดลง"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "P/N ของผู้ผลิต"
@@ -1547,9 +2067,25 @@ msgstr "ความกว้างแทร็กสูงสุด"
 msgid "Maximum width"
 msgstr "ความกว้างสูงสุด"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "ลากปุ่มกลาง"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "ย้ายโมเดล 3D"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "ย้ายโมเดล 3D…"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "ย้ายการอ้างอิงโมเดล 3D"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2094,10 @@ msgstr "ความกว้างต่ำสุด"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "ไม่พบการอ้างอิงโมเดล 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "การอ้างอิงโมเดล 3D ที่ขาดหาย:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2115,25 @@ msgstr "ย้ายกริดลง"
 msgid "Move grid up"
 msgstr "ย้ายกริดขึ้น"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "ย้ายไปล่างสุด"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Move to Top"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "เหตุผลของฉันไม่อยู่ในรายการ"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1586,6 +2142,10 @@ msgstr "ขนาดข้อความชื่อ"
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
 msgstr "เน็ต %s"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:401
+msgid "Net Ties"
+msgstr "Net Ties"
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
 msgid "Net class filter"
@@ -1627,9 +2187,17 @@ msgstr "หน้าถัดไป"
 msgid "No %s match your search."
 msgstr "ไม่มี %s ที่ตรงกับการค้นหาของคุณ"
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "ไม่มีตัวแปรดีไซน์ให้แก้ไข"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "ไม่ได้โหลดไลบรารีฟุ้ทพรินท์"
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "ไม่ได้เลือกกลุ่มที่เชื่อมโยงกับดีไซน์บล็อก"
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2214,10 @@ msgstr "ไม่มีไลบรารี"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "ไม่มีรายการที่ตรงกัน"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "ไม่พบรายการที่ตรงกัน"
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2271,18 @@ msgstr "ขนาดข้อความหมายเลข"
 msgid "Numbering step"
 msgstr "ขั้นการกำหนดหมายเลข"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2298,10 @@ msgstr "เฉพาะผู้ที่ได้รับเชิญ"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "เปิดโครงการตัวอย่าง"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "เปิดไฟล์ภายนอก…"
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2323,14 @@ msgstr "เปิดโครงการเพื่อเพิ่มไลบ
 msgid "Open from Computer..."
 msgstr "เปิดจากคอมพิวเตอร์..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "เปิดกล่องโต้ตอบการตั้งค่าบอร์ด"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "เปิดกล่องโต้ตอบการตั้งค่าวงจร"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "เปิดไฟล์ที่พล็อตในแท็บเบราว์เซอร์ใหม่หลังพล็อตสำเร็จ (เฉพาะหน้าปัจจุบัน)"
@@ -1750,6 +2346,10 @@ msgstr "กำลังเปิดโครงการ..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "กำลังเปิดโครงการที่แชร์..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "Option:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2387,34 @@ msgstr "พาธเอาต์พุต"
 msgid "Outset"
 msgstr "ออฟเซ็ตออก"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "โหมดเอาต์พุต PDF"
@@ -1794,6 +2422,18 @@ msgstr "โหมดเอาต์พุต PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "ตัวเลือก PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1963,6 +2603,10 @@ msgstr "รูปแบบพล็อต"
 msgid "Plugin options"
 msgstr "ตัวเลือกปลั๊กอิน"
 
+#: pcbnew/board_stackup_manager/stackup_predefined_prms.ts:108
+msgid "Polyimide"
+msgstr "โพลีอิไมด์"
+
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
 msgstr "โหมดตำแหน่ง"
@@ -1975,6 +2619,10 @@ msgstr "ออฟเซ็ตตำแหน่ง"
 msgid "Potential replacements"
 msgstr "ตัวแทนที่เป็นไปได้"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "ตัวแทนที่เป็นไปได้:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
 msgstr "ความกว้างแทร็กที่กำหนดไว้ล่วงหน้า"
@@ -1982,6 +2630,14 @@ msgstr "ความกว้างแทร็กที่กำหนดไว
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "ขนาดเวียที่กำหนดไว้ล่วงหน้า"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "แบบอัดเข้า"
+
+#: pcbnew/board_statistics_report.ts:200
+msgid "Press-fit:"
+msgstr "แบบอัดเข้า:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +2663,21 @@ msgstr "โครงการ"
 msgid "Protection features"
 msgstr "คุณสมบัติการป้องกัน"
 
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "จัดคิวการติดตั้ง"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "เพิ่มขึ้น"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2690,10 @@ msgstr "ช่วง (แรงดัน)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "ความหนาเส้นแรตสเนสต์"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "เชื่อมโยงการกำหนดฟุ้ทพรินท์ที่นำเข้า %d รายการกับไลบรารี '%s' อีกครั้งแล้ว"
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +2727,10 @@ msgstr "ความเร็ววาดใหม่"
 msgid "Reference filter"
 msgstr "ตัวกรองการอ้างอิง"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "กำลังเติมโซนที่ซ้อนทับกันใหม่…"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "รีเฟรชตัวอย่าง"
@@ -2062,6 +2738,10 @@ msgstr "รีเฟรชตัวอย่าง"
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
 msgid "Regroup symbols"
 msgstr "จัดกลุ่มสัญลักษณ์ใหม่"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:210
+msgid "Reinforced"
+msgstr "เสริมแรง"
 
 #: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
 msgid "Reload"
@@ -2131,6 +2811,14 @@ msgstr "นำการแทนที่หน่วงเวลาเวีย
 msgid "Rename variant"
 msgstr "เปลี่ยนชื่อตัวแปรออกแบบ"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "แทนที่โมเดล"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "แทนที่การอ้างอิงโมเดล WRL 3D ที่ล้าสมัยด้วยโมเดล STEP ปัจจุบัน"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "แทนที่ด้วย"
@@ -2167,6 +2855,14 @@ msgstr "ปรับขนาด"
 msgid "Restore Project"
 msgstr "กู้คืนโครงการ"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "กู้คืนเวอร์ชัน"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "กู้คืนโปรเจกต์ไปยังเวอร์ชันจาก %s หรือไม่?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "กำลังกู้คืนโครงการของคุณ..."
@@ -2194,6 +2890,14 @@ msgstr "ปัดตำแหน่งเป็น"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "หน่วยไม้บรรทัด"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3003,10 @@ msgstr "เลือก/ไฮไลต์วัตถุที่ตรงก�
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "เซลล์ที่เลือกแสดงด้วยตัวเลือกสีเริ่มต้นของระบบหลังเติมตารางใหม่"
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "การเลือกมีรายการที่ล็อกอยู่ เปิดใช้ 'Override locks' เพื่อดำเนินการกับรายการเหล่านั้น"
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "ส่งลิงก์รีเซ็ต"
@@ -2327,21 +3035,49 @@ msgstr "ตั้งสีสำหรับเน็ต %s"
 msgid "Set color for the %s netclass"
 msgstr "ตั้งสีสำหรับเน็ตคลาส %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "ตั้งค่าคุณสมบัติไม่รวมในไฟล์ตำแหน่ง"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "แชร์โครงการนี้"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"ส่วนประกอบที่ใช้ร่วมกัน:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "ไฟล์ชีตไม่อยู่ในโครงการ: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift และ Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "แสดงตัวนำทาง 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "แสดงตัวเลือก"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3102,10 @@ msgstr "ตัวเลขนัยสำคัญ (แรงดัน)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "กำลังลงชื่อเข้าใช้..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "ข้าม %d รายการที่เลือกซึ่งไม่ใช่กลุ่มที่เชื่อมโยงกับดีไซน์บล็อก"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3147,10 @@ msgstr "แสดงคำตอบที่ใช้ชิ้นส่วนไ
 msgid "Solve for this parameter"
 msgstr "แก้หาพารามิเตอร์นี้"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "ไม่สามารถจัดกลุ่มรายการที่เลือกบางรายการได้"
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "โหลดบางชีตไม่สำเร็จ: %s"
@@ -2423,6 +3167,10 @@ msgstr "ตัวเลือกการเรียงลำดับและ
 msgid "Sources"
 msgstr "แหล่งที่มา"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "เลเยอร์เริ่มต้น"
@@ -2435,7 +3183,7 @@ msgstr "ตัวระบุอ้างอิงเริ่มต้น"
 msgid "Step for rotate commands"
 msgstr "ขั้นของคำสั่งหมุน"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "แชทสนับสนุน"
 
@@ -2467,6 +3215,26 @@ msgstr "กำลังซิงก์โครงการบนคลาวด
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "ไม่รองรับการสังเคราะห์สำหรับท่อนำคลื่นสี่เหลี่ยม"
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "รูลแอเรียเป้าหมายใช้ส่วนประกอบร่วมกับพื้นที่อ้างอิง"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "พื้นที่เป้าหมาย"
@@ -2474,6 +3242,14 @@ msgstr "พื้นที่เป้าหมาย"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "อิมพีแดนซ์เป้าหมาย"
+
+#: pcbnew/zone.ts:2002
+msgid "Teardrop %s %s"
+msgstr "ทีร์ดรอป %s %s"
+
+#: pcbnew/board_connected_item.ts:467 pcbnew/dialogs/dialog_board_setup.tsx:707 pcbnew/dialogs/dialog_global_deletion_base.tsx:91 pcbnew/dialogs/dialog_pad_properties_base.tsx:1109
+msgid "Teardrops"
+msgstr "ทีร์ดรอป"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +3262,10 @@ msgstr "สีข้อความ"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "กรอบข้อความ"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "ข้อความหรือกราฟิกบนเลเยอร์ Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3303,10 @@ msgstr "ค่าที่ควบคุมแสดงเป็นตัวห
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "ดาวน์โหลดล้มเหลว คัดลอกข้อผิดพลาดด้านล่างแล้วรายงาน โปรดอย่าโหลดซ้ำ งานของคุณยังกู้คืนได้จากแท็บนี้"
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "ไม่สามารถประมวลผลกลุ่มต่อไปนี้ได้:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "สูตรจาก IPC 2221 คือ"
@@ -2539,6 +3323,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "เป้าหมายของ IEC60664-1 คือให้คำแนะนำการออกแบบฉนวนสำหรับผลิตภัณฑ์ที่เชื่อมต่อกับไฟหลัก"
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "ตารางไลบรารีเป็นชนิดที่ไม่ถูกต้อง"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "ค่าที่ร้องขอจะถูกยกเว้นจากเซตคำตอบเสมอ"
@@ -2554,6 +3342,10 @@ msgstr "ความสูงข้อความต้องอยู่ระ
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "ความกว้างข้อความต้องอยู่ระหว่าง %s"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "ชื่อยูนิต '%s' ถูกใช้แล้ว"
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3419,10 @@ msgstr "ยังไม่ได้ทำหน้าตั้งค่านี
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "ตารางนี้แสดงความต่างศักย์ไฟฟ้าเคมีระหว่างโลหะและโลหะผสมต่าง ๆ การกัดกร่อนแบบกัลวานิกส่งผลต่อโลหะต่างชนิดที่สัมผัสกันภายใต้เงื่อนไขบางอย่าง"
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "รูลแอเรียเป้าหมายนี้เลือกส่วนประกอบชุดเดียวกับพื้นที่อ้างอิง การทำเลย์เอาต์ซ้ำไม่สามารถคัดลอกรูลแอเรียลงบนตัวเองได้ ให้ระบุชีต คลาสส่วนประกอบ หรือกลุ่มที่แตกต่างกันสำหรับแต่ละรูลแอเรียการวาง"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "เครื่องมือนี้ช่วยออกแบบฟิวส์แทร็ก แต่ควรใช้เป็นค่าประมาณเท่านั้น"
@@ -2634,6 +3430,14 @@ msgstr "เครื่องมือนี้ช่วยออกแบบฟ
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "หากต้องการเลือกค่า ให้เริ่มจากค่าเป้าหมายที่คำนวณได้ แล้วปัดเป็นตัวเลขนัยสำคัญ 2 ตัวสำหรับ E24 หรือต่ำกว่า หรือ 3 ตัวสำหรับ E48 ขึ้นไป จากนั้นหาค่าในตารางที่ใกล้เคียงกับตัวเลขนัยสำคัญที่เหลือที่สุด แล้วแทนที่ตัวเลขเหล่านั้น"
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "สลับคุณสมบัติไม่รวมในรายการวัสดุ"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "สลับคุณสมบัติไม่รวมในไฟล์ตำแหน่ง"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3507,38 @@ msgstr "ขาสัญลักษณ์สองขาถูกแมปกั
 msgid "Type to search"
 msgstr "พิมพ์เพื่อค้นหา"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "ไม่สามารถลากแทร็กส่วนโค้งที่มีมุม %.1f องศาขึ้นไปได้"
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "ไม่สามารถโหลดตารางไลบรารีได้"
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "ไม่สามารถบันทึกสัญลักษณ์ที่ดาวน์โหลดได้: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "ชื่อที่แสดงของยูนิต"
@@ -2739,9 +3575,33 @@ msgstr "ชื่อเลเยอร์ผู้ใช้"
 msgid "User layers"
 msgstr "เลเยอร์ผู้ใช้"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "ใช้ %1$s จาก %2$s ดาวน์โหลดโครงการของคุณ แล้วลบโครงการเก่าจากหน้าแรกเพื่อเพิ่มพื้นที่"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3647,26 @@ msgstr "ตัวดู"
 msgid "Viewports (Shift+Tab):"
 msgstr "วิวพอร์ต (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "สามารถแก้ไขความรุนแรงของการละเมิดได้ในการตั้งค่าบอร์ดด้วย"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "สามารถแก้ไขความรุนแรงของการละเมิดได้ในการตั้งค่าวงจรด้วย"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "เราไม่เก็บคีย์นี้ โปรดบันทึกไว้ในที่ปลอดภัย"
@@ -2819,6 +3699,10 @@ msgstr "เมื่อใช้สารเคลือบป้องกัน
 msgid "Who's here"
 msgstr "ใครอยู่ที่นี่"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "รูปแบบเส้นลวด"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "ความกว้างสาย/บัส"
@@ -2835,6 +3719,10 @@ msgstr "ตำแหน่ง X"
 msgid "X scale factor"
 msgstr "ตัวคูณมาตราส่วน X"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "ตำแหน่ง Y"
@@ -2842,6 +3730,10 @@ msgstr "ตำแหน่ง Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "ตัวคูณมาตราส่วน Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3763,22 @@ msgstr "โครงการของคุณยังอยู่ในหน
 msgid "Your recovery key"
 msgstr "คีย์กู้คืนของคุณ"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA พบข้อผิดพลาดที่ไม่คาดคิด"
@@ -2886,6 +3794,20 @@ msgstr "ZiroEDA ต้องใช้หน้าจอที่ใหญ่ก�
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "แชทสนับสนุน ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "ลำดับความสำคัญของโซน"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"การเติมโซนอาจไม่ถูกต้อง: การเติมซ้ำไม่ลู่เข้าหลังจาก %d รอบ\n"
+"\n"
+"อาจเกิดขึ้นกับโซนที่ซ้อนทับกันซับซ้อน  ลองลดความซับซ้อนของโซน"
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3829,22 @@ msgstr "ตัวอย่างโซน"
 msgid "Zoom speed"
 msgstr "ความเร็วซูม"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/tools/footprint_editor_control.ts:427
+msgid "_copy"
+msgstr "_copy"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "ผลต่างเชิงมุมเป็นศูนย์กับ %ld ออบเจ็กต์"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "ด้านล่างเพื่อตั้งรหัสผ่านอีกครั้ง ไม่ต้องใช้คีย์กู้คืน"
@@ -2919,17 +3857,61 @@ msgstr "แก้ไขได้"
 msgid "can view"
 msgstr "ดูได้"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "ไม่สามารถโหลดเลย์เอาต์ของดีไซน์บล็อกได้"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "เส้นประ: ระยะคริพเพจ"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "ดีไซน์บล็อกไม่มีรายการให้ใช้"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "ดีไซน์บล็อกไม่มีเลย์เอาต์ PCB ที่บันทึกไว้"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "ดีไซน์บล็อกไม่อยู่ในไลบรารีที่โหลดไว้"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "ไม่ได้ซิงก์:"
 
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:111
+msgid "feet"
+msgstr "ฟุต"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "กลุ่มว่างเปล่า"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "มีบัญชีอยู่ ลิงก์รีเซ็ตกำลังส่งไป เปิดบนอุปกรณ์นี้เพื่อเลือกรหัสผ่านใหม่"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "ผลต่างแนวนอนเป็นศูนย์กับ %ld ออบเจ็กต์"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +3945,78 @@ msgstr "คือความหนา (ความสูง) เป็นม�
 msgid "is width in mils"
 msgstr "คือความกว้างเป็นมิล"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "คัดลอกเลย์เอาต์ล้มเหลว"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "เส้นทึบ: ระยะห่าง"
@@ -2970,6 +4024,22 @@ msgstr "เส้นทึบ: ระยะห่าง"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "ถึงจุดหลอมเหลว รวมทั้งพลังงานที่ต้องใช้ในการเปลี่ยนสถานะ"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:546
+msgid "typ"
+msgstr "typ"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:196
+msgid "uVias"
+msgstr "uVias"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "ผลต่างแนวตั้งเป็นศูนย์กับ %ld ออบเจ็กต์"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

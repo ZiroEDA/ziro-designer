@@ -39,6 +39,10 @@ msgstr "\"%s\" bukan tautan ke repositori GitHub."
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "\"%s\" ditetapkan sebagai tema warna skematik aktif"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d model WRL 3D tidak dapat dicocokkan dengan model STEP yang setara."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -98,6 +102,10 @@ msgstr "%s menyebut berkas yang tidak dipilih: %s."
 #: eeschema/sch_edit_frame_ui.tsx:5664
 msgid "%s other viewers"
 msgstr "%s penampil lain"
+
+#: pcbnew/tools/edit_tool_move_fct.ts:802
+msgid "%s pad %s"
+msgstr "%s pad %s"
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:374
 msgid "%s post machining"
@@ -167,6 +175,22 @@ msgstr "%s: hapus"
 msgid "%s: sort"
 msgstr "%s: urutkan"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' sudah ditetapkan ke '%s' di bagian '%s'. Kedua pengikatan dipertahankan, tetapi hanya satu yang berjalan per penekanan tombol. Lanjutkan?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' bukan berkas PADS Logic ASCII."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(otomatis)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(pertahankan referensi yang ada)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(tidak ada berkas STEP dalam proyek)"
@@ -174,6 +198,10 @@ msgstr "(tidak ada berkas STEP dalam proyek)"
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(tidak ada demo yang disertakan)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(kumpulan tanpa nama)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -191,13 +219,45 @@ msgstr "... (langkah"
 msgid "1 other viewer"
 msgstr "1 penampil lain"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
+
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "Penampil 3D — %s"
 
+#: pcbnew/dialogs/dialog_exchange_footprints.tsx:310
+msgid ": OK"
+msgstr ": OK"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
+#: common/page_info.ts:100 common/page_info.ts:364
+msgid "A 8.5 x 11in"
+msgstr "A 8.5 x 11in"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "Berkas bernama “%s” sudah ada. Apakah Anda ingin menggantinya?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "Pustaka sudah ada di '%s'; Footprint yang diimpor dibiarkan tanpa penyelesaian."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +271,43 @@ msgstr "Versi baru ZiroEDA tersedia."
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "Angka positif menunjukkan baris bersifat anodik (-) dan kolom bersifat katodik (+); rona warna dingin dan hangat juga menunjukkan potensial baris."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "Nama unik untuk zona ini, digunakan untuk mengidentifikasinya dalam aturan DRC"
+
+#: common/page_info.ts:99 common/page_info.ts:358
+msgid "A0 841 x 1189mm"
+msgstr "A0 841 x 1189mm"
+
+#: common/page_info.ts:98 common/page_info.ts:352
+msgid "A1 594 x 841mm"
+msgstr "A1 594 x 841mm"
+
+#: common/page_info.ts:97 common/page_info.ts:346
+msgid "A2 420 x 594mm"
+msgstr "A2 420 x 594mm"
+
+#: common/page_info.ts:96 common/page_info.ts:340
+msgid "A3 297 x 420mm"
+msgstr "A3 297 x 420mm"
+
+#: common/page_info.ts:95 common/page_info.ts:334
+msgid "A4 210 x 297mm"
+msgstr "A4 210 x 297mm"
+
+#: common/page_info.ts:94 common/page_info.ts:328
+msgid "A5 148 x 210mm"
+msgstr "A5 148 x 210mm"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "Akun"
 
@@ -234,6 +330,10 @@ msgstr "Aktif"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "Tambah model 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "Tambah Direktori Pencarian..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +366,10 @@ msgstr "Tambah dari Komputer..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "Tambah kisi"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "Tambahkan kumpulan '%s' ke kumpulan '%s'."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,9 +419,17 @@ msgstr "Tambah varian"
 msgid "Add via delay override"
 msgstr "Tambah penimpaan tundaan via"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "Kumpulan '%s' ditambahkan ke kumpulan '%s'."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "Repositori \"%s\" ditambahkan (%s paket)"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:73
+msgid "Alias"
+msgstr "Alias"
 
 #: pcbnew/dialogs/dialog_target_properties_base.tsx:50
 msgid "Alignment Target Properties"
@@ -334,6 +446,14 @@ msgstr "Izinkan data situs untuk halaman ini, atau unduh proyek Anda sebelum men
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "Sudah punya akun?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -355,6 +475,10 @@ msgstr "Footprint jangkar"
 msgid "Annular rings"
 msgstr "Cincin annular"
 
+#: common/dialogs/panel_common_settings.tsx:93
+msgid "Antialiasing:"
+msgstr "Antialiasing:"
+
 #: designer/src/home/ShareButton.tsx:66
 msgid "Anyone with the link can edit"
 msgstr "Siapa saja yang memiliki tautan dapat menyunting"
@@ -371,9 +495,21 @@ msgstr "Ada lagi?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "Perubahan diterapkan: %s dipasang, %s dilepas"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "Tata letak blok desain diterapkan ke %d dari %d kumpulan."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "Terapkan Perubahan Tertunda ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "Terapkan tata letak blok desain ke %d kumpulan"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "Terapkan tata letak blok desain ke kumpulan baru"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -387,6 +523,10 @@ msgstr "Arsipkan Proyek"
 msgid "Archiving project..."
 msgstr "Mengarsipkan proyek..."
 
+#: pcbnew/pad.ts:2464 pcbnew/widgets/search_handlers.ts:293
+msgid "Area"
+msgstr "Area"
+
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:448
 msgid "Area limit"
 msgstr "Batas area"
@@ -394,6 +534,10 @@ msgstr "Batas area"
 #: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
 msgid "Area name"
 msgstr "Nama area"
+
+#: pcbnew/dialogs/dialog_board_statistics.tsx:203 designer/src/editors/calculator/panels/panel_cable_size.tsx:253
+msgid "Area:"
+msgstr "Area:"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
 msgid "Arrow direction"
@@ -419,6 +563,18 @@ msgstr "Kecepatan geser otomatis"
 msgid "Auto-assign priorities"
 msgstr "Tetapkan prioritas otomatis"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "Migrasikan referensi model 3D secara otomatis"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "Tempatkan Pin Lembar Secara Otomatis"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "Tetapkan prioritas zona secara otomatis berdasarkan analisis konektivitas area yang tumpang tindih."
+
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
 msgstr "Footprint yang tersedia"
@@ -427,6 +583,18 @@ msgstr "Footprint yang tersedia"
 msgid "Available path substitutions"
 msgstr "Substitusi jalur yang tersedia"
 
+#: common/page_info.ts:101 common/page_info.ts:370
+msgid "B 11 x 17in"
+msgstr "B 11 x 17in"
+
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "Prasetel format BOM"
@@ -434,6 +602,10 @@ msgstr "Prasetel format BOM"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "Revisi BOM"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -451,6 +623,18 @@ msgstr "Kembali ke manajer proyek"
 msgid "Back to sign in"
 msgstr "Kembali ke masuk"
 
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1574 pcbnew/dialogs/dialog_pad_properties_base.tsx:1579 pcbnew/dialogs/dialog_pad_properties_base.tsx:1634 pcbnew/pcb_track.ts:3450
+msgid "Backdrill"
+msgstr "Pengeboran Balik"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:690
+msgid "Backdrill:"
+msgstr "Pengeboran Balik:"
+
+#: common/eda_item.ts:923 pcbnew/pcb_barcode.ts:587
+msgid "Barcode"
+msgstr "Barcode"
+
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
 msgid "Based on location of"
 msgstr "Berdasarkan lokasi"
@@ -462,6 +646,18 @@ msgstr "Panjang terbaik"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
 msgid "Best width"
 msgstr "Lebar terbaik"
+
+#: common/eda_shape.ts:2941 eeschema/sch_io/altium/sch_io_altium.ts:2713
+msgid "Bezier"
+msgstr "Bezier"
+
+#: common/eda_item.ts:930 eeschema/sch_bitmap.ts:103
+msgid "Bitmap"
+msgstr "Bitmap"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:493
+msgid "Bitmap DPI:"
+msgstr "Bitmap DPI:"
 
 #: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
 msgid "Board thickness from stackup"
@@ -478,6 +674,18 @@ msgstr "Penyaring gaya badan"
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1324
 msgid "Body style names"
 msgstr "Nama gaya badan"
+
+#: common/widgets/text_format_bar.tsx:105 eeschema/dialogs/dialog_field_properties.tsx:575 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:306 eeschema/dialogs/dialog_label_properties_base.tsx:118 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:174 eeschema/dialogs/dialog_tablecell_properties_base.tsx:246
+msgid "Bold"
+msgstr "Bold"
+
+#: common/font/fontconfig.ts:57 common/font/fontconfig.ts:63 common/font/fontconfig.ts:69 common/font/fontconfig.ts:81 common/font/fontconfig.ts:85 eeschema/sch_label.ts:1605
+msgid "Bold Italic"
+msgstr "Tebal Miring"
+
+#: common/eda_text.ts:1062
+msgid "Bold+Italic"
+msgstr "Tebal+Miring"
 
 #: eeschema/dialogs/dialog_shape_properties_base.tsx:292 eeschema/dialogs/dialog_sheet_properties_base.tsx:222 eeschema/dialogs/dialog_text_properties_base.tsx:319
 msgid "Border color"
@@ -523,6 +731,10 @@ msgstr "Telusuri simbol"
 msgid "Browse for the new footprint"
 msgstr "Telusuri footprint baru"
 
+#: eeschema/sch_bus_entry.ts:512
+msgid "Bus"
+msgstr "Bus"
+
 #: eeschema/dialogs/panel_setup_buses.tsx:331
 msgid "Bus aliases"
 msgstr "Alias bus"
@@ -531,9 +743,37 @@ msgstr "Alias bus"
 msgid "Bus members"
 msgstr "Anggota bus"
 
+#: common/page_info.ts:102 common/page_info.ts:376
+msgid "C 17 x 22in"
+msgstr "C 17 x 22in"
+
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "Dibatalkan setelah %s"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "Tidak dapat membuat folder pustaka '%s'."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "Tidak dapat mendaftarkan cache Footprint yang diimpor: tidak ada tabel pustaka proyek."
+
+#: pcbnew/pad.ts:2492
+msgid "Castellated"
+msgstr "Bertakik (castellated)"
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +783,29 @@ msgstr "Isi sel"
 msgid "Center layer"
 msgstr "Lapisan tengah"
 
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:193 pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:192 pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:157 pcbnew/dialogs/panel_zone_properties_base.tsx:389
+msgid "Chamfer"
+msgstr "Chamfer"
+
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "Ubah %s 'Kecualikan dari berkas posisi' dari '%s' menjadi '%s'."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "Obrolan dengan kami (seret untuk memindahkan)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "Memeriksa jarak bebas teardrop..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "Memeriksa akun Anda"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "Item anak tidak dapat dikumpulkan terpisah dari item induknya."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -563,6 +819,10 @@ msgstr "Hapus penyaring"
 msgid "Clear the search"
 msgstr "Hapus pencarian"
 
+#: eeschema/pin_type.ts:59 eeschema/sch_pin.ts:2212
+msgid "Clock"
+msgstr "Clock"
+
 #: designer/src/editors/pcb/Viewer3DFrame.tsx:852
 msgid "Close 3D Viewer"
 msgstr "Tutup Penampil 3D"
@@ -570,6 +830,18 @@ msgstr "Tutup Penampil 3D"
 #: designer/src/home/ShareButton.tsx:358
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "Menutup tautan nanti akan mencegah orang baru membukanya. Siapa pun yang sudah ada dalam daftar tetap memiliki akses sampai Anda menghapusnya."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
 
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
@@ -591,9 +863,17 @@ msgstr "Tema warna"
 msgid "Color theme files"
 msgstr "Berkas tema warna"
 
+#: common/widgets/widget_hotkey_list.tsx:169
+msgid "Command"
+msgstr "Command"
+
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "Material umum"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "Selesai dalam %s"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +914,10 @@ msgstr "Format koordinat"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "Disalin"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "Tembaga yang disalin tidak memiliki Net. Tetapkan Net untuk menghubungkan."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +971,22 @@ msgstr "Tidak dapat membuka %s: %s"
 msgid "Could not open this project: %s"
 msgstr "Tidak dapat membuka proyek ini: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"Tidak dapat menimpa berkas pustaka '%s'.\n"
+"Pastikan Anda memiliki izin menulis dan coba lagi."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "Tidak dapat memublikasikan cache Footprint yang diimpor ke '%s'."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "Tidak dapat merekonsiliasi pustaka Footprint yang diimpor: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "Tidak dapat menulis berkas pustaka '%s'."
@@ -698,6 +998,14 @@ msgstr "Tidak dapat memuat jumlah data Anda. Coba lagi untuk meninjau apa yang a
 #: pcbnew/pcb_edit_frame_ui.tsx:7375
 msgid "Couldn’t open board:"
 msgstr "Tidak dapat membuka papan:"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:305 pcbnew/dialogs/dialog_pad_properties.tsx:310 pcbnew/dialogs/dialog_pad_properties_base.tsx:372 pcbnew/dialogs/dialog_track_via_properties_base.tsx:65 pcbnew/padstack.ts:55
+msgid "Counterbore"
+msgstr "Counterbore"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:304 pcbnew/dialogs/dialog_pad_properties.tsx:309 pcbnew/dialogs/dialog_pad_properties_base.tsx:372 pcbnew/dialogs/dialog_track_via_properties_base.tsx:64 pcbnew/padstack.ts:56
+msgid "Countersink"
+msgstr "Countersink"
 
 #: designer/src/fs/FileChooser.tsx:709
 msgid "Create Folder"
@@ -727,6 +1035,22 @@ msgstr "Membuat akun..."
 msgid "Creating your account"
 msgstr "Membuat akun Anda"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "Kerapatan arus saat ini:"
@@ -735,9 +1059,41 @@ msgstr "Kerapatan arus saat ini:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "Arus melebihi ampasitas untuk kerapatan ini."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "Gaya badan kustom harus memiliki setidaknya 2 entri"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "Skala kustom"
+
+#: common/page_info.ts:103 common/page_info.ts:382
+msgid "D 22 x 34in"
+msgstr "D 22 x 34in"
+
+#: gerbview/gerber_draw_item.ts:675
+msgid "D Code %d"
+msgstr "D Code %d"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: gerbview/gerbview_frame_ui.tsx:622
+msgid "DCode:"
+msgstr "DCode:"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +1107,10 @@ msgstr "Opsi DRC"
 msgid "DRC results"
 msgstr "Hasil DRC"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "Lebar garis bawaan DXF"
@@ -762,6 +1122,10 @@ msgstr "Satuan bawaan DXF"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "Panjang garis putus"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -855,6 +1219,18 @@ msgstr "Turunkan dari simbol"
 msgid "Design variant"
 msgstr "Varian desain"
 
+#: eeschema/dialogs/dialog_junction_props_base.tsx:66 eeschema/sch_junction.ts:398 pcbnew/dialogs/panel_setup_tracks_and_vias.tsx:332 pcbnew/pad.ts:2509
+msgid "Diameter"
+msgstr "Diameter"
+
+#: eeschema/dialogs/dialog_junction_props.tsx:39 eeschema/dialogs/dialog_junction_props_base.tsx:59 pcbnew/dialogs/dialog_pad_properties.tsx:1860 pcbnew/dialogs/dialog_pad_properties.tsx:1898 designer/src/editors/calculator/panels/panel_cable_size.tsx:249
+msgid "Diameter:"
+msgstr "Diameter:"
+
+#: pcbnew/tools/board_inspection_tool.ts:1319
+msgid "Diff Pair"
+msgstr "Diff Pair"
+
 #: designer/src/home/dialogs/dialog_template_selector.tsx:546
 msgid "Directory '%s/%s' already exists."
 msgstr "Direktori '%s/%s' sudah ada."
@@ -878,6 +1254,10 @@ msgstr "Distributor"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:289
 msgid "Distributor P/N"
 msgstr "P/N distributor"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:293
+msgid "Distributor:"
+msgstr "Distributor:"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:82
 msgid "Do this later"
@@ -915,6 +1295,14 @@ msgstr "Seret untuk mengubah ukuran"
 msgid "Drawing sheet file"
 msgstr "Berkas lembar gambar"
 
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:99
+msgid "Drill X"
+msgstr "Drill X"
+
+#: pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:100
+msgid "Drill Y"
+msgstr "Drill Y"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
 msgid "Drill marks"
 msgstr "Tanda bor"
@@ -923,9 +1311,45 @@ msgstr "Tanda bor"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "Karena sifat protokol enkripsi ujung-ke-ujung kami, data Anda tidak dapat didekripsi tanpa kata sandi atau kunci pemulihan Anda."
 
+#: common/page_info.ts:104 common/page_info.ts:388
+msgid "E 34 x 44in"
+msgstr "E 34 x 44in"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 menyarankan selisih tegangan di bawah 300mV. Praktik yang dikenal menggunakan logam antarmuka ketiga di antara pasangan utama (misalnya lapisan akhir permukaan ENIG)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1358,10 @@ msgstr "Konektor kartu tepi"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "Sunting Entri Bus"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "Ubah Deskripsi untuk '%s'"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1395,14 @@ msgstr "Sunting Bidang Simbol"
 msgid "Edit Text Box"
 msgstr "Sunting Kotak Teks"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "Ubah Deskripsi Varian"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "Ubah Deskripsi Varian..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "Sunting kisi"
@@ -979,6 +1415,10 @@ msgstr "Sunting di Penampil Teks"
 msgid "Edit layer"
 msgstr "Sunting lapisan"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "Ubah deskripsi varian desain yang ada."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "Sunting deskripsi varian"
@@ -986,6 +1426,14 @@ msgstr "Sunting deskripsi varian"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "Waktu berlalu:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "Waktu berlalu: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "Waktu berlalu: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1479,14 @@ msgstr "Masukkan resistivitas positif dan suhu yang valid."
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "Masukkan kunci pemulihan yang Anda simpan saat membuat akun, dan pilih kata sandi baru."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "Detail galat"
@@ -1065,6 +1521,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "Kesalahan saat menyimpan tabel pustaka Footprint proyek."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1543,33 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "Kesalahan saat menulis cache Footprint yang diimpor '%s': %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "Galat!"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:184
+msgid "Excellon"
+msgstr "Excellon"
+
+#: eeschema/widgets/search_handlers.ts:211
+msgid "Excl. BOM"
+msgstr "Excl. BOM"
+
+#: eeschema/widgets/search_handlers.ts:212
+msgid "Excl. Board"
+msgstr "Kecuali Papan"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "Kecuali Berkas Posisi"
+
+#: eeschema/widgets/search_handlers.ts:210
+msgid "Excl. Sim"
+msgstr "Excl. Sim"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1591,10 @@ msgstr "Ekspor berkas tersemat"
 msgid "Export units"
 msgstr "Ekspor satuan"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "Plugin fabrikasi menjalankan skrip pembuatan yang memerlukan runtime kotak pasir, yang belum tersedia di browser."
@@ -1119,6 +1607,10 @@ msgstr "Properti fabrikasi"
 msgid "Failed to load schematic:"
 msgstr "Gagal memuat skematik:"
 
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "Gagal mengurai berkas PADS Logic '%s'."
+
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
 msgstr "Kisi Cepat 1"
@@ -1126,6 +1618,10 @@ msgstr "Kisi Cepat 1"
 #: designer/src/editors/schematic/hotkeys.ts:307
 msgid "Fast Grid 2"
 msgstr "Kisi Cepat 2"
+
+#: pcbnew/pad.ts:2480
+msgid "Fiducial global"
+msgstr "Fiducial global"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
 msgid "Field name filter"
@@ -1147,6 +1643,14 @@ msgstr "Jenis isian"
 msgid "Fill with color"
 msgstr "Isi dengan warna"
 
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:193 pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:192 pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:157 pcbnew/dialogs/panel_zone_properties_base.tsx:389
+msgid "Fillet"
+msgstr "Fillet"
+
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "Filter aksi"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "Nomor bebas pertama setelah"
@@ -1158,6 +1662,22 @@ msgstr "Nomor pad pertama"
 #: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
 msgid "First page option"
 msgstr "Opsi halaman pertama"
+
+#: common/eda_text.ts:1605 eeschema/sch_field.ts:354 eeschema/sch_label.ts:1602 eeschema/sch_tablecell.ts:120 eeschema/sch_text.ts:286 eeschema/sch_textbox.ts:234
+msgid "Font"
+msgstr "Font"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:218 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:277 eeschema/dialogs/dialog_label_properties.tsx:701 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:150 eeschema/dialogs/dialog_tablecell_properties_base.tsx:259 eeschema/dialogs/dialog_text_properties_base.tsx:221
+msgid "Font:"
+msgstr "Font:"
+
+#: common/eda_item.ts:898 common/widgets/footprint_select_widget.tsx:84 eeschema/lib_symbol.ts:3102 eeschema/lib_symbol.ts:3142 eeschema/sch_symbol.ts:1527 eeschema/widgets/search_handlers.ts:206
+msgid "Footprint"
+msgstr "Footprint"
+
+#: pcbnew/footprint.ts:3798
+msgid "Footprint %s"
+msgstr "Footprint %s"
 
 #: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
 msgid "Footprint 3D model path"
@@ -1175,9 +1695,37 @@ msgstr "Berkas asosiasi footprint"
 msgid "Footprint field"
 msgstr "Bidang footprint"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "Item Footprint tidak dapat dikumpulkan terpisah dari Footprint induknya."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "Jenis footprint"
+
+#: pcbnew/menubar_footprint_editor.ts:192 pcbnew/menubar_footprint_editor.ts:201
+msgid "Footprint..."
+msgstr "Footprint..."
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:322
+msgid "Footprint:"
+msgstr "Footprint:"
+
+#: pcbnew/dialogs/dialog_footprint_associations.tsx:43
+msgid "Footprint: "
+msgstr "Footprint: "
+
+#: pcbnew/footprint.ts:2664 cvpcb/display_footprints_frame.ts:308
+msgid "Footprint: %s"
+msgstr "Footprint: %s"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "Footprint tidak dapat dicerminkan. Gunakan Flip untuk memindahkannya ke sisi lain papan."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "Untuk setiap kumpulan baru yang dibuat dari blok desain, terapkan penempatan Footprint dan perutean tersimpan milik blok secara otomatis."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1191,9 +1739,17 @@ msgstr "Untuk frekuensi di atas 30kHz, kinerja dielektrik menurun. IEC60664-4 me
 msgid "Forgot password?"
 msgstr "Lupa kata sandi?"
 
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:174 pcbnew/dialogs/dialog_gendrill_base.tsx:172 gerbview/gerber_file_image.ts:538
+msgid "Format"
+msgstr "Format"
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
 msgid "Format presets"
 msgstr "Prasetel format"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:166
+msgid "Format:"
+msgstr "Format:"
 
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
@@ -1207,9 +1763,25 @@ msgstr "Awalan depan"
 msgid "Front reference start"
 msgstr "Awal referensi depan"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "Panjang celah"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1799,23 @@ msgstr "Membuat kunci enkripsi..."
 msgid "Generating your encryption keys"
 msgstr "Membuat kunci enkripsi Anda"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_item.ts:902 pcbnew/pcb_generator.ts:195
+msgid "Generator"
+msgstr "Generator"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:56
+msgid "Gerber"
+msgstr "Gerber"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:47 pcbnew/dialogs/dialog_gendrill_base.tsx:232
+msgid "Gerber X2"
+msgstr "Gerber X2"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "Gerber X3"
+msgstr "Gerber X3"
+
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "Memulai dengan %s"
 
@@ -1251,6 +1839,18 @@ msgstr "Gaya grafis"
 msgid "Grid size"
 msgstr "Ukuran kisi"
 
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "Kumpulan yang berisi Footprint atau item lain yang tidak dapat dicerminkan dilewati."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
+
+#: pcbnew/pad.ts:2489
+msgid "Heat sink"
+msgstr "Heatsink"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
 msgstr "Sembunyikan detail"
@@ -1271,13 +1871,41 @@ msgstr "Bentuk lubang"
 msgid "Hop-over size"
 msgstr "Ukuran hop-over"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:244 pcbnew/dialogs/dialog_pad_properties_base.tsx:631
+msgid "Horizontal"
+msgstr "Horizontal"
+
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:142
 msgid "Horizontal Any"
 msgstr "Horizontal Apa Saja"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "Konflik pintasan"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "Namun beberapa kasus tidak tercakup oleh kalkulator ini:"
+
+#: common/dialogs/dialog_color_picker.tsx:489
+msgid "Hue:"
+msgstr "Hue:"
+
+#: common/eda_text.ts:1747 eeschema/sch_field.ts:1709 eeschema/sch_label.ts:2513 eeschema/sch_tablecell.ts:436 pcbnew/pcb_dimension.ts:2400 pcbnew/pcb_dimension.ts:2428
+msgid "Hyperlink"
+msgstr "Tautan"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1919,45 @@ msgstr "Saya ingat kata sandi saya"
 msgid "I understand this deletes my account and all its data."
 msgstr "Saya mengerti ini menghapus akun saya dan semua datanya."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "Jika"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "Jika dicentang, lapisan akan mempertahankan nama standar KiCad alih-alih diganti dengan nama lapisan yang diimpor."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1991,14 @@ msgstr "Impor %s"
 msgid "Import Layer Mapping"
 msgstr "Impor Pemetaan Lapisan"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "Impor Berkas Papan Non-KiCad..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "Impor Skematik Non-KiCad..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "Impor Grafis Vektor"
@@ -1343,6 +2011,18 @@ msgstr "Impor dari"
 msgid "Import scale"
 msgstr "Skala impor"
 
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "Skala impor harus berupa bilangan positif."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "%d pola penyetelan panjang diimpor."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "Footprint yang diimpor '%s' memiliki definisi penempatan yang bertentangan; mempertahankan yang pertama."
+
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
 msgstr "Lapisan nonaktif (H):"
@@ -1354,6 +2034,14 @@ msgstr "Tambah"
 #: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
 msgid "Increment by"
 msgstr "Naikkan sebesar"
+
+#: pcb_calculator/galvanic_corrosion.ts:30
+msgid "Indium"
+msgstr "Indium"
+
+#: common/widgets/wx_html_report_panel.tsx:169
+msgid "Infos"
+msgstr "Info"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:259
 msgid "Installed"
@@ -1391,6 +2079,10 @@ msgstr "Tanggal terbit"
 msgid "It's missing a key feature that I need"
 msgstr "Tidak memiliki fitur penting yang saya butuhkan"
 
+#: common/widgets/text_format_bar.tsx:111 eeschema/dialogs/dialog_field_properties.tsx:576 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:309 eeschema/dialogs/dialog_label_properties_base.tsx:126 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:182 eeschema/dialogs/dialog_tablecell_properties_base.tsx:249
+msgid "Italic"
+msgstr "Miring"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
 msgid "Jumper pin groups"
 msgstr "Grup pin jumper"
@@ -1406,6 +2098,26 @@ msgstr "Ukuran titik persimpangan"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
 msgid "Junction size"
 msgstr "Ukuran persimpangan"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "Pertahankan yang Ada"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "Pertahankan nama lapisan KiCad"
 
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
@@ -1439,6 +2151,26 @@ msgstr "Berkas netlist KiCad (*.net)"
 msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
 msgstr "Plugin KiCad adalah skrip Python native. Di browser, plugin itu memerlukan runtime web kotak pasir, yang merupakan pekerjaan terpisah."
 
+#: pcbnew/dialogs/dialog_barcode_properties_base.tsx:145 pcbnew/dialogs/dialog_text_properties_base.tsx:216 pcbnew/pcb_barcode.ts:1172 pcbnew/pcb_dimension.ts:2401 pcbnew/pcb_dimension.ts:2429 pcbnew/pcb_dimension.ts:2469
+msgid "Knockout"
+msgstr "Knockout"
+
+#: eeschema/fields_data_model.ts:94
+msgid "Label"
+msgstr "Label"
+
+#: eeschema/sch_label.ts:1686
+msgid "Label '%s'"
+msgstr "Label '%s'"
+
+#: eeschema/dialogs/dialog_label_properties_base.tsx:159 eeschema/dialogs/dialog_label_properties_base.tsx:182 eeschema/dialogs/dialog_label_properties_base.tsx:201
+msgid "Label:"
+msgstr "Label:"
+
+#: common/tool/action_toolbar_actions.ts:87 common/tool/actions.ts:492 pcbnew/toolbars_footprint_editor.ts:232
+msgid "Lasso"
+msgstr "Lasso"
+
 #: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
 msgid "Layer defaults"
 msgstr "Bawaan lapisan"
@@ -1467,6 +2199,10 @@ msgstr "Aksi klik kiri (dan seret) bergantung pada 2 tombol pengubah:"
 msgid "Left margin"
 msgstr "Margin kiri"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "Pengaturan Penyetelan Panjang"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "Pustaka dan tema warna dapat dipasang dan berfungsi hari ini."
@@ -1486,6 +2222,10 @@ msgstr "Tautan pustaka"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "Nama pustaka:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "Tabel pustaka '%s' hanya-baca"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,9 +2267,53 @@ msgstr "Memuat %s..."
 msgid "Local and global power symbols have same name"
 msgstr "Simbol daya lokal dan global memiliki nama yang sama"
 
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "Turunkan"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
+#: pcb_calculator/galvanic_corrosion.ts:62
+msgid "Magnesium"
+msgstr "Magnesium"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:484 pcbnew/layer_pairs.ts:123
+msgid "Manual"
+msgstr "Manual"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "P/N produsen"
+
+#: pcbnew/pcb_barcode.ts:1184
+msgid "Margin X"
+msgstr "Margin X"
+
+#: pcbnew/pcb_barcode.ts:1198
+msgid "Margin Y"
+msgstr "Margin Y"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:133 pcbnew/board_tables/board_stackup_table.ts:72
+msgid "Material"
+msgstr "Material"
 
 #: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
 msgid "Maximum allowed deviation"
@@ -1547,9 +2331,41 @@ msgstr "Lebar trek maksimum"
 msgid "Maximum width"
 msgstr "Lebar maksimum"
 
+#: designer/src/editors/calculator/CalculatorTools.tsx:86
+msgid "Memo"
+msgstr "Memo"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:196
+msgid "Metadata"
+msgstr "Metadata"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:46 pcbnew/pcb_track.ts:3081
+msgid "Micro"
+msgstr "Mikro"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "Seret tombol tengah"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "Migrasikan Model 3D"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "Migrasikan Model 3D..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "Migrasikan referensi model 3D"
+
+#: common/tool/actions.ts:1444 eeschema/import_gfx/dialog_import_gfx_sch.tsx:95 pcbnew/dialogs/dialog_dimension_properties_base.tsx:255 pcbnew/dialogs/panel_setup_dimensions.tsx:90 pcbnew/dialogs/panel_setup_dimensions_base.tsx:100 pcbnew/import_gfx/dialog_import_graphics.tsx:68
+msgid "Mils"
+msgstr "Mils"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2374,14 @@ msgstr "Lebar minimum"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "Referensi model 3D hilang"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "Referensi model 3D yang hilang:"
+
+#: pcbnew/dialogs/dialog_pns_settings_base.tsx:75 pcbnew/router/router_tool.ts:2994
+msgid "Mode"
+msgstr "Mode"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,17 +2399,41 @@ msgstr "Pindahkan kisi ke bawah"
 msgid "Move grid up"
 msgstr "Pindahkan kisi ke atas"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "Pindahkan ke Bawah"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Move to Top"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "Alasan saya tidak tercantum"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
 msgstr "Ukuran teks nama"
 
+#: pcbnew/board_connected_item.ts:388 pcbnew/pcb_tablecell.ts:360 pcbnew/pcb_track.ts:900 pcbnew/tools/pcb_control.ts:1729 pcbnew/widgets/pcb_properties_panel.ts:469 pcbnew/widgets/pcb_properties_panel.ts:470
+msgid "Net"
+msgstr "Net"
+
 #: pcbnew/widgets/appearance_controls.tsx:383
 msgid "Net %s"
 msgstr "Net %s"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:401
+msgid "Net Ties"
+msgstr "Net Ties"
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
 msgid "Net class filter"
@@ -1599,6 +2447,10 @@ msgstr "Penyaring net"
 msgid "Net name"
 msgstr "Nama net"
 
+#: pcbnew/dialogs/dialog_shape_properties_base.tsx:251 pcbnew/dialogs/dialog_track_via_properties_base.tsx:295 gerbview/gerber_draw_item.ts:733 gerbview/gerbview_frame_ui.tsx:600
+msgid "Net:"
+msgstr "Net:"
+
 #: common/dialogs/panel_setup_netclasses.tsx:522
 msgid "Netclass assignments"
 msgstr "Penetapan kelas net"
@@ -1606,6 +2458,10 @@ msgstr "Penetapan kelas net"
 #: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
 msgid "Netlist file"
 msgstr "Berkas netlist"
+
+#: eeschema/menubar.ts:140 pcbnew/menubar_pcb_editor.ts:142
+msgid "Netlist..."
+msgstr "Netlist..."
 
 #: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
 msgid "New footprint library id"
@@ -1627,9 +2483,17 @@ msgstr "Halaman berikutnya"
 msgid "No %s match your search."
 msgstr "Tidak ada %s yang cocok dengan pencarian Anda."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "Tidak ada varian desain untuk diubah."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "Tidak ada pustaka footprint yang dimuat."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "Tidak ada kumpulan dengan blok desain tertaut yang dipilih."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2510,10 @@ msgstr "Tidak ada pustaka"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "Tidak ada yang cocok"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "Tidak ada yang cocok."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1671,9 +2539,17 @@ msgstr "Tidak punya kunci pemulihan?"
 msgid "No symbols, place and annotate symbols first."
 msgstr "Tidak ada simbol, tempatkan dan anotasi simbol terlebih dahulu."
 
+#: eeschema/pin_type.ts:65 eeschema/sch_pin.ts:2218
+msgid "NonLogic"
+msgstr "NonLogic"
+
 #: designer/src/home/HomePage.tsx:728
 msgid "None of the files chosen is of the type %s."
 msgstr "Tidak ada berkas yang dipilih yang bertipe %s."
+
+#: common/dialogs/panel_common_settings.tsx:250 common/eda_text.ts:1062 eeschema/sch_label.ts:1605 eeschema/sch_tablecell.ts:123 eeschema/sch_text.ts:289 eeschema/sch_textbox.ts:237
+msgid "Normal"
+msgstr "Normal"
 
 #: eeschema/sch_edit_frame_ui.tsx:3966
 msgid "Not a .kicad_sch file: %s"
@@ -1699,9 +2575,25 @@ msgstr "Ukuran teks nomor"
 msgid "Numbering step"
 msgstr "Langkah penomoran"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:256 pcbnew/dialogs/dialog_pad_properties_base.tsx:876 pcbnew/pad.ts:4002
+msgid "Oblong"
+msgstr "Lonjong"
 
 #: designer/src/mobile/DesktopGate.tsx:76
 msgid "On a tablet? Rotate to landscape, or connect a mouse."
@@ -1711,9 +2603,21 @@ msgstr "Memakai tablet? Putar ke lanskap, atau sambungkan mouse."
 msgid "Only people invited"
 msgstr "Hanya orang yang diundang"
 
+#: eeschema/dialogs/panel_setup_pinmap.tsx:39
+msgid "Open Collector"
+msgstr "Kolektor Terbuka"
+
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "Buka Proyek Demo"
+
+#: eeschema/dialogs/panel_setup_pinmap.tsx:40
+msgid "Open Emitter"
+msgstr "Emitor Terbuka"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "Buka Berkas Eksternal..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1731,9 +2635,25 @@ msgstr "Buka Penampil Teks"
 msgid "Open a project to add a footprint library to."
 msgstr "Buka proyek untuk menambahkan pustaka footprint."
 
+#: eeschema/pin_type.ts:49 eeschema/sch_pin.ts:2201
+msgid "Open collector"
+msgstr "Kolektor terbuka"
+
+#: eeschema/pin_type.ts:50 eeschema/sch_pin.ts:2202
+msgid "Open emitter"
+msgstr "Emitor terbuka"
+
 #: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
 msgid "Open from Computer..."
 msgstr "Buka dari Komputer..."
+
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "Buka dialog Pengaturan Papan"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "Buka dialog Pengaturan Skematik"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -1787,6 +2707,42 @@ msgstr "Jalur keluaran"
 msgid "Outset"
 msgstr "Offset luar"
 
+#: pcbnew/dialogs/dialog_outset_items.tsx:90 pcbnew/dialogs/dialog_outset_items_base.tsx:108
+msgid "Outset:"
+msgstr "Perluasan:"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:234 pcbnew/dialogs/dialog_pad_properties_base.tsx:595
+msgid "Oval"
+msgstr "Oval"
+
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "Mode keluaran PDF"
@@ -1794,6 +2750,34 @@ msgstr "Mode keluaran PDF"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "Opsi PNG"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
+
+#: common/eda_item.ts:899 pcbnew/board_statistics_report.ts:664 pcbnew/board_statistics_report.ts:774 pcbnew/dialogs/dialog_board_statistics.tsx:276 pcbnew/pad.ts:2437 pcbnew/widgets/search_handlers.ts:751
+msgid "Pad"
+msgstr "Pad"
+
+#: pcbnew/drc/drc_test_provider_library_parity.ts:53
+msgid "Pad %s"
+msgstr "Pad %s"
+
+#: 3d-viewer/pick3d.ts:213
+msgid "Pad %s\t"
+msgstr "Pad %s\t"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1851,6 +2835,10 @@ msgstr "Mode padstack"
 msgid "Page number"
 msgstr "Nomor halaman"
 
+#: pcb_calculator/galvanic_corrosion.ts:26
+msgid "Palladium"
+msgstr "Palladium"
+
 #: common/dialogs/panel_mouse_settings.tsx:312
 msgid "Pan on mouse movement with key"
 msgstr "Geser saat mouse bergerak dengan tombol"
@@ -1895,6 +2883,10 @@ msgstr "Tempel kunci pemulihan 24 kata Anda"
 msgid "People with access"
 msgstr "Orang yang memiliki akses"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "Pilih tanggal"
@@ -1902,6 +2894,18 @@ msgstr "Pilih tanggal"
 #: common/dialogs/dialog_page_settings_base.tsx:294
 msgid "Pick date"
 msgstr "Pilih tanggal"
+
+#: common/eda_item.ts:943
+msgid "Pin"
+msgstr "Pin"
+
+#: eeschema/sch_pin.ts:1804
+msgid "Pin %s [%s, %s, %s]"
+msgstr "Pin %s [%s, %s, %s]"
+
+#: eeschema/sch_pin.ts:1812
+msgid "Pin %s [%s, %s]"
+msgstr "Pin %s [%s, %s]"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
 msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
@@ -1947,9 +2951,17 @@ msgstr "Tempatkan simbol"
 msgid "Place/Remove No Connect Flags"
 msgstr "Tempatkan/Hapus Bendera Tanpa Koneksi"
 
+#: pcb_calculator/galvanic_corrosion.ts:25
+msgid "Platinum"
+msgstr "Platinum"
+
 #: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
 msgid "Please choose a stronger password."
 msgstr "Silakan pilih kata sandi yang lebih kuat."
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:185 pcbnew/dialogs/dialog_plot_base.tsx:829 pcbnew/toolbars_pcb_editor.ts:55
+msgid "Plot"
+msgstr "Plot"
 
 #: eeschema/dialogs/dialog_plot_schematic.tsx:188
 msgid "Plot Schematic Options"
@@ -1959,9 +2971,21 @@ msgstr "Opsi Plot Skematik"
 msgid "Plot format"
 msgstr "Format plot"
 
+#: common/tool/action_toolbar_actions.ts:228 common/tool/actions.ts:217 eeschema/menubar.ts:149 pcbnew/menubar_pcb_editor.ts:205
+msgid "Plot..."
+msgstr "Plot..."
+
 #: common/dialogs/dialog_plugin_options.tsx:141
 msgid "Plugin options"
 msgstr "Opsi plugin"
+
+#: eeschema/sch_pin.ts:519
+msgid "Pos X"
+msgstr "Pos X"
+
+#: eeschema/sch_pin.ts:522
+msgid "Pos Y"
+msgstr "Pos Y"
 
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
 msgid "Position mode"
@@ -1971,9 +2995,17 @@ msgstr "Mode posisi"
 msgid "Position offset"
 msgstr "Offset posisi"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:76 pcbnew/dialogs/dialog_gendrill_base.tsx:46 pcbnew/dialogs/dialog_plot_base.tsx:57
+msgid "Postscript"
+msgstr "Postscript"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
 msgid "Potential replacements"
 msgstr "Calon pengganti"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "Kemungkinan pengganti:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
@@ -1982,6 +3014,18 @@ msgstr "Lebar trek yang telah ditentukan"
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
 msgid "Pre-defined via sizes"
 msgstr "Ukuran via yang telah ditentukan"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:354
+msgid "PrePreg"
+msgstr "PrePreg"
+
+#: pcbnew/pad.ts:2498
+msgid "Press-fit"
+msgstr "Press-fit"
+
+#: pcbnew/board_statistics_report.ts:200
+msgid "Press-fit:"
+msgstr "Press-fit:"
 
 #: common/dialog_about/dialog_about.tsx:209
 msgid "Previous page"
@@ -2007,9 +3051,37 @@ msgstr "Proyek"
 msgid "Protection features"
 msgstr "Fitur perlindungan"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:49
+msgid "QR Code (ISO 18004)"
+msgstr "QR Code (ISO 18004)"
+
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "Antrekan pemasangan"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/dialogs/dialog_shape_properties.tsx:601 pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:201 pcbnew/dialogs/panel_zone_properties_base.tsx:408 pcbnew/pcb_shape.ts:1061 pcbnew/pcb_track.ts:576
+msgid "Radius"
+msgstr "Radius"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:198 pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:163
+msgid "Radius (r):"
+msgstr "Radius (r):"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:400 pcbnew/tools/edit_tool.ts:1348 pcbnew/tools/edit_tool.ts:1699
+msgid "Radius:"
+msgstr "Radius:"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "Naikkan"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2019,9 +3091,17 @@ msgstr "Rentang (arus)"
 msgid "Range (voltages)"
 msgstr "Rentang (tegangan)"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:214 pcbnew/widgets/search_handlers.ts:537
+msgid "Ratsnest"
+msgstr "Ratsnest"
+
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "Ketebalan garis ratsnest"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "Menautkan ulang %d penetapan Footprint yang diimpor ke pustaka '%s'."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2055,6 +3135,10 @@ msgstr "Kecepatan gambar ulang"
 msgid "Reference filter"
 msgstr "Penyaring referensi"
 
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "Mengisi ulang zona yang tumpang tindih..."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
 msgstr "Segarkan pratinjau"
@@ -2062,6 +3146,10 @@ msgstr "Segarkan pratinjau"
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
 msgid "Regroup symbols"
 msgstr "Kelompokkan ulang simbol"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:462 designer/src/editors/calculator/panels/panel_regulator.tsx:466
+msgid "Regulator"
+msgstr "Regulator"
 
 #: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
 msgid "Reload"
@@ -2131,6 +3219,14 @@ msgstr "Hapus penimpaan tundaan via"
 msgid "Rename variant"
 msgstr "Ganti nama varian"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "Ganti Model"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "Ganti referensi model WRL 3D usang dengan model STEP terbaru"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "Ganti dengan"
@@ -2151,6 +3247,10 @@ msgstr "Memerlukan runtime yang belum tersedia di browser"
 msgid "Requires app ≥"
 msgstr "Memerlukan aplikasi ≥"
 
+#: pcbnew/tools/pcb_actions.ts:1603
+msgid "Rescue"
+msgstr "Penyelamatan"
+
 #: designer/src/auth/SignIn.tsx:371
 msgid "Resend code"
 msgstr "Kirim ulang kode"
@@ -2167,9 +3267,21 @@ msgstr "Ubah ukuran"
 msgid "Restore Project"
 msgstr "Pulihkan Proyek"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "Pulihkan Versi"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "Pulihkan proyek ke versi dari %s?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "Memulihkan proyek Anda..."
+
+#: pcb_calculator/galvanic_corrosion.ts:24
+msgid "Rhodium"
+msgstr "Rhodium"
 
 #: common/dialogs/panel_mouse_settings.tsx:293
 msgid "Right button drag"
@@ -2178,6 +3290,10 @@ msgstr "Seret tombol kanan"
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
 msgid "Right margin"
 msgstr "Margin kanan"
+
+#: eeschema/eeschema_helpers.ts:89 eeschema/files-io.ts:687 eeschema/sch_edit_frame.ts:2029 eeschema/sch_edit_frame_ui.tsx:2801 eeschema/sch_edit_frame_ui.tsx:5621
+msgid "Root"
+msgstr "Root"
 
 #: pcbnew/dialogs/dialog_move_exact_base.tsx:134
 msgid "Rotation anchor"
@@ -2194,6 +3310,22 @@ msgstr "Bulatkan lokasi ke"
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "Satuan penggaris"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +3431,10 @@ msgstr "Pilih/sorot objek yang sesuai dengan pilihan %s"
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "Sel terpilih ditampilkan dengan pilihan warna bawaan sistem setelah tabel diisi ulang."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "Pilihan berisi item terkunci. Aktifkan 'Override locks' untuk mengoperasikannya."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "Kirim tautan atur ulang"
@@ -2327,21 +3463,49 @@ msgstr "Atur warna untuk net %s"
 msgid "Set color for the %s netclass"
 msgstr "Atur warna untuk kelas net %s"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "Atur atribut kecualikan dari berkas posisi"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "Bagikan proyek ini"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"Komponen bersama:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "Berkas lembar tidak ada dalam proyek: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift dan Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "Tampilkan navigator 3D"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "Tampilkan opsi"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3530,18 @@ msgstr "Angka signifikan (tegangan)"
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "Sedang masuk..."
+
+#: common/tool/action_toolbar_actions.ts:130 eeschema/menubar.ts:289 eeschema/tools/sch_actions.ts:108 designer/src/dialogs/prefs/registry.ts:69 designer/src/dialogs/prefs/registry.ts:170
+msgid "Simulator"
+msgstr "Simulator"
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "%d item terpilih dilewati karena bukan kumpulan yang tertaut ke blok desain."
+
+#: pcbnew/board_statistics_report.ts:541 pcbnew/dialogs/dialog_board_statistics.tsx:266 pcbnew/widgets/search_handlers.ts:743
+msgid "Slot"
+msgstr "Slot"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3583,10 @@ msgstr "Solusi yang memakai hingga 4 komponen diberikan."
 msgid "Solve for this parameter"
 msgstr "Selesaikan untuk parameter ini"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "Beberapa item terpilih tidak dapat dikumpulkan."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "Beberapa lembar gagal dimuat: %s"
@@ -2423,6 +3603,10 @@ msgstr "Opsi urutkan dan perluas"
 msgid "Sources"
 msgstr "Sumber"
 
+#: designer/src/dialogs/prefs/registry.ts:49 designer/src/dialogs/prefs/registry.ts:241
+msgid "SpaceMouse"
+msgstr "SpaceMouse"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "Lapisan awal"
@@ -2431,11 +3615,19 @@ msgstr "Lapisan awal"
 msgid "Start reference designator"
 msgstr "Penanda referensi awal"
 
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:65 pcbnew/pad.ts:2453 pcbnew/pcb_barcode.ts:596 pcbnew/pcb_dimension.ts:807 pcbnew/pcb_group.ts:430 pcbnew/pcb_shape.ts:434
+msgid "Status"
+msgstr "Status"
+
 #: pcbnew/dialogs/panel_edit_options_base.tsx:322
 msgid "Step for rotate commands"
 msgstr "Langkah untuk perintah rotasi"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: designer/src/editors/calculator/panels/transline_ident.ts:389
+msgid "Stripline"
+msgstr "Stripline"
+
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "Obrolan Dukungan"
 
@@ -2467,6 +3659,34 @@ msgstr "Menyinkronkan proyek cloud..."
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "Sintesis tidak tersedia untuk pemandu gelombang persegi panjang."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: common/eda_item.ts:917
+msgid "Target"
+msgstr "Target"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "Area Aturan target berbagi komponen dengan area referensi"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "Area target"
@@ -2474,6 +3694,14 @@ msgstr "Area target"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "Impedansi target"
+
+#: pcbnew/zone.ts:2002
+msgid "Teardrop %s %s"
+msgstr "Teardrop %s %s"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "Tee"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +3714,10 @@ msgstr "Warna teks"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "Bingkai teks"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Teks atau grafik pada lapisan Edge.Cuts"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3755,10 @@ msgstr "Nilai pengendali ditampilkan dengan huruf tebal."
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "Unduhan gagal. Salin galat di bawah dan laporkan, mohon jangan muat ulang, pekerjaan Anda masih dapat dipulihkan dari tab ini."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "Kumpulan berikut tidak dapat diproses:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "Rumusnya, dari IPC 2221, adalah"
@@ -2539,6 +3775,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "Tujuan IEC60664-1 adalah memberikan panduan merancang isolasi untuk produk yang terhubung ke catu daya jala-jala."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "Tabel pustaka bertipe salah"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "Nilai yang diminta selalu dikecualikan dari himpunan solusi."
@@ -2554,6 +3794,10 @@ msgstr "Tinggi teks harus berada di antara %s."
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "Lebar teks harus berada di antara %s."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "Nama unit '%s' sudah digunakan."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3871,10 @@ msgstr "Halaman pengaturan ini belum diimplementasikan."
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "Tabel ini menunjukkan selisih potensial elektrokimia antara berbagai logam dan paduan. Korosi galvanik memengaruhi logam berbeda yang bersentuhan dalam kondisi tertentu."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "Area Aturan target ini memilih komponen yang sama dengan area referensi. Ulangi tata letak tidak dapat menyalin Area Aturan ke dirinya sendiri. Berikan setiap Area Aturan penempatan lembar, kelas komponen, atau kumpulan yang berbeda."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "Alat ini memungkinkan Anda merancang sekering trek tetapi hanya boleh digunakan sebagai perkiraan."
@@ -2635,9 +3883,21 @@ msgstr "Alat ini memungkinkan Anda merancang sekering trek tetapi hanya boleh di
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "Untuk memilih nilai, mulailah dengan nilai target yang dihitung lalu bulatkan ke 2 angka signifikan untuk E24 ke bawah atau 3 angka signifikan untuk E48 ke atas. Lalu cari nilai dalam tabel yang paling dekat dengan angka signifikan yang tersisa dan gantikan angka-angka itu."
 
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "Alihkan atribut kecualikan dari daftar bahan"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "Alihkan atribut kecualikan dari berkas posisi"
+
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
 msgstr "Item bilah alat"
+
+#: common/dialogs/panel_toolbar_customization.tsx:398
+msgid "Toolbar:"
+msgstr "Bilah alat:"
 
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
 msgid "Top backdrill must-cut"
@@ -2650,6 +3910,14 @@ msgstr "Ukuran backdrill atas"
 #: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
 msgid "Top margin"
 msgstr "Margin atas"
+
+#: pcbnew/board_statistics_report.ts:616 pcbnew/dialogs/dialog_board_statistics.tsx:181
+msgid "Total"
+msgstr "Total"
+
+#: pcbnew/board_statistics_report.ts:633 pcbnew/dialogs/dialog_board_statistics.tsx:170 pcbnew/dialogs/dialog_board_statistics.tsx:176 pcbnew/dialogs/dialog_board_statistics.tsx:189
+msgid "Total:"
+msgstr "Total:"
 
 #: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
 msgid "Track Width and Via Size"
@@ -2687,6 +3955,10 @@ msgstr "Trek: %s mm (%s mil)"
 msgid "Trapezoid axis"
 msgstr "Sumbu trapesium"
 
+#: eeschema/dialogs/dialog_label_properties.tsx:78 eeschema/dialogs/dialog_sheet_pin_properties.tsx:36 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:48 eeschema/pin_type.ts:42 eeschema/sch_label.ts:2464 eeschema/sch_pin.ts:2195
+msgid "Tri-state"
+msgstr "Tri-state"
+
 #: designer/src/auth/DeleteAccountDialog.tsx:253
 msgid "Try again"
 msgstr "Coba lagi"
@@ -2702,6 +3974,46 @@ msgstr "Dua pin simbol dipetakan ke pad footprint yang sama"
 #: common/widgets/search_pane_tab.tsx:101
 msgid "Type to search"
 msgstr "Ketik untuk mencari"
+
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: common/page_info.ts:109 common/page_info.ts:416
+msgid "US Ledger 11 x 17in"
+msgstr "US Ledger 11 x 17in"
+
+#: common/page_info.ts:108 common/page_info.ts:410
+msgid "US Legal 8.5 x 14in"
+msgstr "US Legal 8.5 x 14in"
+
+#: common/page_info.ts:107 common/page_info.ts:404
+msgid "US Letter 8.5 x 11in"
+msgstr "US Letter 8.5 x 11in"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "Tidak dapat menyeret trek busur sebesar %.1f derajat atau lebih."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "Tidak dapat memuat tabel pustaka."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "Tidak dapat menyimpan simbol yang diunduh: %s"
+
+#: eeschema/sch_symbol.ts:3919 designer/src/editors/calculator/panels/panel_board_class.tsx:46 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:92
+msgid "Unit"
+msgstr "Unit"
+
+#: eeschema/lib_symbol.ts:2114 eeschema/sch_symbol.ts:706 eeschema/symbol_tree_model_adapter.ts:74
+msgid "Unit %s"
+msgstr "Unit %s"
 
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
@@ -2739,9 +4051,33 @@ msgstr "Nama lapisan pengguna"
 msgid "User layers"
 msgstr "Lapisan pengguna"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "Menggunakan %1$s dari %2$s. Unduh proyek Anda, lalu hapus proyek lama dari layar beranda untuk mengosongkan ruang."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2750,6 +4086,14 @@ msgstr "Penyunting Titik"
 #: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
 msgid "Vertical %s"
 msgstr "Vertikal %s"
+
+#: common/eda_item.ts:910 pcbnew/board_statistics_report.ts:664 pcbnew/board_statistics_report.ts:774 pcbnew/dialogs/dialog_board_statistics.tsx:276 pcbnew/widgets/search_handlers.ts:751
+msgid "Via"
+msgstr "Via"
+
+#: pcbnew/router/router_tool.ts:204
+msgid "Via %s"
+msgstr "Via %s"
 
 #: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
 msgid "Via delay overrides"
@@ -2767,6 +4111,14 @@ msgstr "Ukuran via"
 msgid "Via type"
 msgstr "Jenis via"
 
+#: pcbnew/board_statistics_report.ts:651 pcbnew/dialogs/dialog_board_statistics.tsx:71 pcbnew/widgets/search_handlers.ts:582
+msgid "Via/Pad"
+msgstr "Via/Pad"
+
+#: pcbnew/toolbars_pcb_editor.ts:500
+msgid "Via: %s (%s)"
+msgstr "Via: %s (%s)"
+
 #: pcbnew/pcb_edit_frame_ui.tsx:7089
 msgid "Via: %s / %s mm (%s / %s mils)"
 msgstr "Via: %s / %s mm (%s / %s mil)"
@@ -2774,6 +4126,10 @@ msgstr "Via: %s / %s mm (%s / %s mil)"
 #: pcbnew/pcb_edit_frame_ui.tsx:7096
 msgid "Via: %s mm (%s mils)"
 msgstr "Via: %s mm (%s mil)"
+
+#: pcb_calculator/board_classes_values.ts:25
+msgid "Via: (diameter - drill)"
+msgstr "Via: (diameter - drill)"
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:165
 msgid "View presets"
@@ -2786,6 +4142,34 @@ msgstr "Penampil"
 #: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
 msgid "Viewports (Shift+Tab):"
 msgstr "Viewport (Shift+Tab):"
+
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "Tingkat keparahan pelanggaran juga dapat diubah di Pengaturan Papan"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "Tingkat keparahan pelanggaran juga dapat diubah di Pengaturan Skematik"
+
+#: eeschema/tools/sch_inspection_tool.ts:370
+msgid "Visual"
+msgstr "Visual"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:697
+msgid "Volt"
+msgstr "Volt"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
 
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
@@ -2819,6 +4203,10 @@ msgstr "Saat menggunakan lapisan pelindung konformal atau potting untuk melindun
 msgid "Who's here"
 msgstr "Siapa yang ada di sini"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "Gaya Kabel"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "Lebar kawat/bus"
@@ -2835,6 +4223,10 @@ msgstr "Posisi X"
 msgid "X scale factor"
 msgstr "Faktor skala X"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Posisi Y"
@@ -2842,6 +4234,10 @@ msgstr "Posisi Y"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Faktor skala Y"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +4267,22 @@ msgstr "Proyek Anda masih ada di memori. Unduh sebelum memuat ulang, memuat ulan
 msgid "Your recovery key"
 msgstr "Kunci pemulihan Anda"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA mengalami galat tak terduga"
@@ -2886,6 +4298,20 @@ msgstr "ZiroEDA memerlukan layar yang lebih besar"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "Obrolan dukungan ZiroEDA"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "Prioritas Zona"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"Isian zona mungkin salah: pengisian ulang iteratif tidak konvergen setelah %d lintasan.\n"
+"\n"
+"Hal ini dapat terjadi pada zona tumpang tindih yang kompleks.  Pertimbangkan untuk menyederhanakan zona Anda."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2903,13 +4329,33 @@ msgstr "Nama zona"
 msgid "Zone previews"
 msgstr "Pratinjau zona"
 
+#: common/eda_draw_frame.ts:1049 common/eda_draw_frame.ts:1084 common/settings/zoom_settings.ts:123
+msgid "Zoom %.2f"
+msgstr "Zoom %.2f"
+
 #: common/dialogs/panel_mouse_settings.tsx:215
 msgid "Zoom speed"
 msgstr "Kecepatan zum"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "selisih sudut nol dengan %ld objek"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "di bawah untuk mengatur ulang kata sandi Anda. Tidak perlu kunci pemulihan."
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:201
+msgid "bits"
+msgstr "bits"
 
 #: designer/src/home/ShareButton.tsx:60
 msgid "can edit"
@@ -2919,17 +4365,81 @@ msgstr "dapat menyunting"
 msgid "can view"
 msgstr "dapat melihat"
 
+#: common/validators.ts:126
+msgid "carriage return"
+msgstr "carriage return"
+
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "tidak dapat memuat tata letak blok desain"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "putus-putus: jarak rambat"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "blok desain tidak berisi item untuk diterapkan"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "blok desain tidak memiliki tata letak PCB tersimpan"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "blok desain tidak ada di pustaka yang dimuat"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "tidak tersinkron:"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:319 pcbnew/dialogs/dialog_pad_properties.tsx:320 gerbview/dialogs/dialog_draw_layers_settings.ts:48
+msgid "dummy"
+msgstr "dummy"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: pcbnew/drc/drc_engine.ts:2074
+msgid "footprint"
+msgstr "footprint"
+
+#: pcbnew/footprint.ts:1444 pcbnew/footprint.ts:1565
+msgid "footprint %s"
+msgstr "footprint %s"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "kumpulan kosong"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "memiliki akun, tautan atur ulang sedang dikirim. Buka di perangkat ini untuk memilih kata sandi baru."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "selisih horizontal nol dengan %ld objek"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:65 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:100 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:104 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:125 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:129 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:148
+msgid "in"
+msgstr "in"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,13 +4473,161 @@ msgstr "adalah ketebalan (tinggi) dalam mil"
 msgid "is width in mils"
 msgstr "adalah lebar dalam mil"
 
+#: pcbnew/dialogs/panel_setup_layers.tsx:269
+msgid "jumper"
+msgstr "jumper"
+
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "penyalinan tata letak gagal"
+
+#: common/validators.ts:127
+msgid "line feed"
+msgstr "line feed"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:38
+msgid "meter"
+msgstr "meter"
+
+#: common/eda_draw_frame.ts:1336 eeschema/dialogs/panel_setup_formatting.tsx:131 pagelayout_editor/pl_editor_frame.ts:664
+msgid "mils"
+msgstr "mils"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:545
+msgid "min"
+msgstr "min"
+
+#: common/eda_draw_frame.ts:1339 eeschema/dialogs/dialog_plot_schematic.tsx:310 eeschema/dialogs/dialog_plot_schematic.tsx:359 eeschema/import_gfx/dialog_import_gfx_sch.tsx:305 eeschema/import_gfx/dialog_import_gfx_sch.tsx:306 eeschema/import_gfx/dialog_import_gfx_sch.tsx:317
+msgid "mm"
+msgstr "mm"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:311
+msgid "nano-Henry"
+msgstr "nano-Henry"
+
+#: pcbnew/connectivity/topo_match.ts:368 pcbnew/connectivity/topo_match.ts:369
+msgid "net %d"
+msgstr "net %d"
+
+#: pcbnew/drc/drc_engine.ts:1143
+msgid "net tie"
+msgstr "net tie"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: pcbnew/pad.ts:1598 pcbnew/pad.ts:2167 pcbnew/pad.ts:2191 pcbnew/pad.ts:2229 pcbnew/pad.ts:3053
+msgid "pad"
+msgstr "pad"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "garis penuh: jarak bebas"
 
+#: common/validators.ts:128
+msgid "tab"
+msgstr "tab"
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "hingga titik lelehnya serta energi yang diperlukan untuk perubahan fase."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "selisih vertikal nol dengan %ld objek"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:59
+msgid "~20% (Level L)"
+msgstr "~20% (Level L)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:60
+msgid "~37% (Level M)"
+msgstr "~37% (Level M)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:61
+msgid "~55% (Level Q)"
+msgstr "~55% (Level Q)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:62
+msgid "~65% (Level H)"
+msgstr "~65% (Level H)"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"

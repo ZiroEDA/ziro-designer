@@ -207,7 +207,7 @@ msgstr ""
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr ""
 
-#: designer/src/ui/AccountButton.tsx:161
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr ""
 
@@ -1209,7 +1209,7 @@ msgstr ""
 msgid "Generating your encryption keys"
 msgstr ""
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr ""
 
@@ -2417,7 +2417,7 @@ msgstr ""
 msgid "Step for rotate commands"
 msgstr ""
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr ""
 

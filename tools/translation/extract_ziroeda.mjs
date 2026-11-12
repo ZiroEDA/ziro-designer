@@ -203,6 +203,9 @@ export function mergePo(aExisting, aMessages, aLang, aPluralForms) {
 function main() {
   const kicad = kicadMsgids(join(repo, 'translation'));
   const messages = new Map();
+  // The KiCad messages the app shows, as the source spells them: where one language's KiCad
+  // catalog has no translation, that language's .po fills the gap (see below).
+  const kicadUsed = new Map();
   for (const dir of SOURCES) {
     if (!existsSync(join(repo, dir))) continue;
     const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard', dir], { cwd: repo })
@@ -211,8 +214,13 @@ function main() {
       .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !/\.d\.ts$/.test(f));
     for (const file of files) {
       for (const m of markedLiterals(file, readFileSync(join(repo, file), 'utf8'))) {
-        if (kicad.has(m.msgid)) continue;
         if (!/[A-Za-z]/.test(m.msgid)) continue;
+        if (kicad.has(m.msgid)) {
+          if (!kicadUsed.has(m.msgid))
+            kicadUsed.set(m.msgid, { plural: m.plural ?? null, refs: new Set() });
+          kicadUsed.get(m.msgid).refs.add(`${file}:${m.line}`);
+          continue;
+        }
         if (!messages.has(m.msgid))
           messages.set(m.msgid, { plural: m.plural ?? null, refs: new Set() });
         messages.get(m.msgid).refs.add(`${file}:${m.line}`);
@@ -235,18 +243,34 @@ function main() {
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith('#'));
+  const gapCounts = [];
   for (const lang of linguas) {
     const path = join(poDir, `${lang}.po`);
     const kicadCatalog = JSON.parse(
       readFileSync(join(repo, 'translation', `${lang}.json`), 'utf8'),
     );
     const pluralForms = `nplurals=${kicadCatalog.nplurals}; plural=${kicadCatalog.plural};`;
+    // KiCad's own catalog for this language is incomplete: a message it does not translate
+    // (directly, or by its mnemonic-free spelling) is filled here. Loaded after KiCad's, ours
+    // never overrides a translation KiCad has.
+    const translated = new Set();
+    for (const k of Object.keys(kicadCatalog.messages)) {
+      translated.add(k);
+      if (k.includes('&')) translated.add(stripMenuCodes(k));
+    }
+    // English is the msgid itself: it has nothing to fill.
+    const gaps = lang === 'en' ? [] : [...kicadUsed].filter(([id]) => !translated.has(id));
+    const forLang = new Map(
+      [...sorted, ...gaps].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+    gapCounts.push(`${lang} ${gaps.length}`);
     writeFileSync(
       path,
-      mergePo(existsSync(path) ? readFileSync(path, 'utf8') : null, sorted, lang, pluralForms),
+      mergePo(existsSync(path) ? readFileSync(path, 'utf8') : null, forLang, lang, pluralForms),
     );
   }
   console.log(`${sorted.size} ZiroEDA messages, ${linguas.length} languages`);
+  console.log(`KiCad gaps filled per language: ${gapCounts.join(', ')}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

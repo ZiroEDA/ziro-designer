@@ -39,6 +39,10 @@ msgstr "\"%s\" GitHub రిపాజిటరీకి లింక్ కా�
 msgid "\"%s\" set as the active schematic colour theme"
 msgstr "\"%s\" ను క్రియాశీల స్కీమాటిక్ రంగు థీమ్‌గా సెట్ చేశారు"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:540
+msgid "%d WRL 3D model could not be matched to an equivalent STEP model."
+msgstr "%d WRL 3D మోడల్‌ను సమానమైన STEP మోడల్‌తో సరిపోల్చడం సాధ్యం కాలేదు."
+
 #: pcbnew/dialogs/dialog_board_reannotate.tsx:842
 msgid ""
 "%s\n"
@@ -167,6 +171,22 @@ msgstr "%s: తొలగించు"
 msgid "%s: sort"
 msgstr "%s: క్రమబద్ధీకరించు"
 
+#: common/widgets/widget_hotkey_list.tsx:145
+msgid "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?"
+msgstr "'%s' ఇప్పటికే '%s' విభాగంలో '%s'కు కేటాయించబడింది. రెండు బైండింగ్‌లూ ఉంచబడతాయి, కానీ ప్రతి కీ ప్రెస్‌కు ఒకటి మాత్రమే పనిచేస్తుంది. కొనసాగించాలా?"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1162
+msgid "'%s' is not a PADS Logic ASCII file."
+msgstr "'%s' PADS Logic ASCII ఫైల్ కాదు."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:218
+msgid "(auto)"
+msgstr "(ఆటో)"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:374
+msgid "(keep existing reference)"
+msgstr "(ఉన్న రిఫరెన్స్‌ను ఉంచు)"
+
 #: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
 msgid "(no STEP files in the project)"
 msgstr "(ప్రాజెక్ట్‌లో STEP ఫైళ్లు లేవు)"
@@ -174,6 +194,10 @@ msgstr "(ప్రాజెక్ట్‌లో STEP ఫైళ్లు లే�
 #: designer/src/home/menubar.ts:89
 msgid "(no demos bundled)"
 msgstr "(డెమోలు ఏవీ చేర్చబడలేదు)"
+
+#: pcbnew/tools/pcb_control.ts:2456
+msgid "(unnamed group)"
+msgstr "(పేరు లేని సమూహం)"
 
 #: eeschema/sch_edit_frame_ui.tsx:5731
 msgid ", click to dismiss"
@@ -187,17 +211,45 @@ msgstr ". ధృవీకరణ పూర్తి చేయడానికి �
 msgid "... (step"
 msgstr "... (దశ"
 
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:320
+msgid "0.00 in / 0 mils / 0.0 mm"
+msgstr "0.00 in / 0 mils / 0.0 mm"
+
 #: eeschema/sch_edit_frame_ui.tsx:5663
 msgid "1 other viewer"
 msgstr "1 ఇతర వీక్షకుడు"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:99 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 (mm)"
+msgstr "1234 (mm)"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:285 pcbnew/dialogs/panel_setup_dimensions.tsx:98 pcbnew/dialogs/panel_setup_dimensions_base.tsx:119
+msgid "1234 mm"
+msgstr "1234 mm"
+
+#: pcbnew/pcb_dimension.ts:2178
+msgid "1234.0 (mm)"
+msgstr "1234.0 (mm)"
+
+#: pcbnew/pcb_dimension.ts:2177
+msgid "1234.0 mm"
+msgstr "1234.0 mm"
 
 #: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
 msgid "3D Viewer — %s"
 msgstr "3D వీక్షకం — %s"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:378
+msgid "A"
+msgstr "A"
+
 #: designer/src/fs/FileChooser.tsx:872
 msgid "A file named “%s” already exists.  Do you want to replace it?"
 msgstr "“%s” అనే ఫైల్ ఇప్పటికే ఉంది. దానిని భర్తీ చేయాలనుకుంటున్నారా?"
+
+#: pcbnew/footprint_import_reconciler.ts:384
+msgid "A library already exists at '%s'; leaving imported footprints unresolved."
+msgstr "'%s' వద్ద లైబ్రరీ ఇప్పటికే ఉంది; దిగుమతి చేసిన ఫుట్‌ప్రింట్‌లు పరిష్కరించబడకుండా వదిలివేయబడుతున్నాయి."
 
 #: designer/src/auth/SignIn.tsx:354
 msgid "A new code is on its way. Use the newest email: it replaces the code before it."
@@ -211,7 +263,19 @@ msgstr "ZiroEDA యొక్క కొత్త వెర్షన్ అంద�
 msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
 msgstr "ధనాత్మక సంఖ్య అడ్డు వరుస ఆనోడిక్ (-) అని, నిలువు వరుస కాథోడిక్ (+) అని సూచిస్తుంది; చల్లని మరియు వెచ్చని రంగు ఛాయలు కూడా అడ్డు వరుసల పొటెన్షియల్‌ను సూచిస్తాయి."
 
-#: designer/src/ui/AccountButton.tsx:161
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:343 pcbnew/dialogs/panel_zone_properties_base.tsx:351
+msgid "A unique name for this zone, used to identify it in DRC rules"
+msgstr "ఈ జోన్‌కు ప్రత్యేకమైన పేరు, DRC నియమాలలో దీన్ని గుర్తించడానికి ఉపయోగిస్తారు"
+
+#: pcb_calculator/cable_size.ts:18
+msgid "AWG0"
+msgstr "AWG0"
+
+#: pcb_calculator/cable_size.ts:17
+msgid "AWG00"
+msgstr "AWG00"
+
+#: designer/src/ui/AccountButton.tsx:160 designer/src/ui/AccountButton.tsx:161
 msgid "Account"
 msgstr "ఖాతా"
 
@@ -234,6 +298,10 @@ msgstr "క్రియాశీలం"
 #: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
 msgid "Add 3D model"
 msgstr "3D మోడల్ జోడించు"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:123
+msgid "Add Search Directory..."
+msgstr "శోధన డైరెక్టరీని జోడించు..."
 
 #: pcbnew/dialogs/panel_zone_properties_base.tsx:299
 msgid "Add a layer override"
@@ -266,6 +334,10 @@ msgstr "కంప్యూటర్ నుండి జోడించు..."
 #: common/dialogs/panel_grid_settings.tsx:486
 msgid "Add grid"
 msgstr "గ్రిడ్ జోడించు"
+
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1431
+msgid "Add group '%s' to group '%s'."
+msgstr "'%s' సమూహాన్ని '%s' సమూహానికి జోడించు."
 
 #: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
 msgid "Add layer"
@@ -315,6 +387,10 @@ msgstr "వేరియంట్ జోడించు"
 msgid "Add via delay override"
 msgstr "వయా ఆలస్య ఓవర్‌రైడ్ జోడించు"
 
+#: pcbnew/netlist_reader/board_netlist_updater.ts:1437
+msgid "Added group '%s' to group '%s'."
+msgstr "'%s' సమూహం '%s' సమూహానికి జోడించబడింది."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:119
 msgid "Added repository \"%s\" (%s packages)"
 msgstr "రిపాజిటరీ \"%s\" జోడించబడింది (%s ప్యాకేజీలు)"
@@ -334,6 +410,14 @@ msgstr "ఈ పేజీకి సైట్ డేటాను అనుమత�
 #: designer/src/auth/SignIn.tsx:404
 msgid "Already have an account?"
 msgstr "ఇప్పటికే ఖాతా ఉందా?"
+
+#: common/dialogs/panel_mouse_settings.tsx:61 common/dialogs/panel_mouse_settings.tsx:69 common/hotkeys_basic_keys.ts:98 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51
+msgid "Alt"
+msgstr "Alt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:93
+msgid "Alt:"
+msgstr "Alt:"
 
 #: eeschema/dialogs/dialog_pin_properties.tsx:627
 msgid "Alternate pin functions"
@@ -371,9 +455,21 @@ msgstr "ఇంకేమైనా?"
 msgid "Applied changes: %s installed, %s uninstalled"
 msgstr "మార్పులు వర్తింపజేయబడ్డాయి: %s ఇన్‌స్టాల్ చేయబడ్డాయి, %s అన్‌ఇన్‌స్టాల్ చేయబడ్డాయి"
 
+#: pcbnew/tools/pcb_control.ts:2438
+msgid "Applied design block layout to %d of %d group(s)."
+msgstr "%d లో %d సమూహం(ల)కు డిజైన్ బ్లాక్ లేఅవుట్ వర్తింపజేయబడింది."
+
 #: designer/src/pcm/PluginManagerDialog.tsx:487
 msgid "Apply Pending Changes ("
 msgstr "పెండింగ్ మార్పులను వర్తింపజేయి ("
+
+#: pcbnew/tools/pcb_control.ts:2425
+msgid "Apply design block layout to %d group(s)"
+msgstr "%d సమూహం(ల)కు డిజైన్ బ్లాక్ లేఅవుట్ వర్తింపజేయి"
+
+#: pcbnew/dialogs/dialog_update_pcb_base.tsx:72
+msgid "Apply design block layouts to new groups"
+msgstr "కొత్త సమూహాలకు డిజైన్ బ్లాక్ లేఅవుట్‌లను వర్తింపజేయి"
 
 #: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
 msgid "Arc editing mode"
@@ -411,6 +507,10 @@ msgstr "అనుబంధ పొర"
 msgid "Attenuation is 6 dB"
 msgstr "క్షీణత 6 dB"
 
+#: gerbview/gerbview_frame_ui.tsx:612
+msgid "Attr:"
+msgstr "Attr:"
+
 #: common/dialogs/panel_mouse_settings.tsx:251
 msgid "Auto pan speed"
 msgstr "ఆటో పాన్ వేగం"
@@ -418,6 +518,18 @@ msgstr "ఆటో పాన్ వేగం"
 #: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
 msgid "Auto-assign priorities"
 msgstr "ప్రాధాన్యతలను ఆటో-కేటాయించు"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:241
+msgid "Auto-migrate 3D model references"
+msgstr "3D మోడల్ రిఫరెన్స్‌లను ఆటోమేటిక్‌గా మైగ్రేట్ చేయి"
+
+#: eeschema/tools/sch_drawing_tools.ts:3579 eeschema/tools/sch_sheet_pin_tool.ts:335 eeschema/tools/sch_sheet_pin_tool.ts:363
+msgid "Auto-place Sheet Pins"
+msgstr "షీట్ పిన్‌లను ఆటో-ప్లేస్ చేయి"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:142
+msgid "Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+msgstr "అతివ్యాప్తి చెందే ప్రాంతాల కనెక్టివిటీ విశ్లేషణ ఆధారంగా జోన్ ప్రాధాన్యతలను ఆటోమేటిక్‌గా కేటాయించు."
 
 #: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
 msgid "Available footprints"
@@ -427,6 +539,14 @@ msgstr "అందుబాటులో ఉన్న ఫుట్‌ప్రి�
 msgid "Available path substitutions"
 msgstr "అందుబాటులో ఉన్న మార్గ ప్రత్యామ్నాయాలు"
 
+#: pcbnew/pad.ts:2477
+msgid "BGA"
+msgstr "BGA"
+
+#: eeschema/sch_sheet.ts:255 eeschema/sch_symbol.ts:1466
+msgid "BOM"
+msgstr "BOM"
+
 #: eeschema/dialogs/panel_bom_presets.tsx:83
 msgid "BOM formatting presets"
 msgstr "BOM ఫార్మాటింగ్ ప్రీసెట్‌లు"
@@ -434,6 +554,10 @@ msgstr "BOM ఫార్మాటింగ్ ప్రీసెట్‌లు"
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:244
 msgid "BOM revision"
 msgstr "BOM పునర్విమర్శ"
+
+#: bitmap2component/bitmap2cmp_panel_ui.tsx:199
+msgid "BPP:"
+msgstr "BPP:"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
 msgid "Back prefix"
@@ -531,9 +655,29 @@ msgstr "బస్ మారుపేర్లు"
 msgid "Bus members"
 msgstr "బస్ సభ్యులు"
 
+#: pcbnew/pcb_barcode.ts:1035
+msgid "CODE_128"
+msgstr "CODE_128"
+
+#: pcbnew/pcb_barcode.ts:1034
+msgid "CODE_39"
+msgstr "CODE_39"
+
+#: common/settings/bom_settings.ts:164 pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:38
+msgid "CSV"
+msgstr "CSV"
+
+#: pcbnew/dialogs/dialog_drc.tsx:574
+msgid "Canceled after %s"
+msgstr "%s తర్వాత రద్దు చేయబడింది"
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1107
 msgid "Cannot create the library folder '%s'."
 msgstr "లైబ్రరీ ఫోల్డర్ '%s' ను సృష్టించలేము."
+
+#: pcbnew/footprint_import_reconciler.ts:429
+msgid "Cannot register imported footprint cache: no project library table."
+msgstr "దిగుమతి చేసిన ఫుట్‌ప్రింట్ కాష్‌ను నమోదు చేయలేము: ప్రాజెక్ట్ లైబ్రరీ పట్టిక లేదు."
 
 #: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
 msgid "Cell contents"
@@ -543,13 +687,25 @@ msgstr "సెల్ కంటెంట్‌లు"
 msgid "Center layer"
 msgstr "మధ్య పొర"
 
+#: eeschema/tools/backannotate.ts:936
+msgid "Change %s 'Exclude from position files' from '%s' to '%s'."
+msgstr "%s 'పొజిషన్ ఫైల్‌ల నుండి మినహాయించు'ను '%s' నుండి '%s'కు మార్చు."
+
 #: designer/src/support/ChatWidget.tsx:308
 msgid "Chat with us (drag to move)"
 msgstr "మాతో చాట్ చేయండి (కదపడానికి లాగండి)"
 
+#: pcbnew/drc/drc_test_provider_copper_clearance.ts:101
+msgid "Checking teardrop clearances..."
+msgstr "టియర్‌డ్రాప్ క్లియరెన్స్‌లను తనిఖీ చేస్తోంది..."
+
 #: designer/src/auth/auth_progress.tsx:33
 msgid "Checking your account"
 msgstr "మీ ఖాతాను తనిఖీ చేస్తోంది"
+
+#: eeschema/tools/sch_group_tool.ts:130 eeschema/tools/sch_group_tool.ts:135
+msgid "Child items cannot be grouped separately from their parent item."
+msgstr "చైల్డ్ ఐటెమ్‌లను వాటి పేరెంట్ ఐటెమ్ నుండి వేరుగా సమూహపరచలేము."
 
 #: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
 msgid "Cleanup Tracks & Vias"
@@ -571,6 +727,22 @@ msgstr "3D వీక్షకాన్ని మూయు"
 msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
 msgstr "లింక్‌ను తర్వాత మూసివేస్తే కొత్త వ్యక్తులు దానిని తెరవలేరు. జాబితాలో ఇప్పటికే ఉన్నవారు మీరు తొలగించే వరకు యాక్సెస్ కలిగి ఉంటారు."
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:445
+msgid "Cmd:"
+msgstr "Cmd:"
+
+#: gerbview/gerber_draw_item.ts:756 gerbview/gerbview_frame_ui.tsx:588
+msgid "Cmp:"
+msgstr "Cmp:"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:47
+msgid "Code 128 (ISO 15417)"
+msgstr "Code 128 (ISO 15417)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:46
+msgid "Code 39 (ISO 16388)"
+msgstr "Code 39 (ISO 16388)"
+
 #: eeschema/sch_edit_frame_ui.tsx:7132
 msgid "Collapse"
 msgstr "కుదించు"
@@ -591,9 +763,17 @@ msgstr "రంగు థీమ్"
 msgid "Color theme files"
 msgstr "రంగు థీమ్ ఫైళ్లు"
 
+#: common/widgets/widget_hotkey_list.tsx:169
+msgid "Command"
+msgstr "Command"
+
 #: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
 msgid "Common materials"
 msgstr "సాధారణ పదార్థాలు"
+
+#: pcbnew/dialogs/dialog_drc.tsx:578
+msgid "Completed in %s"
+msgstr "%s లో పూర్తయింది"
 
 #: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
 msgid "Component class"
@@ -634,6 +814,10 @@ msgstr "కోఆర్డినేట్ ఫార్మాట్"
 #: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
 msgid "Copied"
 msgstr "కాపీ చేయబడింది"
+
+#: pcbnew/tools/pcb_control.ts:2429
+msgid "Copied copper has no net assigned. Assign nets to connect it."
+msgstr "కాపీ చేసిన కాపర్‌కు నెట్ కేటాయించబడలేదు. కనెక్ట్ చేయడానికి నెట్‌లను కేటాయించండి."
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
 msgid "Copper finish"
@@ -687,6 +871,22 @@ msgstr "%s తెరవలేకపోయింది: %s"
 msgid "Could not open this project: %s"
 msgstr "ఈ ప్రాజెక్ట్‌ను తెరవలేకపోయింది: %s"
 
+#: eeschema/symbol_editor/symbol_edit_frame.ts:593
+msgid ""
+"Could not overwrite the library file '%s'.\n"
+"Make sure you have write permissions and try again."
+msgstr ""
+"లైబ్రరీ ఫైల్ '%s'ను ఓవర్‌రైట్ చేయడం సాధ్యం కాలేదు.\n"
+"మీకు రైట్ అనుమతులు ఉన్నాయని నిర్ధారించుకుని మళ్లీ ప్రయత్నించండి."
+
+#: pcbnew/footprint_import_reconciler.ts:396
+msgid "Could not publish imported footprint cache to '%s'."
+msgstr "దిగుమతి చేసిన ఫుట్‌ప్రింట్ కాష్‌ను '%s'కు ప్రచురించడం సాధ్యం కాలేదు."
+
+#: pcbnew/files.ts:369
+msgid "Could not reconcile imported footprint libraries: %s"
+msgstr "దిగుమతి చేసిన ఫుట్‌ప్రింట్ లైబ్రరీలను సమన్వయం చేయడం సాధ్యం కాలేదు: %s"
+
 #: eeschema/sch_base_frame.ts:275
 msgid "Could not write the library file '%s'."
 msgstr "లైబ్రరీ ఫైల్ '%s' ను వ్రాయలేకపోయింది."
@@ -727,6 +927,22 @@ msgstr "ఖాతా సృష్టిస్తోంది..."
 msgid "Creating your account"
 msgstr "మీ ఖాతాను సృష్టిస్తోంది"
 
+#: common/dialogs/panel_mouse_settings.tsx:62 common/dialogs/panel_mouse_settings.tsx:67 common/hotkeys_basic_keys.ts:97 common/hotkeys_basic_keys.ts:115 designer/src/ui/hotkeys_inventory.ts:504 designer/src/ui/hotkeys_inventory.ts:505
+msgid "Ctrl"
+msgstr "Ctrl"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:203
+msgid "Ctrl+Shift"
+msgstr "Ctrl+Shift"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:420
+msgid "Ctrl+Shift:"
+msgstr "Ctrl+Shift:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:422 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:91
+msgid "Ctrl:"
+msgstr "Ctrl:"
+
 #: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
 msgid "Current density:"
 msgstr "ప్రస్తుత సాంద్రత:"
@@ -735,9 +951,37 @@ msgstr "ప్రస్తుత సాంద్రత:"
 msgid "Current exceeds the ampacity for this density."
 msgstr "కరెంట్ ఈ సాంద్రతకు ఆంపాసిటీని మించిపోయింది."
 
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:541
+msgid "Custom body styles must have at least 2 entries"
+msgstr "కస్టమ్ బాడీ శైలులలో కనీసం 2 ఎంట్రీలు ఉండాలి"
+
 #: common/dialogs/dialog_print_generic_base.tsx:156
 msgid "Custom scale"
 msgstr "కస్టమ్ స్కేల్"
+
+#: pcbnew/pcb_barcode.ts:1036
+msgid "DATA_MATRIX"
+msgstr "DATA_MATRIX"
+
+#: gerbview/gerbview_frame_ui.tsx:622
+msgid "DCode:"
+msgstr "DCode:"
+
+#: gerbview/dialogs/panel_gerbview_color_settings.ts:98 gerbview/widgets/gerbview_layer_widget.ts:65
+msgid "DCodes"
+msgstr "DCodes"
+
+#: eeschema/widgets/search_handlers.ts:214 pcbnew/footprint.ts:2651
+msgid "DNP"
+msgstr "DNP"
+
+#: bitmap2component/bitmap2cmp_panel.ts:194
+msgid "DPI"
+msgstr "DPI"
+
+#: pcbnew/tools/drc_tool.ts:277
+msgid "DRC"
+msgstr "DRC"
 
 #: pcbnew/dialogs/dialog_drc_base.tsx:172
 msgid "DRC Control"
@@ -751,6 +995,10 @@ msgstr "DRC ఎంపికలు"
 msgid "DRC results"
 msgstr "DRC ఫలితాలు"
 
+#: eeschema/dialogs/dialog_plot_schematic.tsx:79 pcbnew/dialogs/dialog_gendrill_base.tsx:48 pcbnew/dialogs/dialog_plot_base.tsx:59
+msgid "DXF"
+msgstr "DXF"
+
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
 msgid "DXF default line width"
 msgstr "DXF డిఫాల్ట్ లైన్ వెడల్పు"
@@ -762,6 +1010,10 @@ msgstr "DXF డిఫాల్ట్ యూనిట్లు"
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
 msgid "Dash length"
 msgstr "డాష్ పొడవు"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:48
+msgid "Data Matrix (ECC 200)"
+msgstr "Data Matrix (ECC 200)"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:386
 msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
@@ -923,9 +1175,41 @@ msgstr "డ్రిల్ గుర్తులు"
 msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
 msgstr "మా ఎండ్-టు-ఎండ్ ఎన్‌క్రిప్షన్ ప్రోటోకాల్ స్వభావం వల్ల, మీ సంకేతపదం లేదా రికవరీ కీ లేకుండా మీ డేటాను డిక్రిప్ట్ చేయలేము."
 
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:141
+msgid "E1"
+msgstr "E1"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:226
+msgid "E1,E3,E6,E12"
+msgstr "E1,E3,E6,E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:144
+msgid "E12"
+msgstr "E12"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:222
+msgid "E24,E48,E96"
+msgstr "E24,E48,E96"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:142
+msgid "E3"
+msgstr "E3"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:143
+msgid "E6"
+msgstr "E6"
+
 #: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
 msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
 msgstr "EN 50310 వోల్టేజ్ వ్యత్యాసం 300mV కంటే తక్కువ ఉండాలని సూచిస్తుంది. ప్రధాన జత మధ్య మూడవ ఇంటర్‌ఫేస్ లోహాన్ని ఉపయోగించడం తెలిసిన పద్ధతులు (ఉదా. ENIG ఉపరితల ఫినిష్)."
+
+#: pcb_calculator/galvanic_corrosion.ts:35
+msgid "ENEPIG (Ni/Pd/Au)"
+msgstr "ENEPIG (Ni/Pd/Au)"
+
+#: pcb_calculator/galvanic_corrosion.ts:36
+msgid "ENIG (Ni/Au)"
+msgstr "ENIG (Ni/Au)"
 
 #: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
 msgid "Edge card connectors"
@@ -934,6 +1218,10 @@ msgstr "ఎడ్జ్ కార్డ్ కనెక్టర్‌లు"
 #: eeschema/tools/mutate.ts:394
 msgid "Edit Bus Entry"
 msgstr "బస్ ఎంట్రీ సవరించు"
+
+#: eeschema/sch_edit_frame.ts:1202
+msgid "Edit Description for '%s'"
+msgstr "'%s' కోసం వివరణను సవరించు"
 
 #: eeschema/tools/mutate.ts:433
 msgid "Edit Directive Label"
@@ -967,6 +1255,14 @@ msgstr "చిహ్న ఫీల్డ్‌లు సవరించు"
 msgid "Edit Text Box"
 msgstr "టెక్స్ట్ బాక్స్ సవరించు"
 
+#: eeschema/sch_edit_frame.ts:1190
+msgid "Edit Variant Description"
+msgstr "వేరియంట్ వివరణను సవరించు"
+
+#: eeschema/menubar.ts:337 eeschema/tools/sch_actions.ts:2238
+msgid "Edit Variant Description..."
+msgstr "వేరియంట్ వివరణను సవరించు..."
+
 #: common/dialogs/panel_grid_settings.tsx:491
 msgid "Edit grid"
 msgstr "గ్రిడ్ సవరించు"
@@ -979,6 +1275,10 @@ msgstr "టెక్స్ట్ వీక్షకంలో సవరించ�
 msgid "Edit layer"
 msgstr "పొర సవరించు"
 
+#: eeschema/tools/sch_actions.ts:2239
+msgid "Edit the description of an existing design variant."
+msgstr "ఇప్పటికే ఉన్న డిజైన్ వేరియంట్ వివరణను సవరించండి."
+
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
 msgid "Edit variant description"
 msgstr "వేరియంట్ వివరణ సవరించు"
@@ -986,6 +1286,14 @@ msgstr "వేరియంట్ వివరణ సవరించు"
 #: common/widgets/wx_progress_reporters.tsx:137
 msgid "Elapsed time:"
 msgstr "గడిచిన సమయం:"
+
+#: pcbnew/dialogs/dialog_drc.tsx:385
+msgid "Elapsed: %s"
+msgstr "గడిచిన సమయం: %s"
+
+#: pcbnew/dialogs/dialog_drc.tsx:545
+msgid "Elapsed: 0 s"
+msgstr "గడిచిన సమయం: 0 s"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:181
 msgid "Electrical type"
@@ -1031,6 +1339,14 @@ msgstr "ధనాత్మక రెసిస్టివిటీ మరియ�
 msgid "Enter the recovery key you saved when you created your account, and choose a new password."
 msgstr "ఖాతా సృష్టించినప్పుడు మీరు సేవ్ చేసిన రికవరీ కీని నమోదు చేసి, కొత్త సంకేతపదాన్ని ఎంచుకోండి."
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:83 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:139 pcbnew/board_tables/board_stackup_table.ts:75
+msgid "Epsilon R"
+msgstr "Epsilon R"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:63
+msgid "Epsilon R:"
+msgstr "Epsilon R:"
+
 #: designer/src/ui/ErrorBoundary.tsx:120
 msgid "Error details"
 msgstr "లోపం వివరాలు"
@@ -1065,6 +1381,10 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:450
+msgid "Error saving project footprint library table."
+msgstr "ప్రాజెక్ట్ ఫుట్‌ప్రింట్ లైబ్రరీ పట్టికను సేవ్ చేయడంలో లోపం."
+
 #: eeschema/files-io.ts:263
 msgid ""
 "Error saving schematic file '%s'.\n"
@@ -1083,9 +1403,17 @@ msgstr ""
 "\n"
 "%s"
 
+#: pcbnew/footprint_import_reconciler.ts:366
+msgid "Error writing imported footprint cache '%s': %s"
+msgstr "దిగుమతి చేసిన ఫుట్‌ప్రింట్ కాష్ '%s' రాయడంలో లోపం: %s"
+
 #: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
 msgid "Error!"
 msgstr "లోపం!"
+
+#: eeschema/widgets/search_handlers.ts:213
+msgid "Excl. Pos Files"
+msgstr "పొజిషన్ ఫైల్‌లను మినహాయించు"
 
 #: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
 msgid "Exclude references"
@@ -1107,6 +1435,10 @@ msgstr "పొందుపరచిన ఫైళ్లను ఎగుమతి 
 msgid "Export units"
 msgstr "యూనిట్‌లను ఎగుమతి చేయి"
 
+#: bitmap2component/bitmap2cmp_panel.ts:199
+msgid "F.Silkscreen"
+msgstr "F.Silkscreen"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:383
 msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
 msgstr "ఫ్యాబ్రికేషన్ ప్లగిన్‌లు జనరేషన్ స్క్రిప్ట్‌లను అమలు చేస్తాయి; వాటికి బ్రౌజర్‌లో ఇంకా అందుబాటులో లేని శాండ్‌బాక్స్డ్ రన్‌టైమ్ అవసరం."
@@ -1118,6 +1450,10 @@ msgstr "ఫ్యాబ్రికేషన్ గుణం"
 #: eeschema/sch_edit_frame_ui.tsx:5611
 msgid "Failed to load schematic:"
 msgstr "స్కీమాటిక్‌ను లోడ్ చేయడం విఫలమైంది:"
+
+#: eeschema/sch_io/pads/sch_io_pads.ts:1167
+msgid "Failed to parse PADS Logic file '%s'."
+msgstr "PADS Logic ఫైల్ '%s'ను పార్స్ చేయడం విఫలమైంది."
 
 #: designer/src/editors/schematic/hotkeys.ts:300
 msgid "Fast Grid 1"
@@ -1147,6 +1483,10 @@ msgstr "ఫిల్ రకం"
 msgid "Fill with color"
 msgstr "రంగుతో నింపు"
 
+#: common/dialogs/panel_toolbar_customization.tsx:574 common/dialogs/panel_toolbar_customization.tsx:575
+msgid "Filter actions"
+msgstr "చర్యలను ఫిల్టర్ చేయి"
+
 #: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
 msgid "First free number after"
 msgstr "దీని తర్వాత మొదటి ఖాళీ సంఖ్య"
@@ -1175,9 +1515,21 @@ msgstr "ఫుట్‌ప్రింట్ అనుబంధ ఫైళ్ల�
 msgid "Footprint field"
 msgstr "ఫుట్‌ప్రింట్ ఫీల్డ్"
 
+#: pcbnew/tools/pcb_group_tool.ts:54
+msgid "Footprint items cannot be grouped separately from their parent footprint."
+msgstr "ఫుట్‌ప్రింట్ ఐటెమ్‌లను వాటి పేరెంట్ ఫుట్‌ప్రింట్ నుండి వేరుగా సమూహపరచలేము."
+
 #: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
 msgid "Footprint type"
 msgstr "ఫుట్‌ప్రింట్ రకం"
+
+#: pcbnew/tools/edit_tool.ts:2354
+msgid "Footprints cannot be mirrored. Use Flip to move them to the other side of the board."
+msgstr "ఫుట్‌ప్రింట్‌లను మిర్రర్ చేయలేము. వాటిని బోర్డు మరొక వైపునకు తరలించడానికి Flip ఉపయోగించండి."
+
+#: pcbnew/dialogs/dialog_update_pcb.tsx:198
+msgid "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+msgstr "డిజైన్ బ్లాక్ నుండి సృష్టించబడిన ప్రతి కొత్త సమూహానికి, బ్లాక్ సేవ్ చేసిన ఫుట్‌ప్రింట్ ప్లేస్‌మెంట్ మరియు రూటింగ్‌ను ఆటోమేటిక్‌గా వర్తింపజేయి."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
 msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
@@ -1195,6 +1547,10 @@ msgstr "సంకేతపదం మర్చిపోయారా?"
 msgid "Format presets"
 msgstr "ఫార్మాట్ ప్రీసెట్‌లు"
 
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:317
+msgid "Frequency for 100% skin depth:"
+msgstr "100% skin depth కోసం ఫ్రీక్వెన్సీ:"
+
 #: designer/src/editors/calculator/panels/panel_transline.tsx:814
 msgid "Frequency unit"
 msgstr "ఫ్రీక్వెన్సీ యూనిట్"
@@ -1207,9 +1563,25 @@ msgstr "ముందు ఉపసర్గ"
 msgid "Front reference start"
 msgstr "ముందు రిఫరెన్స్ ప్రారంభం"
 
+#: eeschema/schematic_settings.ts:67
+msgid "GA"
+msgstr "GA"
+
+#: designer/src/editors/calculator/unit_selector.ts:70
+msgid "GHz"
+msgstr "GHz"
+
+#: eeschema/schematic_settings.ts:52
+msgid "GV"
+msgstr "GV"
+
 #: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
 msgid "Gap length"
 msgstr "ఖాళీ పొడవు"
+
+#: pcbnew/menubar_pcb_editor.ts:163
+msgid "GenCAD..."
+msgstr "GenCAD..."
 
 #: designer/src/home/ShareButton.tsx:332
 msgid "General access"
@@ -1227,7 +1599,7 @@ msgstr "ఎన్‌క్రిప్షన్ కీలను రూపొం�
 msgid "Generating your encryption keys"
 msgstr "మీ ఎన్‌క్రిప్షన్ కీలను రూపొందిస్తోంది"
 
-#: common/eda_base_frame_help_menu.ts:149
+#: common/eda_base_frame_help_menu.ts:151
 msgid "Getting Started with %s"
 msgstr "%s తో ప్రారంభించడం"
 
@@ -1250,6 +1622,14 @@ msgstr "గ్రాఫిక్ శైలి"
 #: pcbnew/dialogs/dialog_outset_items_base.tsx:123
 msgid "Grid size"
 msgstr "గ్రిడ్ పరిమాణం"
+
+#: pcbnew/tools/edit_tool.ts:2358
+msgid "Groups containing footprints or other items that cannot be mirrored were skipped."
+msgstr "ఫుట్‌ప్రింట్‌లు లేదా మిర్రర్ చేయలేని ఇతర ఐటెమ్‌లు ఉన్న సమూహాలు వదిలివేయబడ్డాయి."
+
+#: common/dialogs/dialog_color_picker.tsx:469
+msgid "HSV"
+msgstr "HSV"
 
 #: designer/src/pcm/PluginManagerDialog.tsx:283
 msgid "Hide details"
@@ -1275,9 +1655,25 @@ msgstr "హాప్-ఓవర్ పరిమాణం"
 msgid "Horizontal Any"
 msgstr "క్షితిజ సమాంతరం ఏదైనా"
 
+#: common/widgets/widget_hotkey_list.tsx:152
+msgid "Hotkey conflict"
+msgstr "హాట్‌కీ వైరుధ్యం"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
 msgid "However some cases are not covered by this calculator:"
 msgstr "అయితే కొన్ని సందర్భాలను ఈ కాలిక్యులేటర్ కవర్ చేయదు:"
+
+#: pcbnew/menubar_pcb_editor.ts:171 pcbnew/tools/pcb_actions.ts:1787
+msgid "Hyperlynx..."
+msgstr "Hyperlynx..."
+
+#: designer/src/editors/calculator/unit_selector.ts:73
+msgid "Hz"
+msgstr "Hz"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:79 designer/src/editors/calculator/panels/panel_track_width.tsx:331
+msgid "I"
+msgstr "I"
 
 #: designer/src/auth/delete_account_form.ts:21
 msgid "I found another service that I like better"
@@ -1291,13 +1687,45 @@ msgstr "నా సంకేతపదం గుర్తుంది"
 msgid "I understand this deletes my account and all its data."
 msgstr "ఇది నా ఖాతాను మరియు దాని డేటా మొత్తాన్ని తొలగిస్తుందని అర్థం చేసుకున్నాను."
 
+#: pcbnew/menubar_pcb_editor.ts:165
+msgid "IDFv3..."
+msgstr "IDFv3..."
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
 msgid "IEC 60664"
 msgstr "IEC 60664"
 
+#: pcb_calculator/iec60664_tables.ts:301 pcb_calculator/iec60664_tables.ts:302 pcb_calculator/iec60664_tables.ts:303 pcb_calculator/iec60664_tables.ts:304 pcb_calculator/iec60664_tables.ts:305 pcb_calculator/iec60664_tables.ts:306
+msgid "II"
+msgstr "II"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIa"
+msgstr "IIIa"
+
+#: pcb_calculator/iec60664_tables.ts:340 pcb_calculator/iec60664_tables.ts:341 pcb_calculator/iec60664_tables.ts:342 pcb_calculator/iec60664_tables.ts:343 pcb_calculator/iec60664_tables.ts:344 pcb_calculator/iec60664_tables.ts:345
+msgid "IIIb"
+msgstr "IIIb"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:526
+msgid "IPC 2221"
+msgstr "IPC 2221"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:579
+msgid "Iadj:"
+msgstr "Iadj:"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:132
+msgid "Id"
+msgstr "Id"
+
 #: designer/src/auth/SignIn.tsx:433
 msgid "If"
 msgstr "ఒకవేళ"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:172
+msgid "If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+msgstr "ఎంచుకుంటే, లేయర్‌లు దిగుమతి చేసిన లేయర్ పేర్లకు మార్చబడకుండా వాటి ప్రామాణిక KiCad పేర్లను ఉంచుతాయి."
 
 #: designer/src/home/HomePage.tsx:2419
 msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
@@ -1331,6 +1759,14 @@ msgstr "%s దిగుమతి చేయి"
 msgid "Import Layer Mapping"
 msgstr "పొర మ్యాపింగ్ దిగుమతి చేయి"
 
+#: pcbnew/menubar_pcb_editor.ts:152 pcbnew/tools/pcb_actions.ts:1612
+msgid "Import Non-KiCad Board File..."
+msgstr "KiCad కాని బోర్డు ఫైల్‌ను దిగుమతి చేయి..."
+
+#: eeschema/tools/sch_actions.ts:1519
+msgid "Import Non-KiCad Schematic..."
+msgstr "KiCad కాని స్కీమాటిక్‌ను దిగుమతి చేయి..."
+
 #: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
 msgid "Import Vector Graphics"
 msgstr "వెక్టర్ గ్రాఫిక్స్ దిగుమతి చేయి"
@@ -1342,6 +1778,18 @@ msgstr "దీని నుండి దిగుమతి చేయి"
 #: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
 msgid "Import scale"
 msgstr "దిగుమతి స్కేల్"
+
+#: pcbnew/import_gfx/dialog_import_graphics.tsx:282
+msgid "Import scale must be a positive number."
+msgstr "దిగుమతి స్కేల్ ధన సంఖ్య అయి ఉండాలి."
+
+#: pcbnew/pcb_io/altium/altium_pcb.ts:4257
+msgid "Imported %d length-tuning pattern(s)."
+msgstr "%d పొడవు-ట్యూనింగ్ నమూనా(లు) దిగుమతి చేయబడ్డాయి."
+
+#: pcbnew/footprint_import_reconciler.ts:275
+msgid "Imported footprint '%s' has conflicting placed definitions; keeping the first."
+msgstr "దిగుమతి చేసిన ఫుట్‌ప్రింట్ '%s'కు విరుద్ధమైన ప్లేస్ చేసిన నిర్వచనాలు ఉన్నాయి; మొదటిదాన్ని ఉంచుతోంది."
 
 #: pcbnew/widgets/appearance_controls.tsx:278
 msgid "Inactive layers (H):"
@@ -1407,6 +1855,26 @@ msgstr "జంక్షన్ చుక్క పరిమాణం"
 msgid "Junction size"
 msgstr "జంక్షన్ పరిమాణం"
 
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:351
+msgid "K"
+msgstr "K"
+
+#: eeschema/schematic_settings.ts:65
+msgid "KA"
+msgstr "KA"
+
+#: eeschema/schematic_settings.ts:50
+msgid "KV"
+msgstr "KV"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:163
+msgid "Keep Existing"
+msgstr "ఉన్నదాన్ని ఉంచు"
+
+#: pcbnew/dialogs/dialog_imported_layers_base.tsx:171
+msgid "Keep KiCad layer names"
+msgstr "KiCad లేయర్ పేర్లను ఉంచు"
+
 #: designer/src/home/HomePage.tsx:2720
 msgid "Keep both"
 msgstr "రెండూ ఉంచు"
@@ -1467,6 +1935,10 @@ msgstr "ఎడమ క్లిక్ (మరియు లాగడం) చర్
 msgid "Left margin"
 msgstr "ఎడమ మార్జిన్"
 
+#: pcbnew/tools/pcb_actions.ts:3524
+msgid "Length Tuning Settings"
+msgstr "పొడవు ట్యూనింగ్ సెట్టింగ్‌లు"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:389
 msgid "Libraries and colour themes install and work today."
 msgstr "లైబ్రరీలు మరియు రంగు థీమ్‌లు ఈరోజే ఇన్‌స్టాల్ అయి పనిచేస్తాయి."
@@ -1486,6 +1958,10 @@ msgstr "లైబ్రరీ లింక్"
 #: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
 msgid "Library name:"
 msgstr "లైబ్రరీ పేరు:"
+
+#: common/libraries/library_table.ts:446
+msgid "Library table '%s' is read-only"
+msgstr "లైబ్రరీ పట్టిక '%s' చదవడానికి మాత్రమే"
 
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
 msgid "Line color"
@@ -1527,6 +2003,42 @@ msgstr "%s లోడ్ చేస్తోంది..."
 msgid "Local and global power symbols have same name"
 msgstr "లోకల్ మరియు గ్లోబల్ పవర్ చిహ్నాలకు ఒకే పేరు ఉంది"
 
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:90 pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:102 pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:140
+msgid "Loss Tan"
+msgstr "Loss Tan"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:66
+msgid "Loss Tan:"
+msgstr "Loss Tan:"
+
+#: pcbnew/board_tables/board_stackup_table.ts:76
+msgid "Loss Tangent"
+msgstr "లాస్ టాంజెంట్"
+
+#: pcbnew/tools/pcb_actions.ts:1905
+msgid "Lower"
+msgstr "కిందికి"
+
+#: eeschema/schematic_settings.ts:66
+msgid "MA"
+msgstr "MA"
+
+#: designer/src/fs/format.ts:31
+msgid "MB"
+msgstr "MB"
+
+#: designer/src/editors/calculator/unit_selector.ts:71
+msgid "MHz"
+msgstr "MHz"
+
+#: pcbnew/pcb_barcode.ts:1038
+msgid "MICRO_QR_CODE"
+msgstr "MICRO_QR_CODE"
+
+#: eeschema/schematic_settings.ts:51
+msgid "MV"
+msgstr "MV"
+
 #: pcbnew/dialogs/dialog_export_2581_base.tsx:266
 msgid "Manufacturer P/N"
 msgstr "తయారీదారు P/N"
@@ -1547,9 +2059,25 @@ msgstr "గరిష్ఠ ట్రాక్ వెడల్పు"
 msgid "Maximum width"
 msgstr "గరిష్ఠ వెడల్పు"
 
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:50
+msgid "Micro QR Code"
+msgstr "Micro QR Code"
+
 #: common/dialogs/panel_mouse_settings.tsx:281
 msgid "Middle button drag"
 msgstr "మధ్య బటన్ లాగడం"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:56
+msgid "Migrate 3D Models"
+msgstr "3D మోడళ్లను మైగ్రేట్ చేయి"
+
+#: pcbnew/menubar_pcb_editor.ts:820 pcbnew/tools/pcb_actions.ts:1355
+msgid "Migrate 3D Models..."
+msgstr "3D మోడళ్లను మైగ్రేట్ చేయి..."
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:487
+msgid "Migrate 3D model references"
+msgstr "3D మోడల్ రిఫరెన్స్‌లను మైగ్రేట్ చేయి"
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
 msgid "Minimum width"
@@ -1558,6 +2086,10 @@ msgstr "కనిష్ఠ వెడల్పు"
 #: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
 msgid "Missing 3D model references"
 msgstr "లేని 3D మోడల్ రిఫరెన్స్‌లు"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:81
+msgid "Missing 3D model references:"
+msgstr "లేని 3D మోడల్ రిఫరెన్స్‌లు:"
 
 #: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
 msgid "More tools"
@@ -1575,9 +2107,25 @@ msgstr "గ్రిడ్‌ను కిందికి తరలించు"
 msgid "Move grid up"
 msgstr "గ్రిడ్‌ను పైకి తరలించు"
 
+#: pcbnew/tools/pcb_actions.ts:1913
+msgid "Move to Bottom"
+msgstr "అడుగుకు తరలించు"
+
+#: pcbnew/tools/pcb_actions.ts:1889
+msgid "Move to Top"
+msgstr "Move to Top"
+
 #: designer/src/auth/delete_account_form.ts:22
 msgid "My reason isn't listed"
 msgstr "నా కారణం జాబితాలో లేదు"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:115 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:327 pcbnew/widgets/search_handlers.ts:749
+msgid "NPTH"
+msgstr "NPTH"
+
+#: pcbnew/board_statistics_report.ts:196
+msgid "NPTH:"
+msgstr "NPTH:"
 
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:267
 msgid "Name text size"
@@ -1598,6 +2146,10 @@ msgstr "నెట్ వడపోత"
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
 msgid "Net name"
 msgstr "నెట్ పేరు"
+
+#: pcbnew/board_connected_item.ts:438
+msgid "NetName"
+msgstr "NetName"
 
 #: common/dialogs/panel_setup_netclasses.tsx:522
 msgid "Netclass assignments"
@@ -1627,9 +2179,17 @@ msgstr "తర్వాతి పేజీ"
 msgid "No %s match your search."
 msgstr "మీ శోధనకు ఏ %s సరిపోలలేదు."
 
+#: eeschema/sch_edit_frame.ts:1184
+msgid "No design variants to edit."
+msgstr "సవరించడానికి డిజైన్ వేరియంట్‌లు లేవు."
+
 #: pcbnew/footprint_edit_frame_ui.tsx:1396
 msgid "No footprint libraries loaded."
 msgstr "ఫుట్‌ప్రింట్ లైబ్రరీలు ఏవీ లోడ్ కాలేదు."
+
+#: pcbnew/tools/pcb_control.ts:2211
+msgid "No groups with a linked design block are selected."
+msgstr "లింక్ చేసిన డిజైన్ బ్లాక్ ఉన్న సమూహాలేవీ ఎంచుకోబడలేదు."
 
 #: common/widgets/widget_hotkey_list.tsx:177
 msgid "No hotkeys match “"
@@ -1646,6 +2206,10 @@ msgstr "లైబ్రరీలు లేవు"
 #: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
 msgid "No matches"
 msgstr "సరిపోలికలు లేవు"
+
+#: eeschema/tools/sch_find_replace_tool.ts:978
+msgid "No matches found."
+msgstr "సరిపోలికలు కనుగొనబడలేదు."
 
 #: designer/src/ui/ErrorBoundary.tsx:95
 msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
@@ -1699,6 +2263,18 @@ msgstr "సంఖ్య టెక్స్ట్ పరిమాణం"
 msgid "Numbering step"
 msgstr "సంఖ్యాకరణ దశ"
 
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:190
+msgid "OVC I"
+msgstr "OVC I"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:191
+msgid "OVC II"
+msgstr "OVC II"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:192
+msgid "OVC III"
+msgstr "OVC III"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
 msgid "OVC IV"
 msgstr "OVC IV"
@@ -1714,6 +2290,10 @@ msgstr "ఆహ్వానించిన వారు మాత్రమే"
 #: designer/src/home/menubar.ts:133
 msgid "Open Demo Project"
 msgstr "డెమో ప్రాజెక్ట్ తెరువు"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:129
+msgid "Open External File..."
+msgstr "బాహ్య ఫైల్‌ను తెరవు..."
 
 #: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
 msgid "Open Project from GitHub"
@@ -1735,6 +2315,14 @@ msgstr "ఫుట్‌ప్రింట్ లైబ్రరీని జో�
 msgid "Open from Computer..."
 msgstr "కంప్యూటర్ నుండి తెరువు..."
 
+#: pcbnew/dialogs/dialog_drc.tsx:1092
+msgid "Open the Board Setup dialog"
+msgstr "బోర్డు సెటప్ డైలాగ్‌ను తెరవండి"
+
+#: eeschema/dialogs/dialog_erc.tsx:830 eeschema/dialogs/dialog_erc.tsx:836 eeschema/dialogs/dialog_erc.tsx:844
+msgid "Open the Schematic Setup dialog"
+msgstr "స్కీమాటిక్ సెటప్ డైలాగ్‌ను తెరవండి"
+
 #: eeschema/dialogs/dialog_plot_schematic.tsx:393
 msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
 msgstr "విజయవంతమైన ప్లాట్ తర్వాత ప్లాట్ చేసిన ఫైల్‌ను కొత్త బ్రౌజర్ ట్యాబ్‌లో తెరువు (ప్రస్తుత పేజీ మాత్రమే)"
@@ -1750,6 +2338,10 @@ msgstr "ప్రాజెక్ట్ తెరుస్తోంది..."
 #: designer/src/home/HomePage.tsx:1078
 msgid "Opening the shared project..."
 msgstr "షేర్ చేసిన ప్రాజెక్ట్‌ను తెరుస్తోంది..."
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:449
+msgid "Option:"
+msgstr "Option:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
 msgid "Optionally up to two additional values can be excluded in case of component availability problems."
@@ -1787,6 +2379,34 @@ msgstr "అవుట్‌పుట్ మార్గం"
 msgid "Outset"
 msgstr "అవుట్‌సెట్"
 
+#: common/pgm_base.ts:672 eeschema/schematic_settings.ts:69
+msgid "PA"
+msgstr "PA"
+
+#: pcbnew/board.ts:2690
+msgid "PCB"
+msgstr "PCB"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:196
+msgid "PD1"
+msgstr "PD1"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:197
+msgid "PD2"
+msgstr "PD2"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:198
+msgid "PD3"
+msgstr "PD3"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:199
+msgid "PD4"
+msgstr "PD4"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:77 pcbnew/dialogs/dialog_gendrill_base.tsx:50 pcbnew/dialogs/dialog_plot_base.tsx:60
+msgid "PDF"
+msgstr "PDF"
+
 #: pcbnew/dialogs/dialog_plot_base.tsx:752
 msgid "PDF output mode"
 msgstr "PDF అవుట్‌పుట్ మోడ్"
@@ -1794,6 +2414,22 @@ msgstr "PDF అవుట్‌పుట్ మోడ్"
 #: eeschema/dialogs/dialog_plot_schematic.tsx:371
 msgid "PNG Options"
 msgstr "PNG ఎంపికలు"
+
+#: eeschema/sch_bitmap.ts:105 pcbnew/pcb_reference_image.ts:233 bitmap2component/bitmap2cmp_panel_ui.tsx:195
+msgid "PPI"
+msgstr "PPI"
+
+#: common/dialogs/panel_image_editor.tsx:128
+msgid "PPI:"
+msgstr "PPI:"
+
+#: pcbnew/board_statistics_report.ts:663 pcbnew/dialogs/dialog_board_statistics.tsx:275 pcbnew/widgets/search_handlers.ts:749
+msgid "PTH"
+msgstr "PTH"
+
+#: eeschema/schematic_settings.ts:54
+msgid "PV"
+msgstr "PV"
 
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
 msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
@@ -1895,6 +2531,10 @@ msgstr "మీ 24-పదాల రికవరీ కీని అతికి�
 msgid "People with access"
 msgstr "యాక్సెస్ ఉన్నవారు"
 
+#: pcb_calculator/attenuators/attenuator_classes.ts:41
+msgid "Pi"
+msgstr "Pi"
+
 #: external/wx/datectrl.tsx:39
 msgid "Pick a date"
 msgstr "తేదీని ఎంచుకోండి"
@@ -1975,6 +2615,10 @@ msgstr "స్థాన ఆఫ్‌సెట్"
 msgid "Potential replacements"
 msgstr "సంభావ్య ప్రత్యామ్నాయాలు"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:107
+msgid "Potential replacements:"
+msgstr "సాధ్యమైన ప్రత్యామ్నాయాలు:"
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
 msgid "Pre-defined track widths"
 msgstr "ముందే నిర్వచించిన ట్రాక్ వెడల్పులు"
@@ -2007,9 +2651,21 @@ msgstr "ప్రాజెక్ట్‌లు"
 msgid "Protection features"
 msgstr "రక్షణ ఫీచర్లు"
 
+#: pcbnew/pcb_barcode.ts:1037
+msgid "QR_CODE"
+msgstr "QR_CODE"
+
 #: designer/src/pcm/PluginManagerDialog.tsx:209
 msgid "Queue install"
 msgstr "ఇన్‌స్టాల్‌ను క్యూలో ఉంచు"
+
+#: common/dialogs/dialog_color_picker.tsx:439
+msgid "RGB"
+msgstr "RGB"
+
+#: pcbnew/tools/pcb_actions.ts:1897
+msgid "Raise"
+msgstr "పైకి"
 
 #: eeschema/dialogs/panel_setup_formatting_base.tsx:383
 msgid "Range (currents)"
@@ -2022,6 +2678,10 @@ msgstr "పరిధి (వోల్టేజ్‌లు)"
 #: pcbnew/dialogs/panel_edit_options_base.tsx:242
 msgid "Ratsnest line thickness"
 msgstr "రాట్స్‌నెస్ట్ లైన్ మందం"
+
+#: eeschema/sch_footprint_field_reconciler.ts:89
+msgid "Re-linked %d imported footprint assignment(s) to library '%s'."
+msgstr "దిగుమతి చేసిన %d ఫుట్‌ప్రింట్ కేటాయింపు(ల)ను '%s' లైబ్రరీకి తిరిగి లింక్ చేసింది."
 
 #: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
 msgid "Reading files..."
@@ -2054,6 +2714,10 @@ msgstr "రీడ్రా వేగం"
 #: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
 msgid "Reference filter"
 msgstr "రిఫరెన్స్ వడపోత"
+
+#: pcbnew/zone_filler.ts:787
+msgid "Refilling overlapping zones..."
+msgstr "అతివ్యాప్తి చెందే జోన్‌లను తిరిగి నింపుతోంది..."
 
 #: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
 msgid "Refresh preview"
@@ -2131,6 +2795,14 @@ msgstr "వయా ఆలస్య ఓవర్‌రైడ్ తొలగిం
 msgid "Rename variant"
 msgstr "వేరియంట్ పేరు మార్చు"
 
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:160
+msgid "Replace Models"
+msgstr "మోడళ్లను భర్తీ చేయి"
+
+#: pcbnew/tools/pcb_actions.ts:1356
+msgid "Replace obsolete WRL 3D model references with current STEP models"
+msgstr "వాడుకలో లేని WRL 3D మోడల్ రిఫరెన్స్‌లను ప్రస్తుత STEP మోడళ్లతో భర్తీ చేయి"
+
 #: eeschema/dialogs/dialog_sch_find_base.tsx:122
 msgid "Replace with"
 msgstr "దీనితో భర్తీ చేయి"
@@ -2167,6 +2839,14 @@ msgstr "పరిమాణం మార్చు"
 msgid "Restore Project"
 msgstr "ప్రాజెక్ట్‌ను పునరుద్ధరించు"
 
+#: common/local_history.ts:230
+msgid "Restore Version"
+msgstr "వెర్షన్‌ను పునరుద్ధరించు"
+
+#: common/local_history.ts:251
+msgid "Restore the project to the version from %s?"
+msgstr "ప్రాజెక్ట్‌ను %s నాటి వెర్షన్‌కు పునరుద్ధరించాలా?"
+
 #: designer/src/App.tsx:1923
 msgid "Restoring your project..."
 msgstr "మీ ప్రాజెక్ట్‌ను పునరుద్ధరిస్తోంది..."
@@ -2194,6 +2874,26 @@ msgstr "స్థానాలను ఇంతకు రౌండ్ చేయి
 #: common/widgets/zoom_correction_ctrl.tsx:283
 msgid "Ruler units"
 msgstr "రూలర్ యూనిట్లు"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:54 pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:85 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:220 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:113 pcbnew/dialogs/dialog_fp_edit_pad_table.tsx:321 pcbnew/dialogs/dialog_pad_properties.tsx:217
+msgid "SMD"
+msgstr "SMD"
+
+#: pcbnew/dialogs/dialog_pad_properties.tsx:220 pcbnew/dialogs/dialog_pad_properties_base.tsx:483
+msgid "SMD Aperture"
+msgstr "SMD అపెర్చర్"
+
+#: pcbnew/board_statistics_report.ts:180 pcbnew/board_statistics_report.ts:194
+msgid "SMD:"
+msgstr "SMD:"
+
+#: pcbnew/menubar_pcb_editor.ts:166
+msgid "STEP/GLB/BREP/XAO/PLY/STL..."
+msgstr "STEP/GLB/BREP/XAO/PLY/STL..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:78 pcbnew/dialogs/dialog_gendrill_base.tsx:49 pcbnew/dialogs/dialog_plot_base.tsx:58
+msgid "SVG"
+msgstr "SVG"
 
 #: pcbnew/dialogs/dialog_plot_base.tsx:722
 msgid "SVG output mode"
@@ -2299,6 +2999,10 @@ msgstr "%s ఎంపికకు సంబంధించిన వస్తు�
 msgid "Selected cells shown with the default system's coloring choice after a table refill."
 msgstr "పట్టిక రీఫిల్ తర్వాత ఎంచుకున్న సెల్‌లు సిస్టమ్ డిఫాల్ట్ రంగు ఎంపికతో చూపబడతాయి."
 
+#: pcbnew/tools/pcb_control.ts:2225 pcbnew/tools/pcb_selection_tool.ts:4353
+msgid "Selection contains locked items. Enable 'Override locks' to operate on them."
+msgstr "ఎంపికలో లాక్ చేసిన ఐటెమ్‌లు ఉన్నాయి. వాటిపై పనిచేయడానికి 'Override locks' ప్రారంభించండి."
+
 #: designer/src/auth/SignIn.tsx:453
 msgid "Send reset link"
 msgstr "రీసెట్ లింక్ పంపు"
@@ -2327,21 +3031,49 @@ msgstr "నెట్ %s కు రంగు సెట్ చేయి"
 msgid "Set color for the %s netclass"
 msgstr "%s నెట్‌క్లాస్‌కు రంగు సెట్ చేయి"
 
+#: eeschema/tools/sch_actions.ts:1364
+msgid "Set the exclude from position files attribute"
+msgstr "పొజిషన్ ఫైల్‌ల నుండి మినహాయించు లక్షణాన్ని సెట్ చేయండి"
+
 #: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
 msgid "Share this project"
 msgstr "ఈ ప్రాజెక్ట్‌ను షేర్ చేయి"
+
+#: pcbnew/tools/multichannel_tool.ts:1493
+msgid ""
+"Shared components:\n"
+"%s"
+msgstr ""
+"భాగస్వామ్య భాగాలు:\n"
+"%s"
 
 #: eeschema/sch_edit_frame_ui.tsx:3919
 msgid "Sheet file not in project: %s"
 msgstr "షీట్ ఫైల్ ప్రాజెక్ట్‌లో లేదు: %s"
 
+#: common/dialogs/panel_mouse_settings.tsx:63 common/dialogs/panel_mouse_settings.tsx:68 common/hotkeys_basic_keys.ts:109 common/hotkeys_basic_keys.ts:115 common/widgets/widget_hotkey_list.tsx:51 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:199
+msgid "Shift"
+msgstr "Shift"
+
 #: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
 msgid "Shift and Ctrl"
 msgstr "Shift మరియు Ctrl"
 
+#: pcbnew/dialogs/panel_edit_options_base.tsx:443
+msgid "Shift+Cmd:"
+msgstr "Shift+Cmd:"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:419 pcbnew/dialogs/panel_edit_options_base.tsx:442 designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:92
+msgid "Shift:"
+msgstr "Shift:"
+
 #: 3d-viewer/viewer3d_appearance.ts:178
 msgid "Show 3D navigator"
 msgstr "3D నావిగేటర్ చూపించు"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:547
+msgid "Show options"
+msgstr "ఎంపికలను చూపు"
 
 #: 3d-viewer/viewer3d_appearance.ts:131
 msgid "Show user defined layer %s"
@@ -2366,6 +3098,10 @@ msgstr "ముఖ్యమైన అంకెలు (వోల్టేజ్‌
 #: designer/src/auth/SignIn.tsx:585
 msgid "Signing in..."
 msgstr "సైన్ ఇన్ అవుతోంది..."
+
+#: pcbnew/tools/pcb_control.ts:2447
+msgid "Skipped %d selected item(s) that are not groups linked to a design block."
+msgstr "డిజైన్ బ్లాక్‌కు లింక్ చేయని సమూహాలైన %d ఎంచుకున్న ఐటెమ్(ల)ను వదిలివేసింది."
 
 #: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
 msgid "Smoothing amount"
@@ -2407,6 +3143,10 @@ msgstr "4 కాంపోనెంట్‌ల వరకు ఉపయోగి�
 msgid "Solve for this parameter"
 msgstr "ఈ పరామితికి పరిష్కరించు"
 
+#: eeschema/tools/sch_group_tool.ts:121 eeschema/tools/sch_group_tool.ts:141 pcbnew/tools/pcb_group_tool.ts:46 pcbnew/tools/pcb_group_tool.ts:61
+msgid "Some selected items cannot be grouped."
+msgstr "ఎంచుకున్న కొన్ని ఐటెమ్‌లను సమూహపరచలేము."
+
 #: eeschema/sch_edit_frame_ui.tsx:3775
 msgid "Some sheets failed to load: %s"
 msgstr "కొన్ని షీట్‌లు లోడ్ కాలేదు: %s"
@@ -2423,6 +3163,10 @@ msgstr "క్రమబద్ధీకరణ మరియు విస్తర�
 msgid "Sources"
 msgstr "మూలాలు"
 
+#: pcbnew/menubar_pcb_editor.ts:162
+msgid "Specctra DSN..."
+msgstr "Specctra DSN..."
+
 #: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
 msgid "Start layer"
 msgstr "ప్రారంభ పొర"
@@ -2435,7 +3179,7 @@ msgstr "ప్రారంభ రిఫరెన్స్ డిజిగ్న�
 msgid "Step for rotate commands"
 msgstr "రొటేట్ ఆదేశాలకు దశ"
 
-#: common/eda_base_frame_help_menu.ts:163
+#: common/eda_base_frame_help_menu.ts:165
 msgid "Support Chat"
 msgstr "సపోర్ట్ చాట్"
 
@@ -2467,6 +3211,30 @@ msgstr "క్లౌడ్ ప్రాజెక్ట్‌లను సిం�
 msgid "Synthesis is not available for rectangular waveguides."
 msgstr "దీర్ఘచతురస్ర వేవ్‌గైడ్‌లకు సింథసిస్ అందుబాటులో లేదు."
 
+#: eeschema/schematic_settings.ts:68
+msgid "TA"
+msgstr "TA"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "TGZ"
+msgstr "TGZ"
+
+#: pcbnew/board_statistics_report.ts:173
+msgid "THT:"
+msgstr "THT:"
+
+#: common/settings/bom_settings.ts:168
+msgid "TSV"
+msgstr "TSV"
+
+#: eeschema/schematic_settings.ts:53
+msgid "TV"
+msgstr "TV"
+
+#: pcbnew/tools/multichannel_tool.ts:1488
+msgid "Target Rule Area shares components with the reference area"
+msgstr "లక్ష్య రూల్ ఏరియా రిఫరెన్స్ ఏరియాతో భాగాలను పంచుకుంటుంది"
+
 #: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
 msgid "Target areas"
 msgstr "లక్ష్య ప్రాంతాలు"
@@ -2474,6 +3242,10 @@ msgstr "లక్ష్య ప్రాంతాలు"
 #: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
 msgid "Target impedance"
 msgstr "లక్ష్య ఇంపెడెన్స్"
+
+#: pcb_calculator/attenuators/attenuator_classes.ts:48
+msgid "Tee"
+msgstr "Tee"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:265
 msgid "Temperature rise (ΔT):"
@@ -2486,6 +3258,10 @@ msgstr "టెక్స్ట్ రంగు"
 #: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
 msgid "Text frame"
 msgstr "టెక్స్ట్ ఫ్రేమ్"
+
+#: pcbnew/drc/drc_item.ts:253
+msgid "Text or graphic on Edge.Cuts layer"
+msgstr "Edge.Cuts లేయర్‌పై టెక్స్ట్ లేదా గ్రాఫిక్"
 
 #: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
 msgid "Text size"
@@ -2523,6 +3299,10 @@ msgstr "నియంత్రించే విలువ బోల్డ్‌�
 msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
 msgstr "డౌన్‌లోడ్ విఫలమైంది. కింది లోపాన్ని కాపీ చేసి నివేదించండి, దయచేసి రీలోడ్ చేయకండి, మీ పని ఈ ట్యాబ్ నుండి ఇంకా తిరిగి పొందవచ్చు."
 
+#: pcbnew/tools/pcb_control.ts:2453
+msgid "The following groups could not be processed:"
+msgstr "కింది సమూహాలను ప్రాసెస్ చేయలేకపోయాం:"
+
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:316
 msgid "The formula, from IPC 2221, is"
 msgstr "IPC 2221 నుండి సూత్రం:"
@@ -2539,6 +3319,10 @@ msgstr ""
 msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
 msgstr "IEC60664-1 లక్ష్యం మెయిన్స్ సరఫరాకు కనెక్షన్ ఉన్న ఉత్పత్తులకు ఇన్సులేషన్ డిజైన్‌పై మార్గదర్శకత్వం ఇవ్వడం."
 
+#: common/libraries/library_table.ts:252
+msgid "The library table is of wrong type"
+msgstr "లైబ్రరీ పట్టిక తప్పు రకానికి చెందినది"
+
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
 msgid "The requested value is always excluded from the solution set."
 msgstr "అభ్యర్థించిన విలువ ఎల్లప్పుడూ పరిష్కార సమితి నుండి మినహాయించబడుతుంది."
@@ -2554,6 +3338,10 @@ msgstr "టెక్స్ట్ ఎత్తు %s మధ్య ఉండాల
 #: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
 msgid "The text width must be between %s."
 msgstr "టెక్స్ట్ వెడల్పు %s మధ్య ఉండాలి."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:507
+msgid "The unit name '%s' is already in use."
+msgstr "యూనిట్ పేరు '%s' ఇప్పటికే వాడుకలో ఉంది."
 
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
 msgid "The value 0 is a special case and is not present in any series."
@@ -2627,6 +3415,10 @@ msgstr "ఈ సెటప్ పేజీ ఇంకా అమలు కాలే�
 msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
 msgstr "ఈ పట్టిక వివిధ లోహాలు మరియు మిశ్రమలోహాల మధ్య ఎలక్ట్రోకెమికల్ పొటెన్షియల్ వ్యత్యాసాన్ని చూపుతుంది. గాల్వానిక్ క్షయం కొన్ని పరిస్థితుల్లో తాకుతున్న వేర్వేరు లోహాలను ప్రభావితం చేస్తుంది."
 
+#: pcbnew/tools/multichannel_tool.ts:1490
+msgid "This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group."
+msgstr "ఈ లక్ష్య రూల్ ఏరియా రిఫరెన్స్ ఏరియా ఎంచుకునే భాగాలనే ఎంచుకుంటుంది. రిపీట్ లేఅవుట్ ఒక రూల్ ఏరియాను దానిపైకే కాపీ చేయలేదు. ప్రతి ప్లేస్‌మెంట్ రూల్ ఏరియాకు ప్రత్యేక షీట్, కాంపోనెంట్ క్లాస్ లేదా సమూహాన్ని ఇవ్వండి."
+
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
 msgid "This tool allows you to design a track fuse but should be used as an estimate only."
 msgstr "ఈ సాధనం ట్రాక్ ఫ్యూజ్‌ను డిజైన్ చేయడానికి అనుమతిస్తుంది, కానీ అంచనాగా మాత్రమే ఉపయోగించాలి."
@@ -2634,6 +3426,14 @@ msgstr "ఈ సాధనం ట్రాక్ ఫ్యూజ్‌ను డ�
 #: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
 msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
 msgstr "విలువను ఎంచుకోవడానికి లెక్కించిన లక్ష్య విలువతో ప్రారంభించి, E24 లేదా అంతకంటే తక్కువకు 2 ముఖ్యమైన అంకెలకు, E48 మరియు అంతకంటే ఎక్కువకు 3 ముఖ్యమైన అంకెలకు రౌండ్ చేయండి. తర్వాత మిగిలిన అంకెలకు దగ్గరగా ఉన్న విలువను పట్టికలో కనుగొని ఆ అంకెల స్థానంలో ఉంచండి."
+
+#: pcbnew/tools/pcb_actions.ts:805
+msgid "Toggle the exclude from bill of materials attribute"
+msgstr "బిల్ ఆఫ్ మెటీరియల్స్ నుండి మినహాయించు లక్షణాన్ని టోగుల్ చేయి"
+
+#: pcbnew/tools/pcb_actions.ts:813
+msgid "Toggle the exclude from position files attribute"
+msgstr "పొజిషన్ ఫైల్‌ల నుండి మినహాయించు లక్షణాన్ని టోగుల్ చేయి"
 
 #: common/dialogs/panel_toolbar_customization.tsx:419
 msgid "Toolbar items"
@@ -2703,6 +3503,26 @@ msgstr "రెండు చిహ్న పిన్‌లు ఒకే ఫు�
 msgid "Type to search"
 msgstr "శోధించడానికి టైప్ చేయండి"
 
+#: eeschema/dialogs/panel_template_fieldnames.tsx:82
+msgid "URL"
+msgstr "URL"
+
+#: eeschema/tools/sch_inspection_tool.ts:453 pcbnew/tools/pcb_control.ts:1431 pagelayout_editor/tools/pl_editor_control.ts:129
+msgid "UUID"
+msgstr "UUID"
+
+#: pcbnew/router/pns_dragger.ts:305
+msgid "Unable to drag arc tracks of %.1f degrees or greater."
+msgstr "%.1f డిగ్రీలు లేదా అంతకంటే ఎక్కువ ఉన్న ఆర్క్ ట్రాక్‌లను లాగలేము."
+
+#: common/dialogs/lib_table_panel.tsx:392
+msgid "Unable to load library table."
+msgstr "లైబ్రరీ పట్టికను లోడ్ చేయడం సాధ్యం కాలేదు."
+
+#: eeschema/remote_symbol_import_job.ts:327
+msgid "Unable to save the downloaded symbol: %s"
+msgstr "డౌన్‌లోడ్ చేసిన చిహ్నాన్ని సేవ్ చేయడం సాధ్యం కాలేదు: %s"
+
 #: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
 msgid "Unit display names"
 msgstr "యూనిట్ ప్రదర్శన పేర్లు"
@@ -2739,9 +3559,33 @@ msgstr "వినియోగదారు పొర పేర్లు"
 msgid "User layers"
 msgstr "వినియోగదారు పొరలు"
 
+#: bitmap2component/bitmap2cmp_panel.ts:202
+msgid "User.Comments"
+msgstr "User.Comments"
+
+#: bitmap2component/bitmap2cmp_panel.ts:201
+msgid "User.Drawings"
+msgstr "User.Drawings"
+
+#: bitmap2component/bitmap2cmp_panel.ts:203
+msgid "User.Eco1"
+msgstr "User.Eco1"
+
+#: bitmap2component/bitmap2cmp_panel.ts:204
+msgid "User.Eco2"
+msgstr "User.Eco2"
+
 #: designer/src/ui/StorageBanner.tsx:26
 msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
 msgstr "%2$s లో %1$s వాడుతున్నారు. మీ ప్రాజెక్ట్‌ను డౌన్‌లోడ్ చేసి, స్థలం ఖాళీ చేయడానికి హోమ్ స్క్రీన్ నుండి పాత ప్రాజెక్ట్‌లను తొలగించండి."
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:573
+msgid "V"
+msgstr "V"
+
+#: pcbnew/menubar_pcb_editor.ts:164
+msgid "VRML..."
+msgstr "VRML..."
 
 #: pcbnew/widgets/vertex_editor_pane.tsx:307
 msgid "Vertex Editor"
@@ -2787,6 +3631,26 @@ msgstr "వీక్షకం"
 msgid "Viewports (Shift+Tab):"
 msgstr "వ్యూపోర్ట్‌లు (Shift+Tab):"
 
+#: pcbnew/dialogs/dialog_drc.tsx:1039 pcbnew/dialogs/dialog_drc.tsx:1048
+msgid "Violation severities can also be edited in Board Setup"
+msgstr "ఉల్లంఘన తీవ్రతలను బోర్డు సెటప్‌లో కూడా సవరించవచ్చు"
+
+#: eeschema/dialogs/dialog_erc.tsx:789 eeschema/dialogs/dialog_erc.tsx:798
+msgid "Violation severities can also be edited in Schematic Setup"
+msgstr "ఉల్లంఘన తీవ్రతలను స్కీమాటిక్ సెటప్‌లో కూడా సవరించవచ్చు"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:552
+msgid "Vout:"
+msgstr "Vout:"
+
+#: designer/src/editors/calculator/panels/panel_regulator.tsx:556
+msgid "Vref:"
+msgstr "Vref:"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:341
+msgid "W"
+msgstr "W"
+
 #: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
 msgid "We don't store this key, so please save this in a safe place"
 msgstr "మేము ఈ కీని నిల్వ చేయము, కాబట్టి దయచేసి దీన్ని సురక్షిత స్థలంలో భద్రపరచండి"
@@ -2819,6 +3683,10 @@ msgstr "కాలుష్యం నుండి రక్షణకు కన్
 msgid "Who's here"
 msgstr "ఇక్కడ ఎవరున్నారు"
 
+#: eeschema/sch_bus_entry.ts:783 eeschema/sch_line.ts:1405
+msgid "Wire Style"
+msgstr "తీగ శైలి"
+
 #: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
 msgid "Wire/bus width"
 msgstr "వైర్/బస్ వెడల్పు"
@@ -2835,6 +3703,10 @@ msgstr "X స్థానం"
 msgid "X scale factor"
 msgstr "X స్కేల్ కారకం"
 
+#: common/dialogs/dialog_grid_settings.tsx:178 pcbnew/dialogs/dialog_export_vrml_base.tsx:133
+msgid "X:"
+msgstr "X:"
+
 #: eeschema/dialogs/dialog_pin_properties_base.tsx:224
 msgid "Y position"
 msgstr "Y స్థానం"
@@ -2842,6 +3714,10 @@ msgstr "Y స్థానం"
 #: pcbnew/dialogs/dialog_plot_base.tsx:585
 msgid "Y scale factor"
 msgstr "Y స్కేల్ కారకం"
+
+#: common/dialogs/dialog_grid_settings.tsx:203 pcbnew/dialogs/dialog_export_vrml_base.tsx:150
+msgid "Y:"
+msgstr "Y:"
 
 #: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
 msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
@@ -2871,6 +3747,22 @@ msgstr "మీ ప్రాజెక్ట్ ఇంకా మెమరీలో
 msgid "Your recovery key"
 msgstr "మీ రికవరీ కీ"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:64 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:70 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:147 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:153 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:159 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:187
+msgid "Z"
+msgstr "Z"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:217
+msgid "Z0:"
+msgstr "Z0:"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:37
+msgid "ZIP"
+msgstr "ZIP"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:333
+msgid "Zin:"
+msgstr "Zin:"
+
 #: designer/src/ui/ErrorBoundary.tsx:63
 msgid "ZiroEDA hit an unexpected error"
 msgstr "ZiroEDA ఊహించని లోపాన్ని ఎదుర్కొంది"
@@ -2886,6 +3778,20 @@ msgstr "ZiroEDA కు పెద్ద స్క్రీన్ అవసరం"
 #: designer/src/support/ChatWidget.tsx:288
 msgid "ZiroEDA support chat"
 msgstr "ZiroEDA సపోర్ట్ చాట్"
+
+#: pcbnew/tools/board_editor_control.ts:226
+msgid "Zone Priority"
+msgstr "జోన్ ప్రాధాన్యత"
+
+#: pcbnew/zone_filler.ts:922
+msgid ""
+"Zone fills may be incorrect: iterative refill did not converge after %d passes.\n"
+"\n"
+"This can happen with complex overlapping zones.  Consider simplifying your zones."
+msgstr ""
+"జోన్ ఫిల్‌లు తప్పుగా ఉండవచ్చు: పునరావృత రీఫిల్ %d పాస్‌ల తర్వాత కూడా కలవలేదు.\n"
+"\n"
+"సంక్లిష్టమైన అతివ్యాప్తి చెందే జోన్‌లతో ఇది జరగవచ్చు.  మీ జోన్‌లను సరళీకరించడాన్ని పరిగణించండి."
 
 #: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
 msgid "Zone knockout"
@@ -2907,6 +3813,22 @@ msgstr "జోన్ ప్రివ్యూలు"
 msgid "Zoom speed"
 msgstr "జూమ్ వేగం"
 
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:339
+msgid "Zout:"
+msgstr "Zout:"
+
+#: pcbnew/tools/footprint_editor_control.ts:427
+msgid "_copy"
+msgstr "_copy"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:401
+msgid "angular delta of zero with %ld objects"
+msgstr "%ld ఆబ్జెక్ట్‌లతో కోణీయ వ్యత్యాసం సున్నా"
+
+#: common/remote_provider_models.ts:179
+msgid "assets[].download_url"
+msgstr "assets[].download_url"
+
 #: designer/src/auth/SignIn.tsx:581
 msgid "below to set your password again. No recovery key is needed."
 msgstr "కింది దాని ద్వారా మీ సంకేతపదాన్ని మళ్లీ సెట్ చేయండి. రికవరీ కీ అవసరం లేదు."
@@ -2919,17 +3841,73 @@ msgstr "సవరించవచ్చు"
 msgid "can view"
 msgstr "చూడవచ్చు"
 
+#: pcbnew/tools/pcb_control.ts:2312
+msgid "could not load the design block's layout"
+msgstr "డిజైన్ బ్లాక్ లేఅవుట్‌ను లోడ్ చేయడం సాధ్యం కాలేదు"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:330
+msgid "dB"
+msgstr "dB"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
 msgid "dashed: creepage"
 msgstr "చుక్కల గీత: క్రీపేజ్"
+
+#: pcbnew/tools/pcb_control.ts:2332
+msgid "design block contains no items to apply"
+msgstr "డిజైన్ బ్లాక్‌లో వర్తింపజేయడానికి ఐటెమ్‌లు లేవు"
+
+#: pcbnew/tools/pcb_control.ts:2298
+msgid "design block has no saved PCB layout"
+msgstr "డిజైన్ బ్లాక్‌కు సేవ్ చేసిన PCB లేఅవుట్ లేదు"
+
+#: pcbnew/tools/pcb_control.ts:2293
+msgid "design block is not in the loaded libraries"
+msgstr "డిజైన్ బ్లాక్ లోడ్ చేసిన లైబ్రరీలలో లేదు"
 
 #: designer/src/home/HomePage.tsx:2736
 msgid "did not sync:"
 msgstr "సింక్ కాలేదు:"
 
+#: pcbnew/dialogs/dialog_pad_properties.tsx:319 pcbnew/dialogs/dialog_pad_properties.tsx:320 gerbview/dialogs/dialog_draw_layers_settings.ts:48
+msgid "dummy"
+msgstr "dummy"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:200
+msgid "er:"
+msgstr "er:"
+
+#: eeschema/schematic_settings.ts:59
+msgid "fA"
+msgstr "fA"
+
+#: eeschema/schematic_settings.ts:44
+msgid "fV"
+msgstr "fV"
+
+#: designer/src/editors/calculator/unit_selector.ts:111
+msgid "feet"
+msgstr "feet"
+
+#: designer/src/editors/calculator/unit_selector.ts:162
+msgid "ft/s"
+msgstr "ft/s"
+
+#: pcbnew/tools/pcb_control.ts:2368
+msgid "group is empty"
+msgstr "సమూహం ఖాళీగా ఉంది"
+
 #: designer/src/auth/SignIn.tsx:434
 msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
 msgstr "కు ఖాతా ఉంది, రీసెట్ లింక్ వస్తోంది. కొత్త సంకేతపదాన్ని ఎంచుకోవడానికి దీన్ని ఈ పరికరంలో తెరవండి."
+
+#: pcbnew/dialogs/dialog_create_array.tsx:337
+msgid "horizontal delta of zero with %ld objects"
+msgstr "%ld ఆబ్జెక్ట్‌లతో క్షితిజ సమాంతర వ్యత్యాసం సున్నా"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:40
+msgid "inch"
+msgstr "inch"
 
 #: designer/src/editors/calculator/panels/panel_track_width.tsx:353
 msgid "is 0.024 for internal tracks or 0.048 for external tracks"
@@ -2963,6 +3941,86 @@ msgstr "మిల్‌లలో మందం (ఎత్తు)"
 msgid "is width in mils"
 msgstr "మిల్‌లలో వెడల్పు"
 
+#: designer/src/editors/calculator/unit_selector.ts:72
+msgid "kHz"
+msgstr "kHz"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:385 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:407 designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:414
+msgid "kV"
+msgstr "kV"
+
+#: designer/src/editors/calculator/unit_selector.ts:109
+msgid "km"
+msgstr "km"
+
+#: designer/src/editors/calculator/unit_selector.ts:163
+msgid "km/h"
+msgstr "km/h"
+
+#: pcbnew/tools/pcb_control.ts:2408
+msgid "layout copy failed"
+msgstr "లేఅవుట్ కాపీ విఫలమైంది"
+
+#: eeschema/schematic_settings.ts:63
+msgid "mA"
+msgstr "mA"
+
+#: eeschema/schematic_settings.ts:48 designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:128 designer/src/editors/calculator/unit_selector.ts:138
+msgid "mV"
+msgstr "mV"
+
+#: designer/src/editors/calculator/unit_selector.ts:145
+msgid "mW"
+msgstr "mW"
+
+#: designer/src/editors/calculator/unit_selector.ts:164
+msgid "mi/h"
+msgstr "mi/h"
+
+#: designer/src/editors/calculator/panels/panel_wavelength.tsx:222
+msgid "mur:"
+msgstr "mur:"
+
+#: eeschema/schematic_settings.ts:61
+msgid "nA"
+msgstr "nA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:313
+msgid "nH"
+msgstr "nH"
+
+#: eeschema/schematic_settings.ts:46
+msgid "nV"
+msgstr "nV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:87 designer/src/editors/calculator/unit_selector.ts:96
+msgid "ns"
+msgstr "ns"
+
+#: eeschema/schematic_settings.ts:60
+msgid "pA"
+msgstr "pA"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:301
+msgid "pF"
+msgstr "pF"
+
+#: eeschema/schematic_settings.ts:45
+msgid "pV"
+msgstr "pV"
+
+#: designer/src/editors/calculator/panels/panel_via_size.tsx:307 designer/src/editors/calculator/unit_selector.ts:97
+msgid "ps"
+msgstr "ps"
+
+#: designer/src/editors/calculator/unit_selector.ts:80
+msgid "rad"
+msgstr "rad"
+
+#: pcbnew/dialogs/dialog_export_vrml.tsx:67
+msgid "shapes3D"
+msgstr "shapes3D"
+
 #: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
 msgid "solid: clearance"
 msgstr "ఘనం: క్లియరెన్స్"
@@ -2970,6 +4028,38 @@ msgstr "ఘనం: క్లియరెన్స్"
 #: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
 msgid "to its melting point as well as the energy required for the change of phase."
 msgstr "దాని ద్రవీభవన స్థానం వరకు, అలాగే స్థితి మార్పుకు అవసరమైన శక్తిని."
+
+#: eeschema/schematic_settings.ts:62
+msgid "uA"
+msgstr "uA"
+
+#: eeschema/schematic_settings.ts:47
+msgid "uV"
+msgstr "uV"
+
+#: designer/src/editors/calculator/unit_selector.ts:46
+msgid "um"
+msgstr "um"
+
+#: pcbnew/dialogs/dialog_create_array.tsx:340
+msgid "vertical delta of zero with %ld objects"
+msgstr "%ld ఆబ్జెక్ట్‌లతో నిలువు వ్యత్యాసం సున్నా"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:59
+msgid "~20% (Level L)"
+msgstr "~20% (Level L)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:60
+msgid "~37% (Level M)"
+msgstr "~37% (Level M)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:61
+msgid "~55% (Level Q)"
+msgstr "~55% (Level Q)"
+
+#: pcbnew/dialogs/dialog_barcode_properties.tsx:62
+msgid "~65% (Level H)"
+msgstr "~65% (Level H)"
 
 #: designer/src/editors/calculator/panels/transline_ident.ts:263
 msgid "μr (conductor)"
