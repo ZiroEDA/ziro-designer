@@ -218,7 +218,8 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
 
     // Type column editor (attribute)
     attr = new wxGridCellAttr();
-    attr.SetEditor(new GRID_CELL_COMBOBOX(PAD_TYPE_NAMES));
+    // typeNames.push_back( _( "Through-hole" ) ) ...: offered as the cells show them.
+    attr.SetEditor(new GRID_CELL_COMBOBOX(PAD_TYPE_NAMES.map((n) => _(n))));
     this.m_grid.SetColAttr(COL_TYPE, attr);
 
     attr = new wxGridCellAttr();
@@ -520,10 +521,10 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
 
       const typeStr = this.m_grid.GetCellValue(row, COL_TYPE);
 
-      if (typeStr === 'Through-hole') pad.SetAttribute(PAD_ATTRIB.PTH);
-      else if (typeStr === 'SMD') pad.SetAttribute(PAD_ATTRIB.SMD);
-      else if (typeStr === 'Connector') pad.SetAttribute(PAD_ATTRIB.CONN);
-      else if (typeStr === 'NPTH') pad.SetAttribute(PAD_ATTRIB.NPTH);
+      if (typeStr === _('Through-hole')) pad.SetAttribute(PAD_ATTRIB.PTH);
+      else if (typeStr === _('SMD')) pad.SetAttribute(PAD_ATTRIB.SMD);
+      else if (typeStr === _('Connector')) pad.SetAttribute(PAD_ATTRIB.CONN);
+      else if (typeStr === _('NPTH')) pad.SetAttribute(PAD_ATTRIB.NPTH);
       // Aperture derived by copper-less layers; do not overwrite attribute here.
 
       const shape = this.m_grid.GetCellValue(row, COL_SHAPE);
@@ -680,10 +681,10 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
         const typeStr = this.m_grid.GetCellValue(row, col);
         let newAttr = target.GetAttribute();
 
-        if (typeStr === 'Through-hole') newAttr = PAD_ATTRIB.PTH;
-        else if (typeStr === 'SMD') newAttr = PAD_ATTRIB.SMD;
-        else if (typeStr === 'Connector') newAttr = PAD_ATTRIB.CONN;
-        else if (typeStr === 'NPTH') newAttr = PAD_ATTRIB.NPTH;
+        if (typeStr === _('Through-hole')) newAttr = PAD_ATTRIB.PTH;
+        else if (typeStr === _('SMD')) newAttr = PAD_ATTRIB.SMD;
+        else if (typeStr === _('Connector')) newAttr = PAD_ATTRIB.CONN;
+        else if (typeStr === _('NPTH')) newAttr = PAD_ATTRIB.NPTH;
 
         if (newAttr !== target.GetAttribute()) {
           target.SetAttribute(newAttr);

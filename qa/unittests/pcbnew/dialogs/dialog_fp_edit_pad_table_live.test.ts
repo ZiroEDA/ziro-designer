@@ -6,7 +6,8 @@
  * footprint: its WX_GRID, the live edits, Cancel's rollback and OK's commit. KiCad
  * has no qa for it; each expectation is read off the C++ line it cites.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -279,6 +280,42 @@ describe('DIALOG_FP_EDIT_PAD_TABLE live edits (OnCellChanged, :540-638)', () => 
     edit(1, COL_TYPE, 'NPTH');
     expect(padByUuid(12).GetAttribute()).toBe(PAD_ATTRIB.NPTH);
     expect(dlg.m_grid.IsReadOnly(1, COL_DRILL_Y)).toBe(false);
+  });
+
+  // KiCad offers and shows the types translated and reads them back the same way
+  // (`typeStr == _( "Through-hole" )`, :433-439). Compared in English, no type a user of
+  // another language picked was ever applied.
+  it('in another language, the types are offered, shown and applied translated', () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'pl',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: {
+          'Through-hole': 'Przewlekany',
+          SMD: 'SMD-pl',
+          Connector: 'Złącze',
+          NPTH: 'NPTH-pl',
+          Aperture: 'Apertura',
+        },
+      }),
+    );
+    try {
+      make();
+      expect(cell(1, COL_TYPE)).toBe('SMD-pl');
+      const typeEd = dlg.m_grid.GetCellEditor(0, COL_TYPE) as unknown as { m_choices: string[] };
+      expect(typeEd.m_choices).toEqual(['Przewlekany', 'SMD-pl', 'Złącze', 'NPTH-pl', 'Apertura']);
+      edit(1, COL_TYPE, 'Przewlekany');
+      expect(padByUuid(12).GetAttribute()).toBe(PAD_ATTRIB.PTH);
+      edit(1, COL_TYPE, 'Złącze');
+      expect(padByUuid(12).GetAttribute()).toBe(PAD_ATTRIB.CONN);
+      edit(1, COL_TYPE, 'NPTH-pl');
+      expect(padByUuid(12).GetAttribute()).toBe(PAD_ATTRIB.NPTH);
+      edit(1, COL_TYPE, 'SMD-pl');
+      expect(padByUuid(12).GetAttribute()).toBe(PAD_ATTRIB.SMD);
+    } finally {
+      wxTranslations.Get().SetCatalog(null);
+    }
   });
 
   it('a type that is no attribute changes nothing (Aperture is derived, :569)', () => {

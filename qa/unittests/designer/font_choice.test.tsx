@@ -8,6 +8,7 @@
  */
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { BUNDLED_FAMILIES, installOutlineFontFaces } from '@ziroeda/common/font/outline_fonts.js';
 import { BUNDLED_FONTS } from '@ziroeda/common/font/fontconfig.js';
@@ -42,6 +43,38 @@ describe('FontChoice', () => {
     const rows = Array.from(document.querySelectorAll('[role="option"]'));
     fireEvent.mouseDown(rows[1]!);
     expect(changes).toEqual(['KiCad Font']);
+  });
+});
+
+describe('FontChoice in a language that translates "Default Font"', () => {
+  afterEach(() => {
+    wxTranslations.Get().SetCatalog(null);
+    cleanup();
+  });
+  // The row is shown as _( "Default Font" ); choosing it is still the empty face. Checked in
+  // English, a Polish user's choice wrote "Domyślna czcionka" into the text as its font.
+  it('choosing the default font row is the empty face', () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'pl',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: { 'Default Font': 'Domyślna czcionka' },
+      }),
+    );
+    const changes: string[] = [];
+    render(<FontChoice face="KiCad Font" onChange={(v) => changes.push(v)} />);
+    fireEvent.click(document.querySelector('.ze-lp-font') as HTMLElement);
+    const rows = Array.from(document.querySelectorAll('[role="option"]'));
+    expect(rows[0]?.textContent).toBe('Domyślna czcionka');
+    fireEvent.mouseDown(rows[0]!);
+    expect(changes).toEqual(['']);
+    cleanup();
+    // A text with no face shows the row by its translated name, not as a face that is missing.
+    render(<FontChoice face="" onChange={(v) => changes.push(v)} />);
+    const shown = (document.querySelector('.ze-lp-font') as HTMLElement).textContent ?? '';
+    expect(shown).toContain('Domyślna czcionka');
+    expect(shown).not.toContain('not found');
   });
 });
 

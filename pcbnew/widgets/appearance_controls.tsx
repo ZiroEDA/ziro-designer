@@ -527,7 +527,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
         value: preset,
         items: presetItems.map((name) => ({
           label: name,
-          disabled: name === 'Delete preset...' && deletePresetDisabled,
+          disabled: name === wxGetTranslation('Delete preset...') && deletePresetDisabled,
         })),
         onChange: onPreset,
       }}
@@ -535,7 +535,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
         value: viewport,
         items: viewportItems.map((name) => ({
           label: name,
-          disabled: name === 'Delete viewport...' && deleteViewportDisabled,
+          disabled: name === wxGetTranslation('Delete viewport...') && deleteViewportDisabled,
         })),
         onChange: onViewport,
       }}

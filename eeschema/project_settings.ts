@@ -128,7 +128,7 @@ function severityKeys(): readonly (readonly [ErcCode, string])[] {
 /** KiCad's "auto" operating-point range sentinels ('~V' / '~A'); the panel
  *  shows them as 'Auto'. */
 function opoRangeToFile(ui: string, auto: string): string {
-  return ui === 'Auto' ? auto : ui;
+  return ui === _('Auto') ? auto : ui;
 }
 function opoRangeFromFile(file: unknown, auto: string): string {
   const v = str(file, auto);

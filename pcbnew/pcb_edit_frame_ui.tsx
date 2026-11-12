@@ -5755,12 +5755,12 @@ export function PcbEditor({
   // then the user's, then --- / Save preset... / Delete preset...
   const onPresetChoice = (value: string): void => {
     if (value === PRESET_SEPARATOR) return;
-    if (value === 'Save preset...') {
+    if (value === _('Save preset...')) {
       // wxTextEntryDialog( _( "Layer preset name:" ), _( "Save Layer Preset" ) ).
       setSaveNameAsk('preset');
       return;
     }
-    if (value === 'Delete preset...') {
+    if (value === _('Delete preset...')) {
       setDeleteChooser('presets');
       return;
     }
@@ -5771,12 +5771,12 @@ export function PcbEditor({
   // --- / Save viewport... / Delete viewport...
   const onViewportChoice = (value: string): void => {
     if (value === '---') return;
-    if (value === 'Save viewport...') {
+    if (value === _('Save viewport...')) {
       // wxTextEntryDialog( _( "Viewport name:" ), _( "Save Viewport" ), name ).
       setSaveNameAsk('viewport');
       return;
     }
-    if (value === 'Delete viewport...') {
+    if (value === _('Delete viewport...')) {
       setDeleteChooser('viewports');
       return;
     }

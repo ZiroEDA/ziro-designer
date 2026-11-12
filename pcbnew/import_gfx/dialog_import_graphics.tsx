@@ -293,7 +293,7 @@ export function DialogImportGraphics({
       parent,
     );
 
-    if (imported.error === 'There is no plugin to handle this file type.') {
+    if (imported.error === _('There is no plugin to handle this file type.')) {
       setMessage(imported.error);
       return;
     }

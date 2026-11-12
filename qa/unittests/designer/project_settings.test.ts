@@ -7,6 +7,7 @@
  * (eeschema/project_settings.ts).
  */
 import { describe, it, expect } from 'vitest';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import {
   findProjectPro,
   readSchematicSetup,
@@ -416,5 +417,38 @@ describe('schematic setup .kicad_pro persistence', () => {
     expect(findProjectPro([a, b], 'b')).toBe(b);
     expect(findProjectPro([a, b])).toBe(a);
     expect(readSchematicSetup([a, b], 'b').formatting.defaultTextSizeMils).toBe(60);
+  });
+});
+
+// The panel shows the '~V' / '~A' sentinels as _( "Auto" ); reading the panel back must know that
+// word in the user's language, or the translated word is written to the project as the range.
+describe('the operating-point "Auto" range in another language', () => {
+  it("is shown translated and written back as KiCad's sentinel", () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'pl',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: { Auto: 'Automatycznie' },
+      }),
+    );
+    try {
+      const pro = JSON.stringify({
+        schematic: {
+          drawing: {
+            operating_point_overlay_v_range: '~V',
+            operating_point_overlay_i_range: '~A',
+          },
+        },
+      });
+      const s = readSchematicSetupText(pro);
+      expect(s.formatting.opoVRange).toBe('Automatycznie');
+      expect(s.formatting.opoIRange).toBe('Automatycznie');
+      const out = JSON.parse(writeSchematicSetupText(pro, s) ?? '{}');
+      expect(out.schematic.drawing.operating_point_overlay_v_range).toBe('~V');
+      expect(out.schematic.drawing.operating_point_overlay_i_range).toBe('~A');
+    } finally {
+      wxTranslations.Get().SetCatalog(null);
+    }
   });
 });

@@ -41,8 +41,15 @@ export const FONT_SAMPLE = 'AaBbCcDd123456';
  * from the `@font-face` rules `installOutlineFontFaces` declares over the
  * same files the renderer fills glyphs from.
  */
+/**
+ * The default-font row's value: a key, never shown. The row is shown as _( "Default Font" ) in the
+ * user's language; KiCad tells it by its index, 0 (`GetSelection() <= 0`). The face it stands for
+ * is the empty one.
+ */
+const DEFAULT_FONT = 'Default Font';
+
 const FONT_OPTIONS: ComboOption[] = [
-  { value: _HKI('Default Font'), label: _HKI('Default Font') },
+  { value: DEFAULT_FONT, label: _HKI('Default Font') },
   { value: 'KiCad Font', label: 'KiCad Font' },
   ...BUNDLED_FAMILIES.map((family) => ({
     value: family,
@@ -78,10 +85,13 @@ export function FontChoice({
   // a file authored on a machine that had it — is appended as
   // `name + m_notFound` and selected; its value stays the face, so OK keeps
   // what the file said.
-  const value = face === '' ? _('Default Font') : face;
+  const value = face === '' ? DEFAULT_FONT : face;
+  const shown = FONT_OPTIONS.map((o) =>
+    o.value === DEFAULT_FONT ? { ...o, label: _(o.label) } : o,
+  );
   const base = indeterminate
-    ? [...FONT_OPTIONS, { value: INDETERMINATE_ACTION, label: INDETERMINATE_ACTION }]
-    : FONT_OPTIONS;
+    ? [...shown, { value: INDETERMINATE_ACTION, label: INDETERMINATE_ACTION }]
+    : shown;
   const options = base.some((o) => o.value === value)
     ? base
     : [...base, { value, label: `${value}${NOT_FOUND}` }];
@@ -91,7 +101,7 @@ export function FontChoice({
       value={value}
       options={options}
       disabled={disabled}
-      onChange={(v) => onChange(v === 'Default Font' ? '' : v)}
+      onChange={(v) => onChange(v === DEFAULT_FONT ? '' : v)}
     />
   );
 }

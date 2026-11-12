@@ -344,19 +344,19 @@ export function Viewer3DFrame({
   const onPresetChoice = useCallback(
     (value: string) => {
       if (value === PRESET_SEPARATOR_3D) return;
-      if (value === 'Follow PCB Editor') {
+      if (value === _('Follow PCB Editor')) {
         settings.updateViewer3d((st) => {
           st.current_layer_preset = FOLLOW_PCB;
         });
         return;
       }
-      if (value === 'Follow PCB Plot Settings') {
+      if (value === _('Follow PCB Plot Settings')) {
         settings.updateViewer3d((st) => {
           st.current_layer_preset = FOLLOW_PLOT_SETTINGS;
         });
         return;
       }
-      if (value === 'Save preset...') {
+      if (value === _('Save preset...')) {
         const name = window.prompt(_('Layer preset name:'))?.trim();
         if (!name) return;
         if (presetNames.includes(name) && !window.confirm(_('Overwrite existing preset?'))) return;
@@ -371,7 +371,7 @@ export function Viewer3DFrame({
         });
         return;
       }
-      if (value === 'Delete preset...') {
+      if (value === _('Delete preset...')) {
         setDeleteChooser('presets');
         return;
       }
@@ -391,7 +391,7 @@ export function Viewer3DFrame({
   const onViewportChoice = useCallback(
     (value: string) => {
       if (value === PRESET_SEPARATOR_3D) return;
-      if (value === 'Save viewport...') {
+      if (value === _('Save viewport...')) {
         const name = window.prompt(_('Viewport name:'))?.trim();
         if (!name) return;
         const matrix = api.current?.getViewMatrix();
@@ -400,7 +400,7 @@ export function Viewer3DFrame({
         setViewportSel(name);
         return;
       }
-      if (value === 'Delete viewport...') {
+      if (value === _('Delete viewport...')) {
         setDeleteChooser('viewports');
         return;
       }
