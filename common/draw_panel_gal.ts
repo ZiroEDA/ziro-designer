@@ -186,6 +186,13 @@ export class EDA_DRAW_PANEL_GAL
   /// Timestamp of the last repaint end
   protected m_lastRepaintEnd: number;
 
+  /**
+   * Not KiCad's: told after each frame this panel actually drew (not one DoRePaint skipped as
+   * unchanged). The board editor's render worker reports by it which view its canvas now shows,
+   * so the window can hold that canvas to the view the user has moved on to until the next frame.
+   */
+  m_onPainted: (() => void) | null = null;
+
   /// Timer to prevent too-frequent refreshing
   /// A wx member exists before the constructor body runs: SwitchBackend stops it.
   protected m_refreshTimer: wxTimer = new wxTimer((e) => this.onRefreshTimer(e));
@@ -1093,6 +1100,7 @@ export class EDA_DRAW_PANEL_GAL
     }
 
     this.m_lastRepaintEnd = wxGetLocalTimeMillis();
+    this.m_onPainted?.();
 
     return true;
   }
