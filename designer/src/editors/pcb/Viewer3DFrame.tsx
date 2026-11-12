@@ -88,6 +88,7 @@ import {
   type LayerPreset3d,
   type PcbEditorVisibility,
 } from '@ziroeda/3d-viewer/viewer3d_appearance.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `EDA_PANE().Name( "LayersManager" ).Right()…MinSize( FromDIP( 180 ), -1 )
@@ -180,7 +181,7 @@ export function Viewer3DFrame({
     dx: 0,
     dy: 0,
     zoom: 1,
-    activity: 'Loading...', // what the reporter says first (render_3d_opengl.cpp:527)
+    activity: _('Loading...'), // what the reporter says first (render_3d_opengl.cpp:527)
     hovered: '',
   });
   const [grid, setGrid] = useState<Grid3D>('none');
@@ -355,9 +356,9 @@ export function Viewer3DFrame({
         return;
       }
       if (value === 'Save preset...') {
-        const name = window.prompt('Layer preset name:')?.trim();
+        const name = window.prompt(_('Layer preset name:'))?.trim();
         if (!name) return;
-        if (presetNames.includes(name) && !window.confirm('Overwrite existing preset?')) return;
+        if (presetNames.includes(name) && !window.confirm(_('Overwrite existing preset?'))) return;
         settings.updateViewer3d((st) => {
           const row = {
             name,
@@ -390,7 +391,7 @@ export function Viewer3DFrame({
     (value: string) => {
       if (value === PRESET_SEPARATOR_3D) return;
       if (value === 'Save viewport...') {
-        const name = window.prompt('Viewport name:')?.trim();
+        const name = window.prompt(_('Viewport name:'))?.trim();
         if (!name) return;
         const matrix = api.current?.getViewMatrix();
         if (!matrix) return;
@@ -891,7 +892,7 @@ export function Viewer3DFrame({
             />
             <div className="ze-rightdock" style={{ width: paneWidth }}>
               <div className="ze-panel grow">
-                <div className="ze-panel-header">Appearance</div>
+                <div className="ze-panel-header">{_('Appearance')}</div>
                 <Appearance3DPanel
                   board={shownBoard.k}
                   visible={visible3d}
@@ -930,10 +931,10 @@ export function Viewer3DFrame({
       )}
       {deleteChooser === 'presets' && (
         <EdaListDialog
-          title="Delete Preset"
-          headers={['Presets']}
+          title={_('Delete Preset')}
+          headers={[_('Presets')]}
           rows={presetNames.map((n) => ({ value: n, cells: [n] }))}
-          listLabel="Select preset:"
+          listLabel={_('Select preset:')}
           onResult={(name) => {
             setDeleteChooser(null);
             if (!name) return;
@@ -946,10 +947,10 @@ export function Viewer3DFrame({
       )}
       {deleteChooser === 'viewports' && (
         <EdaListDialog
-          title="Delete Viewport"
-          headers={['Viewports']}
+          title={_('Delete Viewport')}
+          headers={[_('Viewports')]}
           rows={viewports.map((v) => ({ value: v.name, cells: [v.name] }))}
-          listLabel="Select viewport:"
+          listLabel={_('Select viewport:')}
           onResult={(name) => {
             setDeleteChooser(null);
             if (!name) return;

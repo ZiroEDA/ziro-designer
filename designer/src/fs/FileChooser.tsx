@@ -587,10 +587,10 @@ export function FileChooser({
         }}
       >
         <div className="ze-chooser-headerbar">
-          <Button label="Cancel" onClick={onCancel} />
+          <Button label={_('Cancel')} onClick={onCancel} />
           {mode === 'save' ? (
             <div className="ze-chooser-name">
-              <span>Name</span>
+              <span>{_('Name')}</span>
               {/* The entry goes insensitive with the button: a name typed into
                   a place nothing can be saved to is a name with nowhere to go,
                   and GTK does not offer to take one. */}
@@ -689,7 +689,7 @@ export function FileChooser({
               <button
                 type="button"
                 className="ze-chooser-nav"
-                title="Forward"
+                title={_('Forward')}
                 disabled={history.future.length === 0}
                 onClick={forward}
               >
@@ -730,7 +730,7 @@ export function FileChooser({
                 {header('name', 'Name')}
                 {header('size', 'Size')}
                 {header('type', 'Type')}
-                {header('modified', 'Modified')}
+                {header('modified', _('Modified'))}
               </div>
               <div className="ze-chooser-rows">
                 {editing !== null && editing.path === null ? (
@@ -842,10 +842,10 @@ export function FileChooser({
           // GTK's labels, mnemonics dropped: `_Rename`, `_Delete`.
           if (placeWritable)
             items.push({
-              label: 'Rename',
+              label: _('Rename'),
               action: () => setEditing({ path: entry.path, name: entry.name }),
             });
-          if (onDelete) items.push({ label: 'Delete', action: () => void deleteEntry(entry) });
+          if (onDelete) items.push({ label: _('Delete'), action: () => void deleteEntry(entry) });
           if (items.length === 0) return null;
           return (
             // The same guard the overwrite confirmation below has, for the same
@@ -877,7 +877,7 @@ export function FileChooser({
             // every other button row here is. Cancel holds the focus because the
             // other answer destroys a file.
             defaultButton="no"
-            labels={{ yes: 'Replace', no: 'Cancel' }}
+            labels={{ yes: _('Replace'), no: _('Cancel') }}
             onResult={(r) => {
               const target = confirmOverwrite;
               setConfirmOverwrite(null);

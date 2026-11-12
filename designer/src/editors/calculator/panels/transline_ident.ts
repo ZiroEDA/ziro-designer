@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -89,7 +90,7 @@ const COMMON_SUBS: TranslinePrm[] = [
   {
     key: 'Er',
     label: 'εr',
-    tip: 'Substrate relative permittivity (dielectric constant)',
+    tip: _HKI('Substrate relative permittivity (dielectric constant)'),
     def: 4.5,
     units: 'none',
     pick: 'epsilonR',
@@ -97,7 +98,7 @@ const COMMON_SUBS: TranslinePrm[] = [
   {
     key: 'TanD',
     label: 'tan δ',
-    tip: 'Dielectric loss (dissipation factor)',
+    tip: _HKI('Dielectric loss (dissipation factor)'),
     def: 2e-2,
     units: 'none',
     pick: 'tanD',
@@ -105,7 +106,7 @@ const COMMON_SUBS: TranslinePrm[] = [
   {
     key: 'Rho',
     label: 'ρ',
-    tip: 'Electrical resistivity or specific electrical resistance of conductor (ohm*meter)',
+    tip: _HKI('Electrical resistivity or specific electrical resistance of conductor (ohm*meter)'),
     def: 1.72e-8,
     units: 'none',
     // panel_transline.cpp:50 overwrites the .fbp's "ohm-meter" with this.
@@ -117,7 +118,7 @@ const COMMON_SUBS: TranslinePrm[] = [
 export const FREQUENCY_PRM: TranslinePrm = {
   key: 'Frequency',
   label: 'Frequency',
-  tip: 'Frequency of the input signal',
+  tip: _HKI('Frequency of the input signal'),
   def: 1.0,
   units: 'freq',
 };
@@ -128,81 +129,99 @@ const DUMMY: TranslinePrm = { key: 'dummy', label: '', def: 0, units: 'none', du
 const Z0: TranslinePrm = {
   key: 'Z0',
   label: 'Z0',
-  tip: 'Characteristic impedance',
+  tip: _HKI('Characteristic impedance'),
   def: 50.0,
   units: 'res',
 };
 const ANG_L: TranslinePrm = {
   key: 'Ang_l',
   label: 'Ang_l',
-  tip: 'Electrical length',
+  tip: _HKI('Electrical length'),
   def: 0.0,
   units: 'angle',
 };
 const ZEVEN: TranslinePrm = {
   key: 'Zeven',
   label: 'Zeven',
-  tip: 'Even mode impedance (lines driven by common voltages)',
+  tip: _HKI('Even mode impedance (lines driven by common voltages)'),
   def: 50.0,
   units: 'res',
 };
 const ZODD: TranslinePrm = {
   key: 'Zodd',
   label: 'Zodd',
-  tip: 'Odd mode impedance (lines driven by opposite (differential) voltages)',
+  tip: _HKI('Odd mode impedance (lines driven by opposite (differential) voltages)'),
   def: 50.0,
   units: 'res',
 };
-const LEN_L: TranslinePrm = { key: 'L', label: 'L', tip: 'Line length', def: 50.0, units: 'len' };
+const LEN_L: TranslinePrm = {
+  key: 'L',
+  label: 'L',
+  tip: _HKI('Line length'),
+  def: 50.0,
+  units: 'len',
+};
 const MURC: TranslinePrm = {
   key: 'mu Rel C',
   // wxString::Format( wxT( "μ(%s)" ), _( "conductor" ) ) — no `r`, no space.
   label: 'μ(conductor)',
-  tip: 'Relative permeability (mu) of conductor',
+  tip: _HKI('Relative permeability (mu) of conductor'),
   def: 1,
   units: 'none',
 };
 const MUR_INSULATOR: TranslinePrm = {
   key: 'mu Rel I',
   label: 'μ(insulator)',
-  tip: 'Relative permeability (mu) of insulator',
+  tip: _HKI('Relative permeability (mu) of insulator'),
   def: 1,
   units: 'none',
 };
 const T_PRM: TranslinePrm = {
   key: 'T',
   label: 'T',
-  tip: 'Strip thickness',
+  tip: _HKI('Strip thickness'),
   def: 0.035,
   units: 'len',
 };
 const H_PRM: TranslinePrm = {
   key: 'H',
   label: 'H',
-  tip: 'Height of substrate',
+  tip: _HKI('Height of substrate'),
   def: 0.2,
   units: 'len',
 };
 const ROUGH: TranslinePrm = {
   key: 'Rough',
-  label: 'Roughness',
-  tip: 'Conductor roughness',
+  label: _HKI('Roughness'),
+  tip: _HKI('Conductor roughness'),
   def: 0.0,
   units: 'len',
 };
-const W_PRM: TranslinePrm = { key: 'W', label: 'W', tip: 'Line width', def: 0.2, units: 'len' };
-const S_PRM: TranslinePrm = { key: 'S', label: 'S', tip: 'Gap width', def: 0.2, units: 'len' };
+const W_PRM: TranslinePrm = {
+  key: 'W',
+  label: 'W',
+  tip: _HKI('Line width'),
+  def: 0.2,
+  units: 'len',
+};
+const S_PRM: TranslinePrm = {
+  key: 'S',
+  label: 'S',
+  tip: _HKI('Gap width'),
+  def: 0.2,
+  units: 'len',
+};
 const DIN: TranslinePrm = {
   key: 'Din',
   label: 'Din',
-  tip: 'Inner diameter (conductor)',
+  tip: _HKI('Inner diameter (conductor)'),
   def: 1.0,
   units: 'len',
 };
 const DOUT: TranslinePrm = {
   key: 'Dout',
   label: 'Dout',
-  tip: 'Outer diameter (insulator)',
+  tip: _HKI('Outer diameter (insulator)'),
   def: 8.0,
   units: 'len',
 };
@@ -213,7 +232,7 @@ const EFF_ER = 'Effective εr';
 export const TRANSLINES: Record<LineType, TranslineIdent> = {
   // --- MICROSTRIP_TYPE (transline_ident.cpp:117-158) -----------------------
   microstrip: {
-    name: 'Microstrip Line',
+    name: _HKI('Microstrip Line'),
     bitmap: 'microstrip',
     hasPrmSelection: false,
     messages: [
@@ -227,7 +246,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
       ...COMMON_SUBS,
       H_PRM,
       // "H(top)", not "H_t" — the coupled microstrip is the one that says H_t.
-      { key: 'H_t', label: 'H(top)', tip: 'Height of box top', def: 1e20, units: 'len' },
+      { key: 'H_t', label: 'H(top)', tip: _HKI('Height of box top'), def: 1e20, units: 'len' },
       T_PRM,
       ROUGH,
       // Only microstrip spells these "μr (substrate)" / "μr (conductor)"; every
@@ -235,14 +254,14 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
       {
         key: 'mu Rel S',
         label: 'μr (substrate)',
-        tip: 'Relative permeability (mu) of substrate',
+        tip: _HKI('Relative permeability (mu) of substrate'),
         def: 1,
         units: 'none',
       },
       {
         key: 'mu Rel C',
         label: 'μr (conductor)',
-        tip: 'Relative permeability (mu) of conductor',
+        tip: _HKI('Relative permeability (mu) of conductor'),
         def: 1,
         units: 'none',
       },
@@ -253,7 +272,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- CPW_TYPE (transline_ident.cpp:160-197) ------------------------------
   cpw: {
-    name: 'Coplanar wave guide',
+    name: _HKI('Coplanar wave guide'),
     bitmap: 'cpw',
     hasPrmSelection: true,
     messages: [
@@ -270,7 +289,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- GROUNDED_CPW_TYPE (transline_ident.cpp:199-229) ---------------------
   gcpw: {
-    name: 'Coplanar wave guide w/ ground plane',
+    name: _HKI('Coplanar wave guide w/ ground plane'),
     bitmap: 'cpw_back',
     hasPrmSelection: true,
     messages: [
@@ -287,7 +306,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- RECTWAVEGUIDE_TYPE (transline_ident.cpp:232-265) --------------------
   rectwaveguide: {
-    name: 'Rectangular Waveguide',
+    name: _HKI('Rectangular Waveguide'),
     bitmap: 'rectwaveguide',
     hasPrmSelection: true,
     messages: [
@@ -300,16 +319,16 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
     ],
     subs: [...COMMON_SUBS, MUR_INSULATOR, MURC],
     phys: [
-      { key: 'a', label: 'a', tip: 'Width of waveguide', def: 10.0, units: 'len' },
-      { key: 'b', label: 'b', tip: 'Height of waveguide', def: 5.0, units: 'len' },
-      { ...LEN_L, tip: 'Waveguide length' },
+      { key: 'a', label: 'a', tip: _HKI('Width of waveguide'), def: 10.0, units: 'len' },
+      { key: 'b', label: 'b', tip: _HKI('Height of waveguide'), def: 5.0, units: 'len' },
+      { ...LEN_L, tip: _HKI('Waveguide length') },
     ],
     elec: [Z0, DUMMY, ANG_L],
   },
 
   // --- COAX_TYPE (transline_ident.cpp:267-300) -----------------------------
   coax: {
-    name: 'Coaxial Line',
+    name: _HKI('Coaxial Line'),
     bitmap: 'coax',
     hasPrmSelection: true,
     messages: [EFF_ER, 'Conductor losses', 'Dielectric losses', 'TE-modes', 'TM-modes'],
@@ -320,7 +339,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- C_MICROSTRIP_TYPE (transline_ident.cpp:302-350) ---------------------
   c_microstrip: {
-    name: 'Coupled Microstrip Line',
+    name: _HKI('Coupled Microstrip Line'),
     bitmap: 'c_microstrip',
     hasPrmSelection: true,
     messages: [
@@ -338,7 +357,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
     subs: [
       ...COMMON_SUBS,
       H_PRM,
-      { key: 'H_t', label: 'H_t', tip: 'Height of box top', def: 1e20, units: 'len' },
+      { key: 'H_t', label: 'H_t', tip: _HKI('Height of box top'), def: 1e20, units: 'len' },
       T_PRM,
       ROUGH,
       MURC,
@@ -349,7 +368,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- C_STRIPLINE_TYPE (transline_ident.cpp:352-386) ----------------------
   c_stripline: {
-    name: 'Coupled Stripline',
+    name: _HKI('Coupled Stripline'),
     bitmap: 'coupled_stripline',
     hasPrmSelection: true,
     messages: [
@@ -367,7 +386,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- STRIPLINE_TYPE (transline_ident.cpp:388-419) ------------------------
   stripline: {
-    name: 'Stripline',
+    name: _HKI('Stripline'),
     bitmap: 'stripline',
     hasPrmSelection: false,
     messages: [
@@ -384,7 +403,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
       {
         key: 'a',
         label: 'a',
-        tip: 'Distance between strip and top metal',
+        tip: _HKI('Distance between strip and top metal'),
         def: 0.2,
         units: 'len',
       },
@@ -397,7 +416,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
 
   // --- TWISTEDPAIR_TYPE (transline_ident.cpp:421-457) ----------------------
   twistedpair: {
-    name: 'Twisted Pair',
+    name: _HKI('Twisted Pair'),
     bitmap: 'twistedpair',
     hasPrmSelection: true,
     messages: [EFF_ER, 'Conductor losses', 'Dielectric losses', 'Skin depth'],
@@ -406,7 +425,7 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
       {
         key: 'Twists',
         label: 'Twists',
-        tip: 'Number of twists per length',
+        tip: _HKI('Number of twists per length'),
         def: 0.0,
         units: 'none',
       },
@@ -415,12 +434,12 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
         key: 'ErEnv',
         // wxString::Format( wxT( "εr(%s)" ), _( "environment" ) )
         label: 'εr(environment)',
-        tip: 'Relative permittivity of environment',
+        tip: _HKI('Relative permittivity of environment'),
         def: 1,
         units: 'none',
       },
     ],
-    phys: [DIN, DOUT, { ...LEN_L, tip: 'Cable length' }],
+    phys: [DIN, DOUT, { ...LEN_L, tip: _HKI('Cable length') }],
     elec: [Z0, DUMMY, ANG_L],
   },
 };

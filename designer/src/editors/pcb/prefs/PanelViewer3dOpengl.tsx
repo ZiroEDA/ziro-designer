@@ -33,6 +33,8 @@ import type { JSX } from 'react';
 import { Check, ColorRow, Group, Sel } from '@ziroeda/common/dialogs/pref_controls.js';
 import { VIEWER3D_RENDER_DEFAULTS } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `m_choiceAntiAliasingChoices` (`panel_3D_opengl_options_base.cpp:48`) against
@@ -45,7 +47,7 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
  * would silently rewrite a user's 8x to something else.
  */
 export const ANTI_ALIASING_CHOICES: readonly (readonly [number, string])[] = [
-  [0, 'Disabled'],
+  [0, _HKI('Disabled')],
   [1, '2x'],
   [2, '4x'],
   [3, '8x'],
@@ -61,26 +63,26 @@ export function PanelViewer3dOpengl({ ctx }: { ctx: PrefsContext }): JSX.Element
 
   return (
     <div>
-      <Group title="Rendering Options">
+      <Group title={_('Rendering Options')}>
         <Check
-          label="Show model bounding boxes"
+          label={_('Show model bounding boxes')}
           checked={render.opengl_show_model_bbox}
           borders={['top', 'bottom']}
           onChange={(v) => upR({ opengl_show_model_bbox: v })}
         />
         <Check
-          label="Show copper and tech layers thickness (slow)"
+          label={_('Show copper and tech layers thickness (slow)')}
           checked={render.opengl_copper_thickness}
           onChange={(v) => upR({ opengl_copper_thickness: v })}
         />
         <Check
-          label="Highlight items on rollover"
+          label={_('Highlight items on rollover')}
           checked={render.opengl_highlight_on_rollover}
           onChange={(v) => upR({ opengl_highlight_on_rollover: v })}
         />
         <Sel
-          label="Anti-aliasing:"
-          title="3D-Viewer must be closed and re-opened to apply this setting"
+          label={_('Anti-aliasing:')}
+          title={_('3D-Viewer must be closed and re-opened to apply this setting')}
           value={render.opengl_AA_mode}
           options={ANTI_ALIASING_CHOICES.map((c) => [c[0], c[1]] as [number, string])}
           onChange={(v) => upR({ opengl_AA_mode: v as 0 | 1 | 2 | 3 })}
@@ -89,21 +91,21 @@ export function PanelViewer3dOpengl({ ctx }: { ctx: PrefsContext }): JSX.Element
             and `SetSupportsOpacity( false )`
             (`panel_3D_opengl_options.cpp:37-38`) — pure green, no alpha. */}
         <ColorRow
-          label="Selection color:"
+          label={_('Selection color:')}
           value={render.opengl_selection_color}
           fallback={VIEWER3D_RENDER_DEFAULTS.opengl_selection_color}
           onChange={(css) => upR({ opengl_selection_color: css })}
         />
       </Group>
-      <Group title="While Moving">
+      <Group title={_('While Moving')}>
         <Check
-          label="Disable anti-aliasing"
+          label={_('Disable anti-aliasing')}
           checked={render.opengl_AA_disableOnMove}
           borders={['top', 'bottom']}
           onChange={(v) => upR({ opengl_AA_disableOnMove: v })}
         />
         <Check
-          label="Disable thickness"
+          label={_('Disable thickness')}
           checked={render.opengl_thickness_disableOnMove}
           onChange={(v) => upR({ opengl_thickness_disableOnMove: v })}
         />
@@ -112,12 +114,12 @@ export function PanelViewer3dOpengl({ ctx }: { ctx: PrefsContext }): JSX.Element
             (`eda_3d_viewer_settings.cpp:278-279`). Three spellings of one
             setting; the file's is the one that has to be stored. */}
         <Check
-          label="Disable uVia holes"
+          label={_('Disable uVia holes')}
           checked={render.opengl_vias_disableOnMove}
           onChange={(v) => upR({ opengl_vias_disableOnMove: v })}
         />
         <Check
-          label="Disable all plated holes"
+          label={_('Disable all plated holes')}
           checked={render.opengl_holes_disableOnMove}
           onChange={(v) => upR({ opengl_holes_disableOnMove: v })}
         />

@@ -27,9 +27,18 @@ import { MenuBar, type Menu } from '@ziroeda/wx/menu_ui.js';
 import { MGR_TOOLS, TILES, tileIcon } from '../home/launcher_tiles.js';
 import { managerTitle, projectStatusText } from '../home/manager_frame.js';
 import { mgrUrl } from '../home/project_tree_pane.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The manager's menu headings, empty: they are never opened from here. */
-const MENUS: Menu[] = ['File', 'Edit', 'View', 'Tools', 'Preferences', 'Help'].map((label) => ({
+const MENUS: Menu[] = [
+  _HKI('File'),
+  _HKI('Edit'),
+  _HKI('View'),
+  _HKI('Tools'),
+  _HKI('Preferences'),
+  _HKI('Help'),
+].map((label) => ({
   label,
   items: [],
 }));
@@ -52,7 +61,7 @@ export function GateBackdrop(): JSX.Element {
         </div>
         <div className="ze-leftdock">
           <div className="ze-panel left ze-projecttree">
-            <div className="ze-panel-header">Project Files</div>
+            <div className="ze-panel-header">{_('Project Files')}</div>
             <div className="ze-panel-body" />
           </div>
         </div>

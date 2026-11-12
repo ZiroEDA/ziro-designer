@@ -11,6 +11,7 @@ import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { ACCOUNT_EXISTS_MESSAGE, INCORRECT_PASSWORD_MESSAGE } from './signup_outcome.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
 import type { AuthStep } from '../nav/route.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Sign-in / sign-up. **Email and password, and nothing else.**
@@ -271,7 +272,7 @@ export function SignInDialog({
 
   const passwordField = (
     <label className="ze-auth-field">
-      <span>Password</span>
+      <span>{_('Password')}</span>
       <input
         type="password"
         autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
@@ -335,7 +336,7 @@ export function SignInDialog({
               to complete verification.
             </p>
             <label className="ze-auth-field">
-              <span>Code</span>
+              <span>{_('Code')}</span>
               <input
                 inputMode="numeric"
                 autoComplete="one-time-code"

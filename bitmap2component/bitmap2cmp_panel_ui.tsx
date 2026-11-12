@@ -159,7 +159,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
               onClick={() => panel.SetNotebookSelection(i)}
             >
               {/* wx's mnemonic escape: "&&" is a literal "&" */}
-              {label.replaceAll('&&', '&')}
+              {_(label).replaceAll('&&', '&')}
             </button>
           ))}
         </div>
@@ -248,7 +248,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
             max={panel.m_sliderThresholdMax}
             labels
             value={panel.m_sliderThreshold}
-            title={THRESHOLD_TOOLTIP}
+            title={_(THRESHOLD_TOOLTIP)}
             onChange={(v) => panel.OnThresholdChange(v)}
           />
           <CheckBox

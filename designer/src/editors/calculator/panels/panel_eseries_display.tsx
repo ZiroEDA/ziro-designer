@@ -27,6 +27,7 @@
 import { changeLightness, rgb8ToCss, rgbFromBgrHex } from '@ziroeda/common';
 import { E12_VALUES, E24_VALUES, E96_VALUES, ESERIES_DISPLAY_SCALE } from '@ziroeda/pcb_calculator';
 import type { JSX } from 'react';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * [data] the seven column colours, `wxColour( 0xBBGGRR )` literals from
@@ -137,10 +138,10 @@ function Grid112(): JSX.Element {
           strip is rgb(55,55,55) with white text, y 56..77. */}
       <thead>
         <tr>
-          <th>E1</th>
-          <th>E3</th>
-          <th>E6</th>
-          <th>E12</th>
+          <th>{_('E1')}</th>
+          <th>{_('E3')}</th>
+          <th>{_('E6')}</th>
+          <th>{_('E12')}</th>
         </tr>
       </thead>
       <tbody>{rows}</tbody>
@@ -218,11 +219,11 @@ export function PanelEseriesDisplay(): JSX.Element {
         {/* The wider grid comes FIRST, and the titles carry no spaces after the
             commas (base:21, 52). */}
         <fieldset className="calc-group eser-box">
-          <legend>E24,E48,E96</legend>
+          <legend>{_('E24,E48,E96')}</legend>
           <Grid2496 />
         </fieldset>
         <fieldset className="calc-group eser-box">
-          <legend>E1,E3,E6,E12</legend>
+          <legend>{_('E1,E3,E6,E12')}</legend>
           <Grid112 />
         </fieldset>
       </div>

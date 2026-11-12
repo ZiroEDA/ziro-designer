@@ -26,6 +26,8 @@ import { listProjects } from '../home/projectStore.js';
 import type { ChooserPlace } from './chooser_types.js';
 import { listFileSystem } from './list_fs.js';
 import type { FileSystem } from './filesystem.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `Recent`, as a tree rather than a flat list.
@@ -217,7 +219,7 @@ export function chooserPlacesFor(opts: {
       id: 'projects',
       // The project's own name, because the row IS that project now rather than
       // the list it came from.
-      label: projectDir.replace(/^\/+/, '') || 'Project',
+      label: projectDir.replace(/^\/+/, '') || _('Project'),
       icon: 'open_project',
       path: projectDir,
       root: projectDir,
@@ -247,5 +249,5 @@ const KIND_LABELS: Record<AssetKind, string> = {
   symbols: 'Symbols',
   footprints: 'Footprints',
   designBlocks: 'Design Blocks',
-  models3d: '3D Models',
+  models3d: _HKI('3D Models'),
 };

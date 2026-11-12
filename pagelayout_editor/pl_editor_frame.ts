@@ -86,6 +86,7 @@ import { PL_EDITOR_CONTROL } from './tools/pl_editor_control.js';
 import { PL_SELECTION_TOOL } from './tools/pl_selection_tool.js';
 import { PlDataModel } from './pl_data_model.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `PL_EDITOR_FRAME_NAME`, the frame's wx name (common/eda_draw_frame.ts has it). [data] */
@@ -693,7 +694,12 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     this.DisplayGridMsg();
 
     // Display corner reference for coord origin
-    const line = `coord origin: ${this.m_originSelectBox.GetString(this.m_originSelectChoice)}`;
+    // `line.Printf( _("coord origin: %s"), m_originSelectBox->GetString( ... ) )` (:803); KiCad's box
+    // holds the translated corner, ours the English one.
+    const line = wxFormat(
+      _('coord origin: %s'),
+      _(this.m_originSelectBox.GetString(this.m_originSelectChoice)),
+    );
     this.SetStatusText(line, 5);
   }
 

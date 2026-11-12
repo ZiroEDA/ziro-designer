@@ -84,6 +84,8 @@ import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
 } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * A row while it is still being collected, carrying where its name came from.
@@ -422,7 +424,7 @@ function section(
 const GESTURES: HotkeyEntry[] = [
   {
     name: '',
-    command: 'Accept Autocomplete',
+    command: _HKI('Accept Autocomplete'),
     keys: 'Return',
     defaultKeys: 'Return',
     // `{ wxT( "Num Pad Enter" ), WXK_NUMPAD_ENTER }` — hotkeys_basic.cpp:127.
@@ -434,7 +436,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Cancel Autocomplete',
+    command: _HKI('Cancel Autocomplete'),
     keys: 'Esc',
     defaultKeys: 'Esc',
     alt: '',
@@ -442,7 +444,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Toggle Checkbox',
+    command: _HKI('Toggle Checkbox'),
     keys: 'Space',
     defaultKeys: 'Space',
     alt: '',
@@ -450,7 +452,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Pan Left/Right',
+    command: _HKI('Pan Left/Right'),
     keys: 'Ctrl+Wheel',
     defaultKeys: 'Ctrl+Wheel',
     alt: '',
@@ -458,7 +460,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Pan Up/Down',
+    command: _HKI('Pan Up/Down'),
     keys: 'Shift+Wheel',
     defaultKeys: 'Shift+Wheel',
     alt: '',
@@ -466,15 +468,15 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Finish Drawing',
-    keys: 'Double-click',
-    defaultKeys: 'Double-click',
+    command: _HKI('Finish Drawing'),
+    keys: _HKI('Double-click'),
+    defaultKeys: _HKI('Double-click'),
     alt: '',
     description: '',
   },
   {
     name: '',
-    command: 'Add to Selection',
+    command: _HKI('Add to Selection'),
     keys: 'Shift+Click',
     defaultKeys: 'Shift+Click',
     alt: '',
@@ -482,7 +484,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Highlight Net',
+    command: _HKI('Highlight Net'),
     keys: 'Ctrl+Click',
     defaultKeys: 'Ctrl+Click',
     alt: '',
@@ -490,7 +492,7 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Remove from Selection',
+    command: _HKI('Remove from Selection'),
     keys: 'Ctrl+Shift+Click',
     defaultKeys: 'Ctrl+Shift+Click',
     alt: '',
@@ -498,17 +500,17 @@ const GESTURES: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Ignore Grid Snaps',
-    keys: 'Ctrl',
-    defaultKeys: 'Ctrl',
+    command: _HKI('Ignore Grid Snaps'),
+    keys: _HKI('Ctrl'),
+    defaultKeys: _HKI('Ctrl'),
     alt: '',
     description: '',
   },
   {
     name: '',
-    command: 'Ignore Other Snaps',
-    keys: 'Shift',
-    defaultKeys: 'Shift',
+    command: _HKI('Ignore Other Snaps'),
+    keys: _HKI('Shift'),
+    defaultKeys: _HKI('Shift'),
     alt: '',
     description: '',
   },
@@ -541,7 +543,7 @@ const PLATFORM_COMMANDS: HotkeyEntry[] = [
   },
   {
     name: '',
-    command: 'Quit',
+    command: _HKI('Quit'),
     keys: browserSafeKey('Ctrl+Q'),
     defaultKeys: browserSafeKey('Ctrl+Q'),
     alt: '',
@@ -878,6 +880,6 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
       });
     }
   }
-  out.push({ name: 'Gestures', entries: GESTURES });
+  out.push({ name: _('Gestures'), entries: GESTURES });
   return out;
 }

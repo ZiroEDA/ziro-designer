@@ -12,6 +12,7 @@ import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { Field, LEN_UNITS, THICK_UNITS, type UnitOpt, parseNum } from '../fields.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Radio + numeric input + length-unit dropdown (value held in metres). */
 function LenRow({
@@ -130,10 +131,10 @@ export function PanelFusingCurrent(): JSX.Element {
     if (r.error) {
       // KiCad writes the literal string "Error" into the field it was solving
       // for and shows nothing else (panel_fusing_current.cpp:166,179,191,203).
-      if (solveFor === 'current') setCurrent('Error');
-      else if (solveFor === 'time') setTime('Error');
-      else if (solveFor === 'width') setWidth('Error');
-      else setThickness('Error');
+      if (solveFor === 'current') setCurrent(_('Error'));
+      else if (solveFor === 'time') setTime(_('Error'));
+      else if (solveFor === 'width') setWidth(_('Error'));
+      else setThickness(_('Error'));
       setError('');
       return;
     }
@@ -155,7 +156,7 @@ export function PanelFusingCurrent(): JSX.Element {
           so the plain labels sat at x=246 and the radio ones at 279. */}
       <div className="fc-grid">
         <span />
-        <span className="calc-field-label">Ambient temperature:</span>
+        <span className="calc-field-label">{_('Ambient temperature:')}</span>
         <TextCtrl
           value={ambient}
           onChange={(aValue) => setAmbient(aValue)}
@@ -165,7 +166,7 @@ export function PanelFusingCurrent(): JSX.Element {
 
         <span />
         <span className="calc-field-label" title="Copper">
-          Melting point:
+          {_('Melting point:')}
         </span>
         <TextCtrl
           value={melting}
@@ -175,7 +176,7 @@ export function PanelFusingCurrent(): JSX.Element {
         <span className="calc-unit">°C</span>
 
         <LenRow
-          label="Track width:"
+          label={_('Track width:')}
           solveFor="width"
           active={solveFor}
           onActive={setSolveFor}
@@ -186,7 +187,7 @@ export function PanelFusingCurrent(): JSX.Element {
           units={LEN_UNITS}
         />
         <LenRow
-          label="Track thickness:"
+          label={_('Track thickness:')}
           solveFor="thickness"
           active={solveFor}
           onActive={setSolveFor}
@@ -197,7 +198,7 @@ export function PanelFusingCurrent(): JSX.Element {
           units={THICK_UNITS}
         />
         <NumRow
-          label="Current:"
+          label={_('Current:')}
           solveFor="current"
           active={solveFor}
           onActive={setSolveFor}
@@ -206,7 +207,7 @@ export function PanelFusingCurrent(): JSX.Element {
           unit="A"
         />
         <NumRow
-          label="Time to fuse:"
+          label={_('Time to fuse:')}
           solveFor="time"
           active={solveFor}
           onActive={setSolveFor}
@@ -219,7 +220,7 @@ export function PanelFusingCurrent(): JSX.Element {
           added with wxTOP|wxBOTTOM 10 (base:126-133). */}
       <div style={{ margin: '10px 0' /* [data] bSizer3's wxTOP|wxBOTTOM 10 */, paddingLeft: 5 }}>
         <button type="button" className="calc-btn" onClick={calculate}>
-          Calculate
+          {_('Calculate')}
         </button>
         {error && <div className="calc-error">{error}</div>}
         {comment && <div className="calc-note">{comment}</div>}
@@ -227,7 +228,7 @@ export function PanelFusingCurrent(): JSX.Element {
 
       {/* m_helpSizer's HTML_WINDOW, showing `fusing_current_help.md`. */}
       <fieldset className="calc-group calc-help fc-help">
-        <legend>Help</legend>
+        <legend>{_('Help')}</legend>
         <div className="calc-help-body">
           <p>
             You can use this calculator to check if a small track can handle a large current for a

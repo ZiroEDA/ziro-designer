@@ -20,9 +20,10 @@ import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
+const read = (rel: string): string => unmarked(readFileSync(join(SRC, rel), 'utf8'));
 const PAGE = 'editors/symbol/prefs/PanelSymbolEditorEditingOptions.tsx';
 const cfg = (): SymbolEditorSettings => structuredClone(SYMBOL_EDITOR_DEFAULTS);
 

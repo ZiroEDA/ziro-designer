@@ -289,7 +289,7 @@ export const GBR_DEFAULT_TOOLBARS: ToolbarDefaults = {
 // ---- GERBVIEW_FRAME's select boxes (toolbars_gerber.cpp:320-520) -----------
 
 /// `#define NO_SELECTION_STRING _( "<No selection>" )`
-export const NO_SELECTION_STRING = '<No selection>';
+export const NO_SELECTION_STRING = _HKI('<No selection>');
 
 /** `GERBVIEW_FRAME::updateDCodeSelectBox`: the active layer's apertures. */
 export function updateDCodeSelectBox(this: GERBVIEW_FRAME): void {

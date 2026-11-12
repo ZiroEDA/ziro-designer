@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -42,7 +43,7 @@ export interface UnitOpt {
  */
 export const LEN_UNITS: UnitOpt[] = [
   { label: 'mm', mult: 1e-3 },
-  { label: 'um', mult: 1e-6 },
+  { label: _HKI('um'), mult: 1e-6 },
   { label: 'cm', mult: 1e-2 },
   { label: 'mil', mult: 25.4e-6 },
   { label: 'inch', mult: 25.4e-3 },
@@ -66,18 +67,18 @@ export const THICK_UNITS: UnitOpt[] = [
 /** UNIT_SELECTOR_FREQUENCY — GHz down to Hz (unit_selector.cpp:98-101), and
  *  UNIT_GHZ / UNIT_MHZ / UNIT_KHZ (units_scales.h:41-43). */
 export const FREQ_UNITS: UnitOpt[] = [
-  { label: 'GHz', mult: 1e9 },
-  { label: 'MHz', mult: 1e6 },
-  { label: 'kHz', mult: 1e3 },
-  { label: 'Hz', mult: 1 },
+  { label: _HKI('GHz'), mult: 1e9 },
+  { label: _HKI('MHz'), mult: 1e6 },
+  { label: _HKI('kHz'), mult: 1e3 },
+  { label: _HKI('Hz'), mult: 1 },
 ];
 
 /** UNIT_SELECTOR_ANGLE — rad then deg (unit_selector.cpp:129-130), and
  *  UNIT_RADIAN / UNIT_DEGREE = M_PI/180 (units_scales.h:45-46). Held in
  *  radians, which is index 0 and therefore what Ang_l opens in. */
 export const ANGLE_UNITS: UnitOpt[] = [
-  { label: 'rad', mult: 1 },
-  { label: 'deg', mult: Math.PI / 180 },
+  { label: _HKI('rad'), mult: 1 },
+  { label: _HKI('deg'), mult: Math.PI / 180 },
 ];
 
 /** UNIT_SELECTOR_RESISTOR — two entries, Ω and kΩ (unit_selector.cpp:154-155).
@@ -92,8 +93,8 @@ export const RES_UNITS: UnitOpt[] = [
  *  ps. A wxChoice is as wide as its widest entry, so an invented list is
  *  visible even before anyone opens it. */
 export const TIME_UNITS: UnitOpt[] = [
-  { label: 'ns', mult: 1e-9 },
-  { label: 'ps', mult: 1e-12 },
+  { label: _HKI('ns'), mult: 1e-9 },
+  { label: _HKI('ps'), mult: 1e-12 },
 ];
 
 /**
@@ -105,9 +106,9 @@ export const TIME_UNITS: UnitOpt[] = [
 export const CABLE_LEN_UNITS: UnitOpt[] = [
   { label: 'cm', mult: 1e-2 },
   { label: 'm', mult: 1 },
-  { label: 'km', mult: 1e3 },
+  { label: _HKI('km'), mult: 1e3 },
   { label: 'inch', mult: 25.4e-3 },
-  { label: 'feet', mult: 0.3048 },
+  { label: _HKI('feet'), mult: 0.3048 },
 ];
 
 /**
@@ -134,14 +135,14 @@ export const LIN_RES_UNITS: UnitOpt[] = [
  * other way round.
  */
 export const VOLTAGE_UNITS: UnitOpt[] = [
-  { label: 'mV', mult: 1e-3 },
+  { label: _HKI('mV'), mult: 1e-3 },
   { label: 'V', mult: 1 },
 ];
 
 /** UNIT_SELECTOR_POWER — mW, W (unit_selector.cpp:278-279); `UNIT_MILLIWATT`
  *  is `1e+3` for the same reason `UNIT_MILLIVOLT` is. */
 export const POWER_UNITS: UnitOpt[] = [
-  { label: 'mW', mult: 1e-3 },
+  { label: _HKI('mW'), mult: 1e-3 },
   { label: 'W', mult: 1 },
 ];
 
@@ -158,9 +159,9 @@ export const POWER_UNITS: UnitOpt[] = [
  */
 export const SPEED_UNITS: UnitOpt[] = [
   { label: 'm/s', mult: 1 },
-  { label: 'ft/s', mult: 0.3048 },
-  { label: 'km/h', mult: 1 / 3.6 },
-  { label: 'mi/h', mult: 1609.34 },
+  { label: _HKI('ft/s'), mult: 0.3048 },
+  { label: _HKI('km/h'), mult: 1 / 3.6 },
+  { label: _HKI('mi/h'), mult: 1609.34 },
 ];
 
 /** Index of a unit by label (build-time convenience for defaults). */

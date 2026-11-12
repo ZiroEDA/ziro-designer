@@ -35,6 +35,7 @@ import { Combo } from '@ziroeda/wx/combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { DELETE_REASONS, validateDeleteAccountForm } from './delete_account_form.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type Step = 'reason' | 'confirmation' | 'password';
 type Summary = { projects: number; people: number };
@@ -126,7 +127,7 @@ export function DeleteAccountDialog({
       ? 'Why are you leaving?'
       : step === 'confirmation'
         ? 'Permanently delete your ZiroEDA account?'
-        : 'Password';
+        : _('Password');
   // ente: "This helps us improve Ente." / "One account across Photos, Auth,
   // and Locker." - the second is about their three apps; ours says what the
   // one account holds. The password step has no subtitle there either.
@@ -223,7 +224,7 @@ export function DeleteAccountDialog({
                 <>
                   <SizerItem flag={wxALL} border={5}>
                     <div aria-live="polite">
-                      {summary.state === 'loading' && <StaticText label="Loading..." />}
+                      {summary.state === 'loading' && <StaticText label={_('Loading...')} />}
                       {summary.state === 'failed' && (
                         <span className="ze-delete-account-error">
                           Couldn't load your data counts. Try again to review what will be deleted.
@@ -264,7 +265,7 @@ export function DeleteAccountDialog({
               {step === 'password' && (
                 <>
                   <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
-                    <label htmlFor="ze-delete-password">Password</label>
+                    <label htmlFor="ze-delete-password">{_('Password')}</label>
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
                     <TextCtrl

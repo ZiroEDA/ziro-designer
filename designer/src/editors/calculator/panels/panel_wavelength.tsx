@@ -35,6 +35,7 @@ import {
 } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The five UNIT_SELECTORs this page uses come from `fields.tsx`; each opens on
 // index 0 (widgets/unit_selector.cpp:95, 205, 283, 311). They were four local
@@ -97,7 +98,7 @@ export function PanelWavelength(): JSX.Element {
   }[] = [
     {
       row: 'frequency',
-      label: 'Frequency:',
+      label: _('Frequency:'),
       si: state.frequencyHz,
       units: FREQ_UNITS,
       unitIdx: freqUnit,
@@ -109,7 +110,7 @@ export function PanelWavelength(): JSX.Element {
     },
     {
       row: 'period',
-      label: 'Period:',
+      label: _('Period:'),
       si: state.periodS,
       units: TIME_UNITS,
       unitIdx: periodUnit,
@@ -121,7 +122,7 @@ export function PanelWavelength(): JSX.Element {
     },
     {
       row: 'vacuum',
-      label: 'Wavelength in vacuum:',
+      label: _('Wavelength in vacuum:'),
       si: state.wavelengthVacuumM,
       units: CABLE_LEN_UNITS,
       unitIdx: vacUnit,
@@ -133,7 +134,7 @@ export function PanelWavelength(): JSX.Element {
     },
     {
       row: 'medium',
-      label: 'Wavelength in medium:',
+      label: _('Wavelength in medium:'),
       si: state.wavelengthMediumM,
       units: CABLE_LEN_UNITS,
       unitIdx: medUnit,
@@ -145,7 +146,7 @@ export function PanelWavelength(): JSX.Element {
     },
     {
       row: 'speed',
-      label: 'Speed in medium:',
+      label: _('Speed in medium:'),
       si: state.speedM,
       units: SPEED_UNITS,
       unitIdx: speedUnit,
@@ -195,8 +196,8 @@ export function PanelWavelength(): JSX.Element {
       ))}
 
       <div className="wl-row">
-        <span className="calc-field-label" title="relative permittivity (dielectric constant)">
-          er:
+        <span className="calc-field-label" title={_('relative permittivity (dielectric constant)')}>
+          {_('er:')}
         </span>
         <TextCtrl value={er} onChange={(aValue) => setMedium(aValue, mur)} className="calc-input" />
         {/* `new wxButton( ..., _("..."), ..., 0 )` — style ZERO
@@ -209,23 +210,23 @@ export function PanelWavelength(): JSX.Element {
         <button
           type="button"
           className="calc-btn"
-          aria-label="Relative Dielectric Constants"
+          aria-label={_('Relative Dielectric Constants')}
           onClick={() => setPicking(true)}
         >
-          ...
+          {_('...')}
         </button>
       </div>
 
       <div className="wl-row">
-        <span className="calc-field-label" title="relative permeability">
-          mur:
+        <span className="calc-field-label" title={_('relative permeability')}>
+          {_('mur:')}
         </span>
         <TextCtrl value={mur} onChange={(aValue) => setMedium(er, aValue)} className="calc-input" />
       </div>
 
       {picking && (
         <SingleChoiceDialog
-          caption="Relative Dielectric Constants"
+          caption={_('Relative Dielectric Constants')}
           choices={STANDARD_EPSILON_R_LIST.map((e) => ({
             value: e.value,
             label: `${e.value} \t${e.name}`,

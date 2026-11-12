@@ -40,6 +40,8 @@ import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '@ziroeda/common/dialogs/pref_controls.js';
 import { Slider } from '@ziroeda/common/widgets/slider.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `m_materialPropertiesChoices` (`panel_3D_display_options_base.cpp:56`)
@@ -47,9 +49,9 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
  * CAD_MODE 2, so the selection index IS the stored value.
  */
 export const MATERIAL_MODE_CHOICES: readonly (readonly [number, string])[] = [
-  [0, 'Realistic'],
-  [1, 'Solid colors'],
-  [2, 'CAD colors'],
+  [0, _HKI('Realistic')],
+  [1, _HKI('Solid colors')],
+  [2, _HKI('CAD colors')],
 ];
 
 /** `wxSlider( …, 3, 1, 5, … )` (`_base.cpp:110`) — value 3 of 1..5. */
@@ -70,43 +72,43 @@ export function PanelViewer3dGeneral({ ctx }: { ctx: PrefsContext }): JSX.Elemen
 
   return (
     <div>
-      <Group title="Render Options">
+      <Group title={_('Render Options')}>
         <Check
-          label="Clip silkscreen at via annuli"
+          label={_('Clip silkscreen at via annuli')}
           checked={render.clip_silk_on_via_annulus}
           borders={['top', 'bottom']}
           onChange={(v) => upR({ clip_silk_on_via_annulus: v })}
         />
         <Check
-          label="Clip silkscreen at solder mask edges"
+          label={_('Clip silkscreen at solder mask edges')}
           checked={render.subtract_mask_from_silk}
           onChange={(v) => upR({ subtract_mask_from_silk: v })}
         />
         <Check
-          label="Show filled areas in zones"
+          label={_('Show filled areas in zones')}
           checked={render.show_zones}
           onChange={(v) => upR({ show_zones: v })}
         />
         <Check
-          label="Use bare copper color for unplated copper (slow)"
-          title="Use different colors for plated and unplated copper. (Slow)"
+          label={_('Use bare copper color for unplated copper (slow)')}
+          title={_('Use different colors for plated and unplated copper. (Slow)')}
           checked={render.plated_and_bare_copper}
           onChange={(v) => upR({ plated_and_bare_copper: v })}
         />
         <Sel
-          label="Material properties:"
+          label={_('Material properties:')}
           value={render.material_mode}
           options={MATERIAL_MODE_CHOICES.map((c) => [c[0], c[1]] as [number, string])}
           onChange={(v) => upR({ material_mode: v as 0 | 1 | 2 })}
         />
       </Group>
-      <Group title="Camera Options">
+      <Group title={_('Camera Options')}>
         {/* `wxSpinCtrlDouble( …, 0, 359, 10, 1 )` (`_base.cpp:88`): 0..359 in
             steps of 1, opening at 10. The unit label is the base file's own
             `_("deg")` and not a `UNIT_BINDER`'s `°` — this control is not
             bound to one, so the placeholder IS the string. */}
         <Num
-          label="Rotation increment:"
+          label={_('Rotation increment:')}
           value={camera.rotation_increment}
           unit="deg"
           min={0}
@@ -115,7 +117,7 @@ export function PanelViewer3dGeneral({ ctx }: { ctx: PrefsContext }): JSX.Elemen
           onChange={(v) => upC({ rotation_increment: v })}
         />
         <Check
-          label="Redraw while moving"
+          label={_('Redraw while moving')}
           checked={camera.animation_enabled}
           borders={['top', 'bottom']}
           onChange={(v) => upC({ animation_enabled: v })}
@@ -126,7 +128,7 @@ export function PanelViewer3dGeneral({ ctx }: { ctx: PrefsContext }): JSX.Elemen
             for a click. */}
         <div className="ze-pref-row">
           <span className={`lbl${camera.animation_enabled ? '' : ' ze-disabled'}`}>
-            Redraw speed:
+            {_('Redraw speed:')}
           </span>
           <Slider
             value={camera.moving_speed_multiplier}

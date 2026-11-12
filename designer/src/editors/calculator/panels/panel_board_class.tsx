@@ -21,6 +21,7 @@ import { Combo } from '@ziroeda/wx/combobox.js';
 import { LEN_UNITS } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 export function PanelBoardClass(): JSX.Element {
   // PANEL_BOARD_CLASS::LoadSettings / SaveSettings — `m_BoardClassUnits`, the
@@ -53,14 +54,16 @@ export function PanelBoardClass(): JSX.Element {
             (base:31) — centred in the right column, not right-aligned against
             the page as ours was. [px] KiCad's ink runs x 987..1208, centre 1097,
             against a right column running 340..1843 whose centre is 1091. */}
-        <div className="bc-note">Note: Values are minimal values</div>
+        <div className="bc-note">{wxGetTranslation('Note: Values are minimal values')}</div>
         <table className="calc-table bc-grid">
           <thead>
             <tr>
               {/* A wxGrid's corner cell carries no text. */}
               <th className="rowhead" />
               {Array.from({ length: BOARD_CLASS_COUNT }, (_, i) => (
-                <th key={`c${i + 1}`}>Class {i + 1}</th>
+                <th key={`c${i + 1}`}>
+                  {wxGetTranslation('Class')} {i + 1}
+                </th>
               ))}
             </tr>
           </thead>

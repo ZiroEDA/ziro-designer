@@ -24,14 +24,16 @@ import { themeFromLayerCss } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type Tab = PackageKind | 'installed' | 'pending';
 
 const TYPE_TABS: [PackageKind, string][] = [
-  ['plugin', 'Plugins'],
+  ['plugin', _HKI('Plugins')],
   ['fab', 'Fabrication'],
   ['library', 'Libraries'],
-  ['datasource', 'Data Sources'],
+  ['datasource', _HKI('Data Sources')],
   ['colortheme', 'Colour Themes'],
 ];
 
@@ -191,7 +193,7 @@ export function PluginManagerDialog({
     if (state === 'available') {
       return (
         <Button
-          label="Install"
+          label={_('Install')}
           isDefault
           disabled={runtime}
           title={runtime ? 'Requires a runtime not yet available in the browser' : 'Queue install'}
@@ -205,7 +207,7 @@ export function PluginManagerDialog({
     return (
       <>
         {state === 'update_available' && (
-          <Button label="Update" isDefault className="sm" onClick={() => queueUpdate(pkg)} />
+          <Button label={_('Update')} isDefault className="sm" onClick={() => queueUpdate(pkg)} />
         )}
         {pkg.kind === 'colortheme' && !isActiveTheme && (
           <Button label="Set active" className="sm" onClick={() => applyTheme(pkg)} />
@@ -218,7 +220,7 @@ export function PluginManagerDialog({
         >
           {pcm.isPinned(pkg.id) ? '📌 Pinned' : 'Pin'}
         </button>
-        <Button label="Uninstall" className="sm" onClick={() => queueUninstall(pkg)} />
+        <Button label={_('Uninstall')} className="sm" onClick={() => queueUninstall(pkg)} />
       </>
     );
   }
@@ -265,7 +267,7 @@ export function PluginManagerDialog({
                   className="ze-linkbtn"
                   onClick={() => setExpanded(open ? null : pkg.id)}
                 >
-                  {open ? 'Hide details' : 'Details'}
+                  {open ? 'Hide details' : _('Details')}
                 </button>
               </>
             )}
@@ -328,7 +330,7 @@ export function PluginManagerDialog({
                 <div className="ze-pcm-card-meta">from {c.source}</div>
               </div>
               <div className="ze-pcm-card-actions">
-                <Button label="Cancel" className="sm" onClick={() => pcm.unqueue(c.pkg.id)} />
+                <Button label={_('Cancel')} className="sm" onClick={() => pcm.unqueue(c.pkg.id)} />
               </div>
             </div>
           ))}
@@ -380,11 +382,11 @@ export function PluginManagerDialog({
   const allTabs: [Tab, string][] = [
     ...TYPE_TABS,
     ['installed', 'Installed'],
-    ['pending', pendingCount > 0 ? `Pending (${pendingCount})` : 'Pending'],
+    ['pending', pendingCount > 0 ? `Pending (${pendingCount})` : _('Pending')],
   ];
 
   return (
-    <DialogShim title="Plugin and Content Manager" onClose={onClose} className="ze-pcm-dialog">
+    <DialogShim title={_('Plugin and Content Manager')} onClose={onClose} className="ze-pcm-dialog">
       {/* repository selector + add-by-URL + search (KiCad's repository chooser) */}
       <div className="ze-pcm-repobar">
         <label>
@@ -411,14 +413,14 @@ export function PluginManagerDialog({
             onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
           />
           <Button
-            label="Add"
+            label={_('Add')}
             disabled={busy || !addingUrl.trim()}
             className="sm"
             onClick={() => void addRepo()}
           />
           {activeRepo.url && (
             <Button
-              label="Remove"
+              label={_('Remove')}
               title="Remove this repository"
               className="sm"
               onClick={() => {

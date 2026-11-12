@@ -31,6 +31,7 @@ import {
 } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings, type PcbCalculatorTrackWidth } from '../../../prefs/settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Which of the three inputs is driving the other two. */
 type Controlling = 'current' | 'ext' | 'int';
@@ -159,7 +160,7 @@ export function PanelTrackWidth(): JSX.Element {
       style={{ '--calc-vgap': '0px' /* [data] wxFlexGridSizer( 4, 3, 0, 0 ) */ } as CSSProperties}
     >
       <NumField
-        label="Track width (W):"
+        label={_('Track width (W):')}
         units={LEN_UNITS}
         base={widthM}
         bold={controlling === who}
@@ -178,7 +179,7 @@ export function PanelTrackWidth(): JSX.Element {
           row alone carries a border above AND below (base:121,123). */}
       <NumField
         className="tw-pad-y"
-        label="Track thickness (H):"
+        label={_('Track thickness (H):')}
         units={THICK_UNITS}
         base={thicknessM}
         text={tw[thicknessKey]}
@@ -211,13 +212,23 @@ export function PanelTrackWidth(): JSX.Element {
           left the area reading square millimetres of the wrong number. */}
       <ResultField
         className="tw-pad-y"
-        label="Cross-section area:"
+        label={_('Cross-section area:')}
         value={g(areaM2 / (widthScale * widthScale))}
         unit={`${LEN_UNITS[who === 'ext' ? tw.ext_track_width_units : tw.int_track_width_units]?.label ?? 'mm'}²`}
       />
-      <ResultField className="tw-pad-b" label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
-      <ResultField className="tw-pad-b" label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
-      <ResultField label="Power loss:" value={g(r?.powerLossW)} unit="W" />
+      <ResultField
+        className="tw-pad-b"
+        label={_('Resistance:')}
+        value={g(r?.resistanceOhm)}
+        unit="Ω"
+      />
+      <ResultField
+        className="tw-pad-b"
+        label={_('Voltage drop:')}
+        value={g(r?.voltageDrop)}
+        unit="V"
+      />
+      <ResultField label={_('Power loss:')} value={g(r?.powerLossW)} unit="W" />
     </Group>
   );
 
@@ -236,12 +247,12 @@ export function PanelTrackWidth(): JSX.Element {
             their own width and the box's right half is empty
             (panel_track_width_base.cpp:22-26, 80). */}
           <Group
-            title="Parameters"
+            title={_('Parameters')}
             className="calc-grid3 tw-params"
             style={{ '--calc-vgap': '0px' } as CSSProperties}
           >
             <Field
-              label="Current (I):"
+              label={_('Current (I):')}
               value={shownCurrent}
               bold={controlling === 'current'}
               onChange={(v) => {
@@ -257,7 +268,7 @@ export function PanelTrackWidth(): JSX.Element {
               unit="°C"
             />
             <NumField
-              label="Conductor length:"
+              label={_('Conductor length:')}
               units={LEN_UNITS}
               base={lengthM}
               text={tw.track_len}
@@ -272,7 +283,7 @@ export function PanelTrackWidth(): JSX.Element {
               entry - [px] face rgb(42,42,42) with dim ink - not as the
               3DLIGHT read-only grey the Regulators cells use. */}
             <Field
-              label="Copper resistivity:"
+              label={_('Copper resistivity:')}
               value={printfG(COPPER_RESISTIVITY_OHM_M)}
               readOnly
               disabled
@@ -315,7 +326,7 @@ export function PanelTrackWidth(): JSX.Element {
                 where:
                 <br />
                 <b>
-                  <i>I</i>
+                  <i>{_('I')}</i>
                 </b>{' '}
                 is maximum current in A
                 <br />
@@ -325,7 +336,7 @@ export function PanelTrackWidth(): JSX.Element {
                 is temperature rise above ambient in °C
                 <br />
                 <b>
-                  <i>W</i>
+                  <i>{_('W')}</i>
                 </b>{' '}
                 is width in mils
                 <br />
@@ -335,7 +346,7 @@ export function PanelTrackWidth(): JSX.Element {
                 is thickness (height) in mils
                 <br />
                 <b>
-                  <i>K</i>
+                  <i>{_('K')}</i>
                 </b>{' '}
                 is 0.024 for internal tracks or 0.048 for external tracks
               </p>
@@ -344,7 +355,7 @@ export function PanelTrackWidth(): JSX.Element {
         </div>
         <div className="tw-right">
           {layerBox(
-            'External Layer Tracks',
+            _('External Layer Tracks'),
             'ext',
             ext,
             shownExtWidthM,
@@ -358,7 +369,7 @@ export function PanelTrackWidth(): JSX.Element {
             extScale,
           )}
           {layerBox(
-            'Internal Layer Tracks',
+            _('Internal Layer Tracks'),
             'int',
             int_,
             shownIntWidthM,
@@ -375,7 +386,7 @@ export function PanelTrackWidth(): JSX.Element {
             the RIGHT column (panel_track_width_base.cpp:288-289). */}
           <div className="calc-reset-row">
             <button type="button" className="calc-btn" onClick={resetDefaults}>
-              Reset to Defaults
+              {_('Reset to Defaults')}
             </button>
           </div>
         </div>

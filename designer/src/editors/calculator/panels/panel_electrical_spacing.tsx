@@ -30,6 +30,8 @@ import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DoubleFromString` on a field that will not parse yields 0, and that is what
  *  `SaveSettings` then stores (panel_electrical_spacing_iec60664.cpp). */
@@ -85,7 +87,7 @@ function PanelIpc2221(): JSX.Element {
   return (
     <div className="es-ipc">
       <div className="es-ipc-left">
-        <span>Unit:</span>
+        <span>{_('Unit:')}</span>
         <Combo
           ariaLabel="Unit"
           value={String(unitIdx)}
@@ -100,14 +102,14 @@ function PanelIpc2221(): JSX.Element {
           className="calc-input"
         />
         <button type="button" className="calc-btn" onClick={applyVoltage}>
-          Update Values
+          {_('Update Values')}
         </button>
       </div>
 
       <div className="es-ipc-right">
         {/* m_staticTextElectricalSpacing, centred, bold ITALIC
             (panel_electrical_spacing_ipc2221_base.cpp:51-55). */}
-        <div className="es-ipc-note">Note: Values are minimal values (from IPC 2221)</div>
+        <div className="es-ipc-note">{_('Note: Values are minimal values (from IPC 2221)')}</div>
         <table className="calc-table es-ipc-grid">
           <thead>
             <tr>
@@ -139,7 +141,7 @@ function PanelIpc2221(): JSX.Element {
 }
 
 // panel_electrical_spacing_iec60664_base.cpp:43,56,121,136,151,166,181,196,211,223
-const TIP_RATED = 'Voltage of the mains supply';
+const TIP_RATED = _HKI('Voltage of the mains supply');
 const TIP_OVC =
   'OVC I: Equipment with no direct connection to mains supply\n\n' +
   'OVC II: Energy-consuming equipment to be supplied from the fixed installation. ' +
@@ -152,7 +154,7 @@ const TIP_OVC =
 const TIP_IMPULSE =
   'Given the rated voltage and the overvoltage category, a device should withstand this ' +
   'value without a breakdown of insulation. This impulse voltage is a standard 1.2/50µs wave';
-const TIP_RMS = 'Expected RMS voltage.';
+const TIP_RMS = _HKI('Expected RMS voltage.');
 const TIP_TRANSIENT =
   'Transient overvoltages due to:\n\n' +
   '- Atmospheric disturbances transmitted by the mains supply (eg: a lightning strike)\n' +
@@ -185,27 +187,27 @@ const TIP_ALTITUDE =
   'product (such as a soldermask) should not be considered for a reduction.';
 
 const OVC: { label: string; v: OvervoltageCategory }[] = [
-  { label: 'OVC I', v: 1 },
-  { label: 'OVC II', v: 2 },
-  { label: 'OVC III', v: 3 },
+  { label: _HKI('OVC I'), v: 1 },
+  { label: _HKI('OVC II'), v: 2 },
+  { label: _HKI('OVC III'), v: 3 },
   { label: 'OVC IV', v: 4 },
 ];
 const PD: { label: string; v: PollutionDegree }[] = [
-  { label: 'PD1', v: 1 },
-  { label: 'PD2', v: 2 },
-  { label: 'PD3', v: 3 },
-  { label: 'PD4', v: 4 },
+  { label: _HKI('PD1'), v: 1 },
+  { label: _HKI('PD2'), v: 2 },
+  { label: _HKI('PD3'), v: 3 },
+  { label: _HKI('PD4'), v: 4 },
 ];
 const MG: { label: string; v: MaterialGroup }[] = [
   { label: 'I', v: 'I' },
-  { label: 'II', v: 'II' },
-  { label: 'IIIa', v: 'IIIa' },
-  { label: 'IIIb', v: 'IIIb' },
+  { label: _HKI('II'), v: 'II' },
+  { label: _HKI('IIIa'), v: 'IIIa' },
+  { label: _HKI('IIIb'), v: 'IIIb' },
 ];
 const INSUL: { label: string; v: InsulationType }[] = [
-  { label: 'Functional', v: 'functional' },
-  { label: 'Basic', v: 'basic' },
-  { label: 'Reinforced', v: 'reinforced' },
+  { label: _HKI('Functional'), v: 'functional' },
+  { label: _HKI('Basic'), v: 'basic' },
+  { label: _HKI('Reinforced'), v: 'reinforced' },
 ];
 
 function Select<T>({
@@ -350,21 +352,23 @@ function PanelIec60664(): JSX.Element {
     // box, outputs on the right of the same box
     // (panel_electrical_spacing_iec60664_base.cpp:24-31, 109).
     <div className="es-iec">
-      <div className="es-iec-title">Insulation for equipment within low-voltage supply systems</div>
+      <div className="es-iec-title">
+        {_('Insulation for equipment within low-voltage supply systems')}
+      </div>
 
       <fieldset className="calc-group">
-        <legend>Determine the transient impulse voltage to withstand</legend>
+        <legend>{_('Determine the transient impulse voltage to withstand')}</legend>
         <div className="es-iec-split">
           <div className="es-iec-form">
             <Field
-              label="Rated Voltage (RMS or DC):"
+              label={_('Rated Voltage (RMS or DC):')}
               title={TIP_RATED}
               value={ratedVoltage}
               onChange={setRatedVoltage}
               unit="V"
             />
             <Select
-              label="Overvoltage category:"
+              label={_('Overvoltage category:')}
               title={TIP_OVC}
               options={OVC}
               value={ovc}
@@ -373,63 +377,69 @@ function PanelIec60664(): JSX.Element {
           </div>
           <div className="es-iec-form">
             <Field
-              label="Impulse voltage:"
+              label={_('Impulse voltage:')}
               title={TIP_IMPULSE}
               value={impulseKv < 0 ? 'Out of range' : fmt(impulseKv, 4)}
               readOnly
               disabled
-              unit="kV"
+              unit={_('kV')}
             />
           </div>
         </div>
       </fieldset>
 
       <fieldset className="calc-group">
-        <legend>Compute the clearance and creepage distances</legend>
+        <legend>{_('Compute the clearance and creepage distances')}</legend>
         <div className="es-iec-split">
           <div className="es-iec-form">
-            <Field label="RMS Voltage:" title={TIP_RMS} value={rms} onChange={setRms} unit="V" />
             <Field
-              label="Transient overvoltage:"
+              label={_('RMS Voltage:')}
+              title={TIP_RMS}
+              value={rms}
+              onChange={setRms}
+              unit="V"
+            />
+            <Field
+              label={_('Transient overvoltage:')}
               title={TIP_TRANSIENT}
               value={transient}
               onChange={setTransient}
-              unit="kV"
+              unit={_('kV')}
             />
             <Field
-              label="Recurring peak voltage:"
+              label={_('Recurring peak voltage:')}
               title={TIP_PEAK}
               value={peak}
               onChange={setPeak}
-              unit="kV"
+              unit={_('kV')}
             />
             <Select
-              label="Type of insulation:"
+              label={_('Type of insulation:')}
               title={TIP_INSULATION}
               options={INSUL}
               value={insul}
               onChange={setInsul}
             />
             <Select
-              label="Pollution Degree:"
+              label={_('Pollution Degree:')}
               title={TIP_PD}
               options={PD}
               value={pd}
               onChange={setPd}
             />
             <Select
-              label="Material group:"
+              label={_('Material group:')}
               title={TIP_MATERIAL}
               options={MG}
               value={mg}
               onChange={setMg}
             />
             <label className="calc-field" title={TIP_PCB}>
-              <span className="calc-field-label">PCB material:</span>
+              <span className="calc-field-label">{_('PCB material:')}</span>
               <input type="checkbox" checked={pcb} onChange={(e) => setPcb(e.target.checked)} />
             </label>
             <Field
-              label="Max altitude:"
+              label={_('Max altitude:')}
               title={TIP_ALTITUDE}
               value={altitude}
               onChange={setAltitude}
@@ -441,15 +451,21 @@ function PanelIec60664(): JSX.Element {
                 Enable( false ) (base:259, 273, 289), so GTK dims them; ours
                 drew them as ordinary bright entries. */}
             <Field
-              label="Clearance:"
+              label={_('Clearance:')}
               value={dist(result.clearanceMm)}
               readOnly
               disabled
               unit="mm"
             />
-            <Field label="Creepage:" value={dist(result.creepageMm)} readOnly disabled unit="mm" />
             <Field
-              label="Min groove width:"
+              label={_('Creepage:')}
+              value={dist(result.creepageMm)}
+              readOnly
+              disabled
+              unit="mm"
+            />
+            <Field
+              label={_('Min groove width:')}
               value={dist(result.grooveWidthMm)}
               readOnly
               disabled
@@ -463,7 +479,7 @@ function PanelIec60664(): JSX.Element {
       {/* sbSizerHelp's HTML_WINDOW, showing `iec60664_help.md` through
           ConvertMarkdown2Html. Carried here line for line. */}
       <fieldset className="calc-group calc-help es-iec-help">
-        <legend>Help</legend>
+        <legend>{_('Help')}</legend>
         <div className="calc-help-body">
           <p>
             The goal of the IEC60664-1 is to provide guidance on designing insulation for products
@@ -504,7 +520,7 @@ export function PanelElectricalSpacing(): JSX.Element {
           className={`calc-tab${tab === 'ipc' ? ' active' : ''}`}
           onClick={() => setTab('ipc')}
         >
-          IPC 2221
+          {_('IPC 2221')}
         </button>
         <button
           type="button"

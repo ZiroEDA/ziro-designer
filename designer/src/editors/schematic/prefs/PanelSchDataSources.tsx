@@ -29,6 +29,7 @@ import { Button } from '@ziroeda/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { PluginManagerDialog } from '../../../pcm/PluginManagerDialog.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelSchDataSources(): JSX.Element {
   usePcmVersion();
@@ -55,8 +56,9 @@ export function PanelSchDataSources(): JSX.Element {
       {/* `m_description->SetFont( KIUI::GetInfoFont( this ) )` and
           `Wrap( FromDIP( 480 ) )`. */}
       <p className="ze-datasources-desc">
-        Install schematic data sources from the Plugin and Content Manager. Data sources extend
-        KiCad by linking schematic items to external data providers.
+        {_(
+          'Install schematic data sources from the Plugin and Content Manager. Data sources extend KiCad by linking schematic items to external data providers.',
+        )}
       </p>
 
       {/* `m_sourcesList`, a wxListBox at proportion 1 with `MinSize( -1, 160 )`. */}
@@ -72,12 +74,12 @@ export function PanelSchDataSources(): JSX.Element {
           upstream's own (`:122` and `:136`). */}
       <div className="ze-datasources-status">
         {entries.length === 0
-          ? 'No data sources are currently installed.'
-          : 'Installed data sources are listed above.'}
+          ? _('No data sources are currently installed.')
+          : _('Installed data sources are listed above.')}
       </div>
 
       <div className="ze-datasources-btnrow">
-        <Button label="Manage Data Sources..." onClick={() => setManaging(true)} />
+        <Button label={_('Manage Data Sources...')} onClick={() => setManaging(true)} />
       </div>
 
       {managing && (

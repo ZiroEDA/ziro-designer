@@ -24,6 +24,7 @@ import {
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
 import { parseNum } from '../fields.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The fills and the ink both live in the engine now, beside the potential
@@ -112,27 +113,27 @@ export function PanelGalvanicCorrosion(): JSX.Element {
           them as two stacked rows with no separator between them. */}
       <div className="gc-bottom">
         <div className="calc-field gc-voltage">
-          <span>Threshold voltage:</span>
+          <span>{_('Threshold voltage:')}</span>
           <TextCtrl
             value={threshold}
             onChange={(aValue) => setThreshold(aValue)}
             className="calc-input gc-threshold"
           />
-          <span className="calc-unit">mV</span>
+          <span className="calc-unit">{_('mV')}</span>
         </div>
         {/* m_staticline, wxLI_VERTICAL, wxEXPAND|wxRIGHT|wxLEFT 10 (base:68). */}
         <div className="gc-rule" />
         <div className="calc-field">
-          <span>Material names:</span>
+          <span>{_('Material names:')}</span>
           <RadioButton
-            label="Chemical symbols"
+            label={_('Chemical symbols')}
             name="gc-names"
             checked={symbolic}
             className="calc-radio"
             onChange={() => setSymbolic(true)}
           />
           <RadioButton
-            label="Names"
+            label={_('Names')}
             name="gc-names"
             checked={!symbolic}
             className="calc-radio"

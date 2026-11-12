@@ -47,6 +47,7 @@ import { SymbolPreviewWidget } from '../widgets/symbol_preview_widget.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import './dialog_rescue_each.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const INFO =
   'This schematic was made using older symbol libraries which may break the schematic. ' +
@@ -97,19 +98,23 @@ export function DialogRescueEach({
 
   return (
     <>
-      <DialogShim title="Project Rescue Helper" onClose={onCancel} className="ze-rescue-dialog">
+      <DialogShim
+        title={_('Project Rescue Helper')}
+        onClose={onCancel}
+        className="ze-rescue-dialog"
+      >
         <div className="ze-rescue-body">
           {/* m_htmlPrompt: an HTML_WINDOW with the button-face background. */}
           <div className="ze-rescue-prompt">{INFO}</div>
 
-          <div className="ze-rescue-title">Symbols to update:</div>
+          <div className="ze-rescue-title">{_('Symbols to update:')}</div>
           <div className="ze-rescue-list ze-rescue-conflicts">
             <table className="ze-grid">
               <thead>
                 <tr>
-                  <th className="ze-rescue-accept">Accept</th>
-                  <th>Symbol Name</th>
-                  <th>Action Taken</th>
+                  <th className="ze-rescue-accept">{_('Accept')}</th>
+                  <th>{_('Symbol Name')}</th>
+                  <th>{_('Action Taken')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,8 +147,8 @@ export function DialogRescueEach({
             <table className="ze-grid">
               <thead>
                 <tr>
-                  <th>Reference</th>
-                  <th>Value</th>
+                  <th>{_('Reference')}</th>
+                  <th>{_('Value')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,11 +164,11 @@ export function DialogRescueEach({
 
           <div className="ze-rescue-previews">
             <div className="ze-rescue-preview">
-              <div className="lbl">Cached Symbol:</div>
+              <div className="lbl">{_('Cached Symbol:')}</div>
               <div className="ze-rescue-preview-panel">{preview(current?.cache ?? null)}</div>
             </div>
             <div className="ze-rescue-preview">
-              <div className="lbl">Library Symbol:</div>
+              <div className="lbl">{_('Library Symbol:')}</div>
               <div className="ze-rescue-preview-panel">{preview(current?.lib ?? null)}</div>
             </div>
           </div>
@@ -171,7 +176,7 @@ export function DialogRescueEach({
 
         <div className="ze-rescue-buttons">
           {askShowAgain && (
-            <Button label="Never Show Again" onClick={() => setConfirmNever(true)} />
+            <Button label={_('Never Show Again')} onClick={() => setConfirmNever(true)} />
           )}
           <div className="spacer" />
           <Button
@@ -179,13 +184,13 @@ export function DialogRescueEach({
             isDefault
             onClick={() => onOk(candidates.filter((c) => accepted.has(c.requestedId)))}
           />
-          <Button label="Cancel" onClick={onCancel} />
+          <Button label={_('Cancel')} onClick={onCancel} />
         </div>
       </DialogShim>
 
       {confirmNever && (
         <MessageDialogYesNo
-          caption="Rescue Symbols"
+          caption={_('Rescue Symbols')}
           message={NEVER_SHOW_QUESTION}
           icon="question"
           defaultButton="no"

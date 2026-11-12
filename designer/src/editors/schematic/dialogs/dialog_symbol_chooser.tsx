@@ -18,6 +18,7 @@ import { SYMBOL_CHOOSER_APP } from '../symbol_chooser_app.js';
 import type { DialogSymbolChooserProps } from '@ziroeda/eeschema/picksymbol.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function DialogSymbolChooser({
   powerFilter = false,
@@ -33,7 +34,7 @@ export function DialogSymbolChooser({
 
   // onLazyLoadUpdate runs once in the constructor, so the count is in the title
   // from the outset, including the "(0 items loaded)" of an empty tree.
-  const originalTitle = powerFilter ? 'Choose Power Symbol' : 'Choose Symbol';
+  const originalTitle = powerFilter ? _('Choose Power Symbol') : _('Choose Symbol');
   const title = `${originalTitle} (${itemCount} items loaded)`;
 
   // The defaults are the constructor's: m_keepSymbol is created with no
@@ -76,22 +77,22 @@ export function DialogSymbolChooser({
       </div>
       <div className="ze-modal-footer ze-chooser-footer">
         <CheckBox
-          label="Place repeated copies"
+          label={_('Place repeated copies')}
           checked={keepSymbol}
-          title="Keep the symbol selected for subsequent clicks."
+          title={_('Keep the symbol selected for subsequent clicks.')}
           onChange={(aChecked) => setKeepSymbol(aChecked)}
         />
         <CheckBox
-          label="Place all units"
+          label={_('Place all units')}
           checked={placeAllUnits}
-          title="Sequentially place all units of the symbol."
+          title={_('Sequentially place all units of the symbol.')}
           onChange={(aChecked) => setPlaceAllUnits(aChecked)}
         />
         <span className="ze-chooser-footer-spacer" />
         {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
           and the order every other dialog here already uses. This one had
           them the other way round. */}
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>

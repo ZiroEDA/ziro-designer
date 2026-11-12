@@ -31,6 +31,8 @@ import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // The tooltips wxFormBuilder attaches, character for character
 // (panel_regulator_base.cpp:29, 88, 108, 113, 118, 236, 258 — note the double
@@ -39,12 +41,12 @@ const TIP_TYPE =
   'Type of the regulator.\nThere are 2 types:\n' +
   '- regulators which have a dedicated sense pin for the voltage regulation.\n' +
   '- 3 terminal pins.';
-const TIP_DATA_FILE = 'The name of the data file which stores known regulators parameters.';
-const TIP_EDIT = 'Edit the current selected regulator.';
-const TIP_ADD = 'Enter a new item to the current list of available regulators';
-const TIP_REMOVE = 'Remove an item from the current list of available regulators';
-const TIP_VREF = 'The internal reference voltage of the regulator.\nShould not be 0.';
-const TIP_IADJ = 'For 3 terminal regulators only, the  Adjust pin current.';
+const TIP_DATA_FILE = _HKI('The name of the data file which stores known regulators parameters.');
+const TIP_EDIT = _HKI('Edit the current selected regulator.');
+const TIP_ADD = _HKI('Enter a new item to the current list of available regulators');
+const TIP_REMOVE = _HKI('Remove an item from the current list of available regulators');
+const TIP_VREF = _HKI('The internal reference voltage of the regulator.\nShould not be 0.');
+const TIP_IADJ = _HKI('For 3 terminal regulators only, the  Adjust pin current.');
 
 /**
  * The regulator library and the name selected in it.
@@ -284,7 +286,7 @@ export function PanelRegulator(): JSX.Element {
   const saveForm = (): void => {
     if (!formValid(form) || !form) return;
     if (!form.original && store.regulators.some((r) => r.name === form.name.trim())) {
-      setNotice('This regulator is already in list. Aborted');
+      setNotice(_('This regulator is already in list. Aborted'));
       return;
     }
     const reg: RegulatorData = {
@@ -421,14 +423,14 @@ export function PanelRegulator(): JSX.Element {
           }}
         >
           <div className="calc-field">
-            <span title={TIP_TYPE}>Type:</span>
+            <span title={_(TIP_TYPE)}>{_('Type:')}</span>
             <Combo
               style={{ flex: 1 }}
-              ariaLabel="Type"
+              ariaLabel={_('Type')}
               value={String(type)}
               options={REGULATOR_TYPE_CHOICES.map((c) => ({
                 value: String(c.value),
-                label: c.label,
+                label: _(c.label),
               }))}
               onChange={(v) => setType(Number(v) as RegulatorType)}
             />
@@ -443,7 +445,7 @@ export function PanelRegulator(): JSX.Element {
           >
             <RegulatorDrawing type={type} />
           </div>
-          <Group title="Formula">
+          <Group title={_('Formula')}>
             <div className="calc-formula">
               {type === RegulatorType.THREE_TERMINAL
                 ? 'Vout = Vref * (R1 + R2) / R1 + Iadj * R2'
@@ -456,11 +458,11 @@ export function PanelRegulator(): JSX.Element {
             stretch-spacer items (tolerance input, Copy, Reset) align to the
             grid's right edge, not the page edge. */}
         <div className="calc-col" style={{ flex: '0 0 auto', width: 530 }}>
-          <Group title="Regulator">
+          <Group title={_('Regulator')}>
             <div className="calc-field">
               <Combo
                 style={{ flex: 1 }}
-                ariaLabel="Regulator"
+                ariaLabel={_('Regulator')}
                 value={store.selected}
                 /* m_choiceRegulatorSelector holds the list and nothing else —
                    `Append( m_RegulatorList.GetRegList() )` (panel_regulator.cpp:47),
@@ -473,8 +475,8 @@ export function PanelRegulator(): JSX.Element {
                 }}
               />
             </div>
-            <div style={{ margin: '6px 0 2px' }} title={TIP_DATA_FILE}>
-              Regulators data file:
+            <div style={{ margin: '6px 0 2px' }} title={_(TIP_DATA_FILE)}>
+              {_('Regulators data file:')}
             </div>
             <div className="calc-field">
               <input
@@ -485,7 +487,7 @@ export function PanelRegulator(): JSX.Element {
                 placeholder=""
               />
               <button type="button" className="calc-btn" onClick={() => fileRef.current?.click()}>
-                Browse
+                {_('Browse')}
               </button>
               <input
                 ref={fileRef}
@@ -505,29 +507,29 @@ export function PanelRegulator(): JSX.Element {
                 className="calc-btn"
                 style={{ flex: 1 }}
                 disabled={!current}
-                title={TIP_EDIT}
+                title={_(TIP_EDIT)}
                 onClick={() => setForm(formFrom(current))}
               >
-                Edit Regulator
+                {_('Edit Regulator')}
               </button>
               <button
                 type="button"
                 className="calc-btn"
                 style={{ flex: 1 }}
-                title={TIP_ADD}
+                title={_(TIP_ADD)}
                 onClick={() => setForm(formFrom(null))}
               >
-                Add Regulator
+                {_('Add Regulator')}
               </button>
               <button
                 type="button"
                 className="calc-btn"
                 style={{ flex: 1 }}
                 disabled={!current}
-                title={TIP_REMOVE}
+                title={_(TIP_REMOVE)}
                 onClick={() => setConfirmRemove(current?.name ?? null)}
               >
-                Remove Regulator
+                {_('Remove Regulator')}
               </button>
             </div>
           </Group>
@@ -539,18 +541,18 @@ export function PanelRegulator(): JSX.Element {
           <div className="reg-grid">
             <span />
             <span />
-            <span className="reg-colhead">min</span>
-            <span className="reg-colhead">typ</span>
-            <span className="reg-colhead">max</span>
+            <span className="reg-colhead">{_('min')}</span>
+            <span className="reg-colhead">{_('typ')}</span>
+            <span className="reg-colhead">{_('max')}</span>
             <span />
 
             {radioRow(RegulatorSolve.R1, 'R1:', r1Min, r1, r1Max, setR1, 'kΩ')}
             {radioRow(RegulatorSolve.R2, 'R2:', r2Min, r2, r2Max, setR2, 'kΩ')}
-            {radioRow(RegulatorSolve.VOUT, 'Vout:', voutMin, vout, voutMax, setVout, 'V')}
+            {radioRow(RegulatorSolve.VOUT, _('Vout:'), voutMin, vout, voutMax, setVout, 'V')}
 
             <span />
             <span className="reg-label" title={TIP_VREF}>
-              Vref:
+              {_('Vref:')}
             </span>
             <TextCtrl
               value={vrefMin}
@@ -567,13 +569,13 @@ export function PanelRegulator(): JSX.Element {
               onChange={(aValue) => setVrefMax(aValue)}
               className="calc-input"
             />
-            <span className="calc-unit">V</span>
+            <span className="calc-unit">{_('V')}</span>
 
             {type === RegulatorType.THREE_TERMINAL && (
               <>
                 <span />
-                <span className="reg-label" title={TIP_IADJ}>
-                  Iadj:
+                <span className="reg-label" title={_(TIP_IADJ)}>
+                  {_('Iadj:')}
                 </span>
                 <span />
                 <TextCtrl
@@ -591,7 +593,7 @@ export function PanelRegulator(): JSX.Element {
             )}
 
             <span />
-            <span className="reg-label">Overall tolerance:</span>
+            <span className="reg-label">{_('Overall tolerance:')}</span>
             <TextCtrl value={tolMin} readOnly className="calc-input ro light" />
             <span />
             <TextCtrl value={tolMax} readOnly className="calc-input ro light" />
@@ -599,7 +601,7 @@ export function PanelRegulator(): JSX.Element {
           </div>
 
           <div className="calc-field">
-            <span>Resistor tolerance:</span>
+            <span>{_('Resistor tolerance:')}</span>
             <span style={{ flex: 1 }} />
             <input
               className="calc-input"
@@ -610,7 +612,7 @@ export function PanelRegulator(): JSX.Element {
             <span className="calc-unit">%</span>
           </div>
           <div className="calc-field">
-            <span>Power Comment:</span>
+            <span>{_('Power Comment:')}</span>
             <input
               className="calc-input ro light"
               style={{ width: 200, textAlign: 'center' }}
@@ -619,7 +621,7 @@ export function PanelRegulator(): JSX.Element {
             />
             <span style={{ flex: 1 }} />
             <button type="button" className="calc-btn" onClick={copyComment}>
-              Copy to Clipboard
+              {_('Copy to Clipboard')}
             </button>
           </div>
 
@@ -634,7 +636,7 @@ export function PanelRegulator(): JSX.Element {
               style={{ minWidth: 120 }}
               onClick={calculate}
             >
-              Calculate
+              {_('Calculate')}
             </button>
           </div>
         </div>
@@ -646,7 +648,7 @@ export function PanelRegulator(): JSX.Element {
           sits at the BOTTOM of the frame, not under Calculate. */}
       <div className="calc-reset-row">
         <button type="button" className="calc-btn" onClick={resetDefaults}>
-          Reset to Defaults
+          {_('Reset to Defaults')}
         </button>
       </div>
 
@@ -655,25 +657,25 @@ export function PanelRegulator(): JSX.Element {
           editing. OK is refused silently while the values are not valid. */}
       {form && (
         <Modal
-          title="Regulator Parameters"
+          title={_('Regulator Parameters')}
           onClose={() => setForm(null)}
           footer={
             <>
               <button type="button" className="calc-btn" onClick={() => setForm(null)}>
-                Cancel
+                {_('Cancel')}
               </button>
               {/* KiCad's OK is never disabled: TransferDataFromWindow just
                   returns false and the dialog stays open, saying nothing
                   (dialog_regulator_form.cpp:48-93). Ours greyed it out, which
                   tells the user something upstream does not. */}
               <button type="button" className="calc-btn" onClick={saveForm}>
-                OK
+                {_('OK')}
               </button>
             </>
           }
         >
           <div className="reg-form-grid">
-            <span>Name:</span>
+            <span>{_('Name:')}</span>
             <span>
               <input
                 className="calc-input"
@@ -685,22 +687,22 @@ export function PanelRegulator(): JSX.Element {
             </span>
             <span />
 
-            <span>Vref (min/typ/max):</span>
+            <span>{_('Vref (min/typ/max):')}</span>
             <span className="reg-form-triple">
               {formCell('vrefMin')}
               {formCell('vrefTyp')}
               {formCell('vrefMax')}
             </span>
-            <span>Volt</span>
+            <span>{_('Volt')}</span>
 
-            <span>Type:</span>
+            <span>{_('Type:')}</span>
             <span>
               <Combo
-                ariaLabel="Type"
+                ariaLabel={_('Type')}
                 value={String(form.type)}
                 options={REGULATOR_TYPE_CHOICES.map((c) => ({
                   value: String(c.value),
-                  label: c.label,
+                  label: _(c.label),
                 }))}
                 onChange={(v) =>
                   setForm((f) => (f ? { ...f, type: Number(v) as RegulatorType } : f))
@@ -711,7 +713,7 @@ export function PanelRegulator(): JSX.Element {
 
             {form.type === RegulatorType.THREE_TERMINAL && (
               <>
-                <span>Iadj (typ/max):</span>
+                <span>{_('Iadj (typ/max):')}</span>
                 <span className="reg-form-triple iadj">
                   {formCell('iadjTyp')}
                   {formCell('iadjMax')}
@@ -725,11 +727,11 @@ export function PanelRegulator(): JSX.Element {
 
       {notice && (
         <Modal
-          title="Calculator Tools"
+          title={_('Calculator Tools')}
           onClose={() => setNotice('')}
           footer={
             <button type="button" className="calc-btn" onClick={() => setNotice('')}>
-              OK
+              {_('OK')}
             </button>
           }
         >
@@ -739,15 +741,15 @@ export function PanelRegulator(): JSX.Element {
 
       {confirmRemove && (
         <Modal
-          title="Remove Regulator"
+          title={_('Remove Regulator')}
           onClose={() => setConfirmRemove(null)}
           footer={
             <>
               <button type="button" className="calc-btn" onClick={() => setConfirmRemove(null)}>
-                Cancel
+                {_('Cancel')}
               </button>
               <button type="button" className="calc-btn" onClick={removeRegulator}>
-                Remove
+                {_('Remove')}
               </button>
             </>
           }

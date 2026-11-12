@@ -37,6 +37,8 @@ import { Combo } from '@ziroeda/wx/combobox.js';
 import { Button } from '@ziroeda/wx/controls.js';
 import { Group } from '@ziroeda/common/dialogs/pref_controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `SIM_MOUSE_WHEEL_ACTION` (`sim_preferences.h:37-50`) and the labels
@@ -44,13 +46,13 @@ import type { PrefsContext } from '../../../dialogs/prefs/types.js';
  * The array index IS the enum ordinal, which is what the settings store.
  */
 const VERTICAL_ACTIONS: readonly string[] = [
-  'No action',
-  'Pan left/right',
-  'Pan right/left',
-  'Pan up/down',
-  'Zoom',
-  'Zoom horizontally',
-  'Zoom vertically',
+  _HKI('No action'),
+  _HKI('Pan left/right'),
+  _HKI('Pan right/left'),
+  _HKI('Pan up/down'),
+  _HKI('Zoom'),
+  _HKI('Zoom horizontally'),
+  _HKI('Zoom vertically'),
 ];
 
 /**
@@ -59,9 +61,9 @@ const VERTICAL_ACTIONS: readonly string[] = [
  * PAN_LEFT_RIGHT and ZOOM_HORIZONTALLY (`:127-150`).
  */
 const HORIZONTAL_ACTIONS: readonly [number, string][] = [
-  [0, 'No action'],
-  [1, 'Pan left/right'],
-  [5, 'Zoom horizontally'],
+  [0, _HKI('No action')],
+  [1, _HKI('Pan left/right')],
+  [5, _HKI('Zoom horizontally')],
 ];
 
 /** `SIM_MOUSE_WHEEL_ACTION_SET::GetMouseDefaults()` (`sim_preferences.h:65-76`). */
@@ -84,10 +86,10 @@ const TRACKPAD_DEFAULTS = {
 
 /** The four vertical rows, in the order `fgVScroll` adds them. */
 const VERTICAL_ROWS: readonly [keyof typeof MOUSE_DEFAULTS, string][] = [
-  ['vertical_unmodified', 'None:'],
-  ['vertical_with_ctrl', 'Ctrl:'],
-  ['vertical_with_shift', 'Shift:'],
-  ['vertical_with_alt', 'Alt:'],
+  ['vertical_unmodified', _HKI('None:')],
+  ['vertical_with_ctrl', _HKI('Ctrl:')],
+  ['vertical_with_shift', _HKI('Shift:')],
+  ['vertical_with_alt', _HKI('Alt:')],
 ];
 
 export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -100,15 +102,17 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
   return (
     // `m_lblScrollHeading` with `m_scrollLine` under it — a heading and a
     // wxStaticLine, which is what `Group` draws.
-    <Group title="Scroll Gestures">
+    <Group title={_('Scroll Gestures')}>
       {/* `bScrollMargins`: the choices on the left at proportion 1, the two
           reset buttons on the right with `wxLEFT, 50`. */}
       <div className="ze-simprefs">
         <div className="ze-simprefs-col">
-          <div className="ze-simprefs-heading">Vertical Touchpad or Scroll Wheel Movement</div>
+          <div className="ze-simprefs-heading">
+            {_('Vertical Touchpad or Scroll Wheel Movement')}
+          </div>
           <div className="ze-simprefs-grid">
-            <span className="ze-simprefs-colhead">Modifier</span>
-            <span className="ze-simprefs-colhead ze-simprefs-action">Action</span>
+            <span className="ze-simprefs-colhead">{_('Modifier')}</span>
+            <span className="ze-simprefs-colhead ze-simprefs-action">{_('Action')}</span>
             {/* Each row is TWO cells of the one `fgVScroll`: the modifier
                 label, then its wxChoice. */}
             {VERTICAL_ROWS.map(([key, label]) => (
@@ -126,12 +130,12 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
           </div>
 
           <div className="ze-simprefs-heading ze-simprefs-heading2">
-            Horizontal Touchpad Movement
+            {_('Horizontal Touchpad Movement')}
           </div>
           <div className="ze-simprefs-grid">
-            <span className="ze-simprefs-colhead">Modifier</span>
-            <span className="ze-simprefs-colhead ze-simprefs-action">Action</span>
-            <span className="ze-simprefs-rowlabel">Any:</span>
+            <span className="ze-simprefs-colhead">{_('Modifier')}</span>
+            <span className="ze-simprefs-colhead ze-simprefs-action">{_('Action')}</span>
+            <span className="ze-simprefs-rowlabel">{_('Any:')}</span>
             <Combo
               value={String(wheel.horizontal)}
               ariaLabel="Horizontal Any"
@@ -148,8 +152,11 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
               controls (`panel_simulator_preferences.cpp`), not into the
               settings — the values land in the file on OK with the rest of the
               page, which is what `setWheel` does here. */}
-          <Button label="Reset to Mouse Defaults" onClick={() => setWheel(MOUSE_DEFAULTS)} />
-          <Button label="Reset to Trackpad Defaults" onClick={() => setWheel(TRACKPAD_DEFAULTS)} />
+          <Button label={_('Reset to Mouse Defaults')} onClick={() => setWheel(MOUSE_DEFAULTS)} />
+          <Button
+            label={_('Reset to Trackpad Defaults')}
+            onClick={() => setWheel(TRACKPAD_DEFAULTS)}
+          />
         </div>
       </div>
     </Group>

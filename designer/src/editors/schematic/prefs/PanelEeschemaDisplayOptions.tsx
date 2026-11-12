@@ -16,6 +16,7 @@ import { Check, Group, Num, Sel } from '@ziroeda/common/dialogs/pref_controls.js
 import { CrossProbingGroup } from '@ziroeda/common/dialogs/cross_probing_group.js';
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -50,7 +51,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
         />
       </div>
       <div>
-        <Group title="Appearance">
+        <Group title={_('Appearance')}>
           {/* Dead, and waiting on a feature rather than on the browser.
               `default_font` is the face every text item with no `(font (face
               …))` of its own draws in (`sch_painter.cpp:620`, `:652`, `:696`),
@@ -63,7 +64,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               half is issue #154, and this list becomes the installed faces
               when it lands. */}
           <Sel
-            label="Default font:"
+            label={_('Default font:')}
             value={eeschema.appearance.default_font}
             options={[['KiCad Font', 'KiCad Font']]}
             disabled
@@ -74,7 +75,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show hidden pins"
+            label={_('Show hidden pins')}
             checked={eeschema.appearance.show_hidden_pins}
             onChange={(v) =>
               upE((s) => {
@@ -83,7 +84,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show hidden fields"
+            label={_('Show hidden fields')}
             checked={eeschema.appearance.show_hidden_fields}
             onChange={(v) =>
               upE((s) => {
@@ -95,7 +96,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               and the ERC rows, and missing from this page entirely. Dead:
               nothing reads it; a directive label is drawn whatever it says. */}
           <Check
-            label="Show directive labels"
+            label={_('Show directive labels')}
             checked={eeschema.appearance.show_directive_labels}
             onChange={(v) =>
               upE((s) => {
@@ -104,7 +105,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show ERC errors"
+            label={_('Show ERC errors')}
             checked={eeschema.appearance.show_erc_errors}
             onChange={(v) =>
               upE((s) => {
@@ -113,7 +114,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show ERC warnings"
+            label={_('Show ERC warnings')}
             checked={eeschema.appearance.show_erc_warnings}
             onChange={(v) =>
               upE((s) => {
@@ -122,7 +123,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show ERC exclusions"
+            label={_('Show ERC exclusions')}
             checked={eeschema.appearance.show_erc_exclusions}
             onChange={(v) =>
               upE((s) => {
@@ -131,7 +132,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Mark items which are excluded from simulation"
+            label={_('Mark items which are excluded from simulation')}
             checked={eeschema.appearance.mark_sim_exclusions}
             onChange={(v) =>
               upE((s) => {
@@ -142,7 +143,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           {/* Dead, both: the operating-point overlays are the simulator's, and
               nothing reads `show_op_voltages` / `show_op_currents`. */}
           <Check
-            label="Show OP voltages"
+            label={_('Show OP voltages')}
             checked={eeschema.appearance.show_op_voltages}
             disabled
             onChange={(v) =>
@@ -152,7 +153,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show OP currents"
+            label={_('Show OP currents')}
             checked={eeschema.appearance.show_op_currents}
             disabled
             onChange={(v) =>
@@ -165,7 +166,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               declares alternates (`sch_painter.cpp:1672-1679`). One painter for
               both editors — the Symbol Editor imports the same function. */}
           <Check
-            label="Show pin alternate mode indicator icons"
+            label={_('Show pin alternate mode indicator icons')}
             checked={eeschema.appearance.show_pin_alt_icons}
             onChange={(v) =>
               upE((s) => {
@@ -174,7 +175,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Show page limits"
+            label={_('Show page limits')}
             checked={eeschema.appearance.show_page_limits}
             onChange={(v) =>
               upE((s) => {
@@ -183,7 +184,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
         </Group>
-        <Group title="Selection & Highlighting">
+        <Group title={_('Selection & Highlighting')}>
           {/* Live: the shadow pass tests it at three places — a pin's name and
               number (`sch_painter.cpp:1131`), a symbol's fields (`:2702`) and a
               sheet's fields and pins (`:3102`). Off, a selected symbol glows on
@@ -191,7 +192,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               unhaloed but perfectly visible, because the flag governs only the
               HALO (`if( !drawingShadows || … )`). */}
           <Check
-            label="Draw selected child items"
+            label={_('Draw selected child items')}
             checked={eeschema.selection.draw_selected_children}
             onChange={(v) =>
               upE((s) => {
@@ -200,7 +201,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Fill selected shapes"
+            label={_('Fill selected shapes')}
             checked={eeschema.selection.fill_shapes}
             onChange={(v) =>
               upE((s) => {
@@ -209,7 +210,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Num
-            label="Selection thickness:"
+            label={_('Selection thickness:')}
             value={eeschema.selection.thickness}
             min={0}
             max={50}
@@ -224,12 +225,14 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               It was already on the page as a `.ze-muted` div, which states a
               #9a9ca0 of its own; a wxStaticText takes the dialog's foreground,
               so this is the label class and the dimmed copy is gone. */}
-          <div className="ze-pref-note">(selection color can be edited in the "Colors" page)</div>
+          <div className="ze-pref-note">
+            {_('(selection color can be edited in the "Colors" page)')}
+          </div>
           {/* `m_collisionMarkerWidthCtrl` (`:196`). Live: the pen, in device
               pixels, that `SCH_DRAG_NET_COLLISION_MONITOR::Update` strokes the
               markers with (`sch_drag_net_collision.cpp:181-190`). */}
           <Num
-            label="Net collision marker width:"
+            label={_('Net collision marker width:')}
             value={eeschema.selection.drag_net_collision_width}
             /* [data] `wxSpinCtrlDouble( …, 1, 50, 4.000000, 1 )`. */
             min={1}
@@ -241,7 +244,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Num
-            label="Highlight thickness:"
+            label={_('Highlight thickness:')}
             value={eeschema.selection.highlight_thickness}
             min={0}
             max={50}
@@ -254,7 +257,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
           {/* Dead, all three: netclass colours are not drawn on a selection
               here, so nothing reads the flag or either of its numbers. */}
           <Check
-            label="Highlight netclass colors"
+            label={_('Highlight netclass colors')}
             checked={eeschema.selection.highlight_netclass_colors}
             onChange={(v) =>
               upE((s) => {
@@ -263,7 +266,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Num
-            label="Color highlight thickness:"
+            label={_('Color highlight thickness:')}
             value={eeschema.selection.highlight_netclass_colors_thickness}
             min={0}
             max={50}
@@ -277,7 +280,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               `SetValue( …alpha * 100 )` and `…alpha = GetValue() / 100.0`
               (`panel_eeschema_display_options.cpp:73`, `:117`). */}
           <Num
-            label="Color highlight opacity:"
+            label={_('Color highlight opacity:')}
             value={Math.round(eeschema.selection.highlight_netclass_colors_alpha * 100)}
             min={0}
             max={100}

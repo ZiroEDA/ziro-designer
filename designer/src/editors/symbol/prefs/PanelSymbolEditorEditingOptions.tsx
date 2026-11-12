@@ -71,6 +71,7 @@
 import type { JSX } from 'react';
 import { Check, Group, Num } from '@ziroeda/common/dialogs/pref_controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `m_widthHelpText`'s string, verbatim, newline and all
@@ -92,12 +93,12 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
   return (
     <div className="ze-pref-columns ze-gutter-30">
       <div>
-        <Group title="Defaults for New Objects">
+        <Group title={_('Defaults for New Objects')}>
           {/* `gbSizer1`, whose vgap is 2 and not the 5 every other group here
               carries, and which has one deliberately empty row. */}
           <div className="ze-sym-gbsizer">
             <Num
-              label="Default line width:"
+              label={_('Default line width:')}
               unit="mils"
               spin={false}
               borders={[]}
@@ -114,7 +115,7 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
               {WIDTH_HELP[1]}
             </div>
             <Num
-              label="Default text size:"
+              label={_('Default text size:')}
               unit="mils"
               spin={false}
               borders={['top']}
@@ -129,7 +130,7 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
                 unfilled — an 8 px gap stated by the sizer, not by a spacer. */}
             <div className="ze-sym-gb-empty" />
             <Num
-              label="Default pin length:"
+              label={_('Default pin length:')}
               unit="mils"
               spin={false}
               borders={[]}
@@ -143,7 +144,7 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
             {/* Number size is row 5 and name size row 6 — that order, which is
                 the reverse of the way the pin dialog lists them. */}
             <Num
-              label="Default pin number size:"
+              label={_('Default pin number size:')}
               unit="mils"
               spin={false}
               borders={[]}
@@ -155,7 +156,7 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
               }
             />
             <Num
-              label="Default pin name size:"
+              label={_('Default pin name size:')}
               unit="mils"
               spin={false}
               borders={[]}
@@ -168,13 +169,13 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
             />
           </div>
         </Group>
-        <Group title="Repeated Items">
+        <Group title={_('Repeated Items')}>
           {/* Live: `SYMBOL_EDITOR_PIN_TOOL::RepeatPin` steps the duplicate by
               this, on the axis perpendicular to the pin
               (`symbol_editor_pin_tool.cpp:427-435`). Insert is the whole of its
               UI upstream — no menu row, no toolbar button. */}
           <Num
-            label="Pitch of repeated pins:"
+            label={_('Pitch of repeated pins:')}
             unit="mils"
             spin={false}
             value={symbolEditor.repeat.pin_step}
@@ -188,7 +189,7 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
               cfg->m_Repeat.label_delta )` is in the same function, and steps
               the pin's NAME and its NUMBER (`:438-445`). */}
           <Num
-            label="Label increment:"
+            label={_('Label increment:')}
             min={LABEL_INCREMENT_RANGE.min}
             max={LABEL_INCREMENT_RANGE.max}
             value={symbolEditor.repeat.label_delta}
@@ -201,13 +202,13 @@ export function PanelSymbolEditorEditingOptions({ ctx }: { ctx: PrefsContext }):
         </Group>
       </div>
       <div>
-        <Group title="General Editing">
+        <Group title={_('General Editing')}>
           {/* Live: `SCH_POINT_EDITOR::dragPinsOnEdge` (`:641-704`), read by the
               same tool the schematic runs — one class registered by both frames
               (`sch_edit_frame.cpp:705`, `symbol_edit_frame.cpp:431`) with this
               branch inside it. */}
           <Check
-            label="Keep pins attached when dragging edges"
+            label={_('Keep pins attached when dragging edges')}
             checked={symbolEditor.drag_pins_along_with_edges}
             borders={['top', 'bottom']}
             onChange={(v) =>

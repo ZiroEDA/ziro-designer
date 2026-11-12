@@ -55,6 +55,7 @@ import { colorThemeOptions } from '@ziroeda/common/dialogs/panel_color_settings.
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `wxRadioButton`'s group name — the two are one `wxRB_GROUP`. */
 const GROUP = 'sym-colors-source';
@@ -98,7 +99,7 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
   return (
     <div className="ze-sym-colors" ref={rowRef}>
       <RadioButton
-        label="Use schematic editor color theme"
+        label={_('Use schematic editor color theme')}
         name={GROUP}
         checked={useEeschema}
         className="ze-pref-radio"
@@ -110,7 +111,7 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
       />
       <div className="ze-sym-colors-row">
         <RadioButton
-          label="Use theme:"
+          label={_('Use theme:')}
           name={GROUP}
           checked={!useEeschema}
           className="ze-pref-radio"
@@ -128,7 +129,7 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
             other branch). */}
         <Combo
           value={symbolEditor.appearance.color_theme}
-          ariaLabel="Use theme:"
+          ariaLabel={_('Use theme:')}
           options={options}
           {...(minWidth === undefined ? {} : { style: { minWidth } })}
           onChange={(v) =>

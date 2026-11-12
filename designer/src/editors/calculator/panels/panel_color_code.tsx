@@ -32,6 +32,7 @@ import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** KiCad's own dark-theme artwork (GPL), vendored under assets/. */
 /**
@@ -74,7 +75,7 @@ export function PanelColorCode(): JSX.Element {
       {/* bSizerOpts holds the radio box with wxBOTTOM|wxRIGHT 30, and goes into
           the row with wxALL 8 (base:19-20). */}
       <div className="cc-opts">
-        <Group title="Tolerance" className="calc-radiobox cc-tolbox">
+        <Group title={_('Tolerance')} className="calc-radiobox cc-tolbox">
           <RadioButton
             label="10% / 5%"
             name="cc-tol"
@@ -94,12 +95,12 @@ export function PanelColorCode(): JSX.Element {
       <div className="cc-chart">
         {/* The first three bitmaps carry wxTOP|wxBOTTOM|wxLEFT — no wxRIGHT —
             and the last three wxALL (base:45-58). */}
-        <Band title="1st Band" art="color_code_value_and_name" edge={false} />
-        <Band title="2nd Band" art="color_code_value" edge={false} />
-        <Band title="3rd Band" art="color_code_value" edge={false} />
-        {tol2 && <Band title="4th Band" art="color_code_value" edge={true} />}
-        <Band title="Multiplier" art="color_code_multiplier" edge={true} />
-        <Band title="Tolerance" art="color_code_tolerance" edge={true} />
+        <Band title={_('1st Band')} art="color_code_value_and_name" edge={false} />
+        <Band title={_('2nd Band')} art="color_code_value" edge={false} />
+        <Band title={_('3rd Band')} art="color_code_value" edge={false} />
+        {tol2 && <Band title={_('4th Band')} art="color_code_value" edge={true} />}
+        <Band title={_('Multiplier')} art="color_code_multiplier" edge={true} />
+        <Band title={_('Tolerance')} art="color_code_tolerance" edge={true} />
       </div>
     </div>
   );

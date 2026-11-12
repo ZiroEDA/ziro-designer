@@ -661,7 +661,11 @@ export function PlEditorFrameWindow({
     originSelector: (
       <Combo
         value={String(originBox.GetSelection())}
-        options={originBox.GetStrings().map((label, i) => ({ value: String(i), label }))}
+        // The corners are messages, stored English (_HKI) and translated as they are shown.
+        options={originBox.GetStrings().map((label, i) => ({
+          value: String(i),
+          label: wxGetTranslation(label),
+        }))}
         onChange={(v) => {
           originBox.SetSelection(Number(v));
           if (attached) frame.OnSelectCoordOriginCorner();
@@ -675,7 +679,10 @@ export function PlEditorFrameWindow({
     pageSelect: (
       <Combo
         value={String(pageBox.GetSelection())}
-        options={pageBox.GetStrings().map((label, i) => ({ value: String(i), label }))}
+        options={pageBox.GetStrings().map((label, i) => ({
+          value: String(i),
+          label: wxGetTranslation(label),
+        }))}
         onChange={(v) => {
           pageBox.SetSelection(Number(v));
           if (attached) frame.OnSelectPage();

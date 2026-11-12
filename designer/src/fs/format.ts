@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -27,7 +28,7 @@ const NBSP = '\u00a0';
  * SI, as glib is. `1024` bytes is `1.0 kB`, not `1.0 KiB`: glib's default has
  * no `G_FORMAT_SIZE_IEC_UNITS` flag and GTK does not pass one.
  */
-const SIZE_UNITS = ['kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
+const SIZE_UNITS = ['kB', _HKI('MB'), 'GB', 'TB', 'PB', 'EB'] as const;
 
 /**
  * A file's size as the Size column shows it.

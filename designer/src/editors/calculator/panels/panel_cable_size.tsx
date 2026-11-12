@@ -45,6 +45,7 @@ import {
 } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
 import { settings } from '../../../prefs/settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The six UNIT_SELECTORs this page carries all come from `fields.tsx` now.
 // They used to be six local copies, and one of them had drifted: `DIA_UNITS`
@@ -110,11 +111,11 @@ function LinkedRow(p: LinkedRowProps): JSX.Element {
 
 export function PanelCableSize(): JSX.Element {
   // panel_cable_size_base.cpp:71, 95, 177, 203
-  const TIP_RESISTIVITY = 'Specific resistance in Ohm*m at 20 deg C';
-  const TIP_TEMPCOEF = 'Thermal coefficient at 20 deg C';
-  const TIP_CABLE_TEMP = 'Off-Load max conductor temp. Reference: 20 deg C';
-  const TIP_LENGTH = 'Length includes the return path';
-  const TIP_RESDC = 'DC Resistance of the conductor';
+  const TIP_RESISTIVITY = _('Specific resistance in Ohm*m at 20 deg C');
+  const TIP_TEMPCOEF = _('Thermal coefficient at 20 deg C');
+  const TIP_CABLE_TEMP = _('Off-Load max conductor temp. Reference: 20 deg C');
+  const TIP_LENGTH = _('Length includes the return path');
+  const TIP_RESDC = _('DC Resistance of the conductor');
 
   // PANEL_CABLE_SIZE::LoadSettings / SaveSettings — eight keys
   // (panel_cable_size.cpp). Everything else on the page (the radius, the AWG
@@ -232,9 +233,9 @@ export function PanelCableSize(): JSX.Element {
             { '--calc-vgap': '4px' /* [data] the box's own flex grid vgap */ } as CSSProperties
           }
         >
-          <legend>Wire properties</legend>
+          <legend>{_('Wire properties')}</legend>
           <div className="calc-field">
-            <span className="calc-field-label">Standard Size:</span>
+            <span className="calc-field-label">{_('Standard Size:')}</span>
             <Combo
               value={String(awgSel)}
               options={[
@@ -245,11 +246,11 @@ export function PanelCableSize(): JSX.Element {
               onChange={(v) => pickAwg(Number(v))}
             />
           </div>
-          {linked('Diameter:', 'dia', s?.diameterM ?? NaN, LEN_UNITS, diaUnit, setDiaUnit, (v) =>
+          {linked(_('Diameter:'), 'dia', s?.diameterM ?? NaN, LEN_UNITS, diaUnit, setDiaUnit, (v) =>
             commitRadius(cableRadiusFromDiameter(v)),
           )}
           {linked(
-            'Area:',
+            _('Area:'),
             'area',
             (s?.areaM2 ?? NaN) * 1e6,
             [{ label: 'mm²', mult: 1 }],
@@ -263,7 +264,7 @@ export function PanelCableSize(): JSX.Element {
               (panel_cable_size.cpp:238-274). */}
           <div className="calc-field">
             <span className="calc-field-label" title={TIP_RESISTIVITY}>
-              Conductor resistivity:
+              {_('Conductor resistivity:')}
             </span>
             <span className="calc-cell">
               <TextCtrl
@@ -274,17 +275,17 @@ export function PanelCableSize(): JSX.Element {
               <button
                 type="button"
                 className="calc-btn exactfit"
-                aria-label="Electrical Resistivity in Ohm*m at 20 deg C"
+                aria-label={_('Electrical Resistivity in Ohm*m at 20 deg C')}
                 onClick={() => setPicking('rho')}
               >
-                ...
+                {_('...')}
               </button>
             </span>
             <span className="calc-unit">Ω·m</span>
           </div>
           <div className="calc-field">
             <span className="calc-field-label" title={TIP_TEMPCOEF}>
-              Temperature Coefficient:
+              {_('Temperature Coefficient:')}
             </span>
             <span className="calc-cell">
               <TextCtrl
@@ -295,16 +296,16 @@ export function PanelCableSize(): JSX.Element {
               <button
                 type="button"
                 className="calc-btn exactfit"
-                aria-label="Temperature coefficient"
+                aria-label={_('Temperature coefficient')}
                 onClick={() => setPicking('alpha')}
               >
-                ...
+                {_('...')}
               </button>
             </span>
             {/* KiCad puts NO unit label after this field. */}
           </div>
           {linked(
-            'Linear resistance:',
+            _('Linear resistance:'),
             'linr',
             s?.linearResistance ?? NaN,
             LIN_RES_UNITS,
@@ -313,7 +314,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromLinResistance(v, rhoHot)),
           )}
           {linked(
-            'Frequency for 100% skin depth:',
+            _('Frequency for 100% skin depth:'),
             'freq',
             s?.maxFrequencyHz ?? NaN,
             FREQ_UNITS,
@@ -322,7 +323,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromFrequency(v, rhoHot)),
           )}
           {linked(
-            'Ampacity:',
+            _('Ampacity:'),
             'amp',
             s?.ampacityA ?? NaN,
             [{ label: 'A', mult: 1 }],
@@ -345,7 +346,7 @@ export function PanelCableSize(): JSX.Element {
                 max={12}
                 step={1}
                 value={density}
-                aria-label="Current density"
+                aria-label={_('Current density')}
                 onChange={(e) => setDensity(Number(e.target.value))}
               />
               <span className="cs-slider-min">3</span>
@@ -359,26 +360,26 @@ export function PanelCableSize(): JSX.Element {
           className="calc-group calc-grid3 cs-box"
           style={{ '--calc-vgap': '4px' } as CSSProperties}
         >
-          <legend>Application</legend>
+          <legend>{_('Application')}</legend>
           <div className="calc-field">
             <span className="calc-field-label" title={TIP_CABLE_TEMP}>
-              Cable temperature:
+              {_('Cable temperature:')}
             </span>
             <TextCtrl value={temp} onChange={(aValue) => setTemp(aValue)} className="calc-input" />
             <span className="calc-unit">°C</span>
           </div>
           <div className="calc-field">
-            <span className="calc-field-label">Current:</span>
+            <span className="calc-field-label">{_('Current:')}</span>
             <TextCtrl
               value={current}
               onChange={(aValue) => setCurrent(aValue)}
               className="calc-input"
             />
-            <span className="calc-unit">A</span>
+            <span className="calc-unit">{_('A')}</span>
           </div>
           <div className="calc-field">
             <span className="calc-field-label" title={TIP_LENGTH}>
-              Length:
+              {_('Length:')}
             </span>
             <TextCtrl
               value={lengthText}
@@ -393,7 +394,7 @@ export function PanelCableSize(): JSX.Element {
             />
           </div>
           {linked(
-            'Resistance DC:',
+            _('Resistance DC:'),
             'rdc',
             s?.resistanceDcOhm ?? NaN,
             [{ label: 'Ω', mult: 1 }],
@@ -402,7 +403,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromResistanceDc(v, rhoHot, params.lengthM)),
           )}
           {linked(
-            'Voltage drop:',
+            _('Voltage drop:'),
             'vdrop',
             s?.voltageDropV ?? NaN,
             VOLTAGE_UNITS,
@@ -411,7 +412,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromVDrop(v, rhoHot, params.lengthM, params.currentA)),
           )}
           {linked(
-            'Dissipated power:',
+            _('Dissipated power:'),
             'power',
             s?.dissipatedPowerW ?? NaN,
             POWER_UNITS,
@@ -432,8 +433,8 @@ export function PanelCableSize(): JSX.Element {
         <SingleChoiceDialog
           caption={
             picking === 'rho'
-              ? 'Electrical Resistivity in Ohm*m at 20 deg C'
-              : 'Temperature coefficient'
+              ? _('Electrical Resistivity in Ohm*m at 20 deg C')
+              : _('Temperature coefficient')
           }
           choices={(picking === 'rho'
             ? STANDARD_CABLE_CONDUCTOR_LIST

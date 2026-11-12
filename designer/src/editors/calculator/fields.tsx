@@ -13,6 +13,7 @@ import { Combo } from '@ziroeda/wx/combobox.js';
 import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { type UnitOpt, unitIndex } from './unit_selector.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
 export const parseNum = (s: string): number => {
@@ -105,7 +106,7 @@ export function Field({
             spellCheck={false}
           />
           <button type="button" className="calc-btn calc-pick" onClick={pick}>
-            ...
+            {_('...')}
           </button>
         </span>
       ) : (

@@ -35,6 +35,8 @@ import { type PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG
@@ -62,9 +64,9 @@ import { DialogShim } from '@ziroeda/common/dialog_shim.js';
  * [data] the labels are `ShowPreferences`' own `_( "..." )` strings.
  */
 const EXPANDED_SECTIONS: Readonly<Record<string, string | undefined>> = {
-  symbol: 'Symbol Editor',
+  symbol: _HKI('Symbol Editor'),
   schematic: 'Schematic Editor',
-  pcb: 'PCB Editor',
+  pcb: _HKI('PCB Editor'),
   // `if( GetFrameType() == FRAME_GERBER ) expand.push_back( … )`
   // (`common/eda_base_frame.cpp:1710-1712`).
   gerbview: 'Gerber Viewer',
@@ -460,14 +462,20 @@ export function PreferencesDialog({
   // Which FIELDS the reset touches is the panel's business, not the shell's:
   // this only knows whether the page has one. See prefs/reset.ts.
   const resettable = panel?.reset !== undefined;
-  const resetLabel = resettable ? `Reset ${labelOf(page) ?? ''} to Defaults` : 'Reset to Defaults';
+  const resetLabel = resettable
+    ? `Reset ${labelOf(page) ?? ''} to Defaults`
+    : _('Reset to Defaults');
   const resetPage = (): void => {
     panel?.reset?.(ctx);
   };
 
   return (
     <>
-      <DialogShim title="Preferences" onClose={onClose} className="ze-paged-dialog ze-prefs-dialog">
+      <DialogShim
+        title={_('Preferences')}
+        onClose={onClose}
+        className="ze-paged-dialog ze-prefs-dialog"
+      >
         {/* ONE size, for every page. `.ze-modal` is `width: max-content` and
                 would track the current page, growing and shrinking as the user walks
                 the tree; `.ze-prefs-dialog` states the size instead and
@@ -508,7 +516,7 @@ export function PreferencesDialog({
           has. It is removed, as every other browser-impossible control is.
           */}
           <span style={{ flex: 1 }} />
-          <Button label="Cancel" onClick={onClose} />
+          <Button label={_('Cancel')} onClick={onClose} />
           <Button label="OK" isDefault onClick={() => ok()} />
         </div>
       </DialogShim>

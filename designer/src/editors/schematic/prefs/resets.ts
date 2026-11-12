@@ -26,6 +26,7 @@ import {
 } from '@ziroeda/common/template_fieldnames.js';
 import type { PrefsContext, PrefsTransferPrompt } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `PANEL_EESCHEMA_DISPLAY_OPTIONS::ResetPanel`
@@ -261,6 +262,6 @@ export function transferTemplateFieldnamesPage(
       'This may result in what appears to be duplicate field names but are actually unique ' +
       'names differing only by white space characters.  Removing the white space characters ' +
       'will have no effect on existing symbol field names.',
-    labels: { ok: 'Remove White Space', cancel: 'Keep White Space' },
+    labels: { ok: _('Remove White Space'), cancel: _('Keep White Space') },
   };
 }

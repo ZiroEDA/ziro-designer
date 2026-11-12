@@ -18,6 +18,7 @@ import {
   type PcbCalculatorAttenuator,
 } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The radio selection is `attenuators.type` and it indexes this list, which is
@@ -59,12 +60,14 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
       <V>a</V> is attenuation in dB
       <br />
       <V>
-        Z<sub>in</sub>
+        {_('Z')}
+        <sub>{_('in')}</sub>
       </V>{' '}
       is desired input impedance in Ω
       <br />
       <V>
-        Z<sub>out</sub>
+        {_('Z')}
+        <sub>out</sub>
       </V>{' '}
       is desired output impedance in Ω
     </>
@@ -72,7 +75,7 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
   const kl = (
     <>
       <V>
-        K = V<sub>I</sub>/V<sub>O</sub> = 10<sup>a/20</sup>
+        K = V<sub>{_('I')}</sub>/V<sub>O</sub> = 10<sup>a/20</sup>
       </V>
       <br />
       <V>
@@ -93,11 +96,11 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         </p>
         <p>
           <V>
-            R2 = (L−1) / 2·√(Z<sub>in</sub> · Z<sub>out</sub> / L)
+            R2 = (L−1) / 2·√(Z<sub>{_('in')}</sub> · Z<sub>out</sub> / L)
           </V>
           <br />
           <V>
-            R1 = 1 / (A/Z<sub>in</sub> − 1/R2)
+            R1 = 1 / (A/Z<sub>{_('in')}</sub> − 1/R2)
           </V>
           <br />
           <V>
@@ -118,11 +121,11 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         </p>
         <p>
           <V>
-            R2 = 2·√(L · Z<sub>in</sub> · Z<sub>out</sub>) / (L−1)
+            R2 = 2·√(L · Z<sub>{_('in')}</sub> · Z<sub>out</sub>) / (L−1)
           </V>
           <br />
           <V>
-            R1 = Z<sub>in</sub> · A − R2
+            R1 = Z<sub>{_('in')}</sub> · A − R2
           </V>
           <br />
           <V>
@@ -140,17 +143,20 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
           <V>a</V> is attenuation in dB
           <br />
           <V>
-            Z<sub>in</sub>
+            {_('Z')}
+            <sub>{_('in')}</sub>
           </V>{' '}
           is desired input impedance in Ω
           <br />
           <V>
-            Z<sub>out</sub>
+            {_('Z')}
+            <sub>out</sub>
           </V>{' '}
           is desired output impedance in Ω
           <br />
           <V>
-            Z<sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
+            {_('Z')}
+            <sub>0</sub> = Z<sub>{_('in')}</sub> = Z<sub>out</sub>
           </V>
         </p>
         <p>
@@ -177,17 +183,20 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
         Attenuation is 6 dB
         <br />
         <V>
-          Z<sub>in</sub>
+          {_('Z')}
+          <sub>{_('in')}</sub>
         </V>{' '}
         is desired input impedance in Ω
         <br />
         <V>
-          Z<sub>out</sub>
+          {_('Z')}
+          <sub>out</sub>
         </V>{' '}
         is desired output impedance in Ω
         <br />
         <V>
-          Z<sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
+          {_('Z')}
+          <sub>0</sub> = Z<sub>{_('in')}</sub> = Z<sub>out</sub>
         </V>
       </p>
       <p>
@@ -275,7 +284,7 @@ export function PanelRfAttenuators(): JSX.Element {
         <div className="calc-col" style={{ maxWidth: 300 }}>
           {/* A wxRadioBox — the title is the box's, not a static text
               (panel_rf_attenuators_base.cpp:26). */}
-          <Group title="Attenuators" className="calc-radiobox">
+          <Group title={_('Attenuators')} className="calc-radiobox">
             {ATTENUATORS.map((a) => (
               <label key={a.type} className="calc-radio">
                 <input
@@ -304,7 +313,7 @@ export function PanelRfAttenuators(): JSX.Element {
             labels sit INSIDE the boxes at 757..772; ours were 300 px wide with
             the units spilling out at 866..878, into the Formula pane. */}
         <div className="calc-col rf-mid">
-          <Group title="Parameters" className="calc-grid3 rf-box">
+          <Group title={_('Parameters')} className="calc-grid3 rf-box">
             {/* `msg.Printf( "%g", m_Attenuation ); SetValue( msg ); Enable(
                 m_Attenuation_Enable )` — the splitter's field is DISABLED but
                 still shows that attenuator's own number, which is 6 only until
@@ -312,21 +321,21 @@ export function PanelRfAttenuators(): JSX.Element {
                 literal "6" there. Zin, by contrast, really is cleared when it
                 is disabled: `msg.Clear()`. */}
             <Field
-              label="Attenuation (a):"
+              label={_('Attenuation (a):')}
               value={atten}
               onChange={info.hasAttenuation ? setAtten : undefined}
               readOnly={!info.hasAttenuation}
               disabled={!info.hasAttenuation}
-              unit="dB"
+              unit={_('dB')}
             />
             <Field
-              label="Zin:"
+              label={_('Zin:')}
               value={info.hasZout ? zin : ''}
               onChange={info.hasZout ? setZin : undefined}
               readOnly={!info.hasZout}
               unit="Ω"
             />
-            <Field label="Zout:" value={zout} onChange={setZout} unit="Ω" />
+            <Field label={_('Zout:')} value={zout} onChange={setZout} unit="Ω" />
           </Group>
           <div className="rf-buttons">
             <button
@@ -335,14 +344,14 @@ export function PanelRfAttenuators(): JSX.Element {
               style={{ minWidth: 120 }}
               onClick={calculate}
             >
-              Calculate
+              {_('Calculate')}
             </button>
             {/* m_bpButtonCalcAtt, a STD_BITMAP_BUTTON carrying BITMAPS::small_down,
                 wired to the same handler (panel_rf_attenuators.cpp:41). */}
             <button
               type="button"
               className="calc-btn calc-bmp"
-              aria-label="Calculate"
+              aria-label={_('Calculate')}
               onClick={calculate}
             >
               <img src={svgUrl('calculator', 'small_down')} alt="" width={16} height={16} />
@@ -354,7 +363,7 @@ export function PanelRfAttenuators(): JSX.Element {
               entry empty (panel_rf_attenuators.cpp:139-145). Ours rendered
               `resistorLabels.map`, so the box lost a row - and its height - the
               moment you picked that topology. */}
-          <Group title="Values" className="calc-grid3 rf-box">
+          <Group title={_('Values')} className="calc-grid3 rf-box">
             {['R1', 'R2', 'R3'].map((label, i) => {
               const used = i < info.resistorLabels.length;
               return (
@@ -377,7 +386,7 @@ export function PanelRfAttenuators(): JSX.Element {
           </Group>
           {/* m_staticTextAttMsg is a plain label ABOVE the message area, not a
               static box (panel_rf_attenuators_base.cpp:164). */}
-          <div className="rf-messages-label">Messages</div>
+          <div className="rf-messages-label">{_('Messages')}</div>
           {/* m_Attenuator_Messages is an HTML_WINDOW (base:171) — the same
               widget as every help pane — so it paints wxSYS_COLOUR_WINDOW,
               rgb(39,39,39), not the frame's rgb(44,44,44). It said
@@ -395,7 +404,7 @@ export function PanelRfAttenuators(): JSX.Element {
           </div>
         </div>
         <fieldset className="calc-group rf-formula-box">
-          <legend>Formula</legend>
+          <legend>{_('Formula')}</legend>
           {/* m_panelAttFormula is an HTML_WINDOW too (base:186), added
               wxALL|wxEXPAND 5 so the box's own border shows the frame colour
               around a darker window. Ours painted no fill at all. */}

@@ -87,7 +87,7 @@ import {
   storeGerbviewSettings,
 } from './gerbview_settings_bridge.js';
 import { gerbviewMenus, type GerbviewToggleId } from './menubar.js';
-import { GBR_CONTROL } from './toolbars_gerber.js';
+import { GBR_CONTROL, NO_SELECTION_STRING } from './toolbars_gerber.js';
 import { GERBVIEW_ACTIONS } from './tools/gerbview_actions.js';
 import { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
 import { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
@@ -535,7 +535,12 @@ export function GerbviewFrameWindow({
         {...aProps}
         disabled={!aBox.IsEnabled()}
         value={String(aBox.GetSelection())}
-        options={aBox.GetStrings().map((label, i) => ({ value: String(i), label }))}
+        // Every row is data - a D-code, a net, a reference - but the one message every box
+        // starts with, `_( "<No selection>" )`, stored English.
+        options={aBox.GetStrings().map((label, i) => ({
+          value: String(i),
+          label: label === NO_SELECTION_STRING ? _(label) : label,
+        }))}
         onChange={(v) => {
           aBox.SetSelection(Number(v));
           aOnPick(Number(v));

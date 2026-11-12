@@ -118,8 +118,13 @@ describe('pages are constructed lazily', () => {
     // registry.ts is the module `qa` imports; if it grew an edge to a panel it
     // would stop compiling here, but it would also stop the book being data.
     const src = read(BOOK);
-    // frame_type.js is common/'s PrefsPageId enum (98be3806), a type, not a panel.
-    expect(staticImports(src)).toEqual(['./types.js', '@ziroeda/common/frame_type.js']);
+    // frame_type.js is common/'s PrefsPageId enum (98be3806), a type, not a panel; i18n_utility
+    // is KiCad's one-line _HKI marker, which the page titles are stored behind.
+    expect(staticImports(src)).toEqual([
+      './types.js',
+      '@ziroeda/common/frame_type.js',
+      '@ziroeda/include/i18n_utility.js',
+    ]);
     expect(dynamicImports(src)).toEqual([]);
   });
 

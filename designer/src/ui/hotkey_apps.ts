@@ -44,6 +44,7 @@
  * exists.
  */
 import { HOTKEYS as EESCHEMA_HOTKEYS } from '../editors/schematic/hotkeys.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * HOTKEY_STORE::Init walks a `std::map<std::string, HOTKEY>` keyed by the
@@ -77,11 +78,11 @@ export type AppKey = (typeof APP_ORDER)[number];
 /** HOTKEY_STORE::GetSectionName's s_AppNames, verbatim. */
 export const SECTION_NAMES: Record<AppKey, string> = {
   '3DViewer': '3D Viewer',
-  common: 'Common',
+  common: _HKI('Common'),
   eeschema: 'Schematic Editor',
   gerbview: 'Gerber Viewer',
-  kicad: 'Project Manager',
-  pcbnew: 'PCB Editor',
+  kicad: _HKI('Project Manager'),
+  pcbnew: _HKI('PCB Editor'),
   plEditor: 'Drawing Sheet Editor',
 };
 

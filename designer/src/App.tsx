@@ -89,6 +89,7 @@ import { warmLibraryIndexes } from './libraryHosts.js';
 import '@ziroeda/common/widgets/shell.css';
 import { isBinaryBytes } from './home/files.js';
 import { isToolingPath } from './home/project_picker.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The editor frames load on demand, one chunk each.
@@ -415,7 +416,7 @@ const projectNameOf = (files: PickedFile[]): string => {
     pro?.name ??
     files.find((f) => /\.kicad_sch$/i.test(f.name))?.name ??
     files[0]?.name ??
-    'Project';
+    _('Project');
   return pcbBasename(src).replace(/\.(kicad_pro|kicad_sch|kicad_pcb)$/i, '');
 };
 
@@ -1609,9 +1610,9 @@ export function App(): JSX.Element {
 
   // The views without an editor frame of their own name the tab from here;
   // each editor claims it through the same hook while it is the one on screen.
-  useDocumentTitle('home', formatTitle('Project Manager', projectName));
+  useDocumentTitle('home', formatTitle(_('Project Manager'), projectName));
   useDocumentTitle('calculator', formatTitle('PCB Calculator'));
-  useDocumentTitle('image', formatTitle('Image Converter'));
+  useDocumentTitle('image', formatTitle(_('Image Converter')));
 
   // A different project folder drops any drawing sheets saved into the previous
   // one, and resets the active project to its default (first .kicad_pro).
@@ -2154,7 +2155,7 @@ export function App(): JSX.Element {
       {pcbMounted && (
         <div style={frameStyle(view === 'pcb')}>
           <Frozen shown={view === 'pcb'}>
-            <Suspense fallback={frameLoading('PCB Editor')}>
+            <Suspense fallback={frameLoading(_('PCB Editor'))}>
               <PcbEditorMount
                 fileName={pcbBasename(boardFile.name)}
                 text={boardFile.text}
@@ -2191,7 +2192,7 @@ export function App(): JSX.Element {
       {symMounted && (
         <div style={frameStyle(view === 'symbols')}>
           <Frozen shown={view === 'symbols'}>
-            <Suspense fallback={frameLoading('Symbol Editor')}>
+            <Suspense fallback={frameLoading(_('Symbol Editor'))}>
               <SymbolEditor
                 onExitToHome={goHome}
                 projectName={projectName}
@@ -2216,7 +2217,7 @@ export function App(): JSX.Element {
       {fpMounted && (
         <div style={frameStyle(view === 'footprints')}>
           <Frozen shown={view === 'footprints'}>
-            <Suspense fallback={frameLoading('Footprint Editor')}>
+            <Suspense fallback={frameLoading(_('Footprint Editor'))}>
               <FootprintEditor
                 onExitToHome={goHome}
                 initialProject={projectFiles}
@@ -2263,7 +2264,7 @@ export function App(): JSX.Element {
       {calcMounted && (
         <div style={frameStyle(view === 'calculator')}>
           <Frozen shown={view === 'calculator'}>
-            <Suspense fallback={frameLoading('Calculator Tools')}>
+            <Suspense fallback={frameLoading(_('Calculator Tools'))}>
               <CalculatorTools onExitToHome={goHome} />
             </Suspense>
           </Frozen>
@@ -2291,7 +2292,7 @@ export function App(): JSX.Element {
                   (!demoProject ? null : projectFiles ? (
                     demoNotice
                   ) : (
-                    <ReadOnlyNotice message="Layout file is read only." />
+                    <ReadOnlyNotice message={_('Layout file is read only.')} />
                   ))
                 }
                 // Always passed: a Save As into `/Templates` needs no open project,
@@ -2306,7 +2307,7 @@ export function App(): JSX.Element {
       {imgMounted && (
         <div style={frameStyle(view === 'image')}>
           <Frozen shown={view === 'image'}>
-            <Suspense fallback={frameLoading('Image Converter')}>
+            <Suspense fallback={frameLoading(_('Image Converter'))}>
               <ImageConverter onExitToHome={goHome} kiway={kiway} />
             </Suspense>
           </Frozen>
@@ -2315,7 +2316,7 @@ export function App(): JSX.Element {
       {fpvMounted && (
         <div style={frameStyle(view === 'fpviewer')}>
           <Frozen shown={view === 'fpviewer'}>
-            <Suspense fallback={frameLoading('Footprint Viewer')}>
+            <Suspense fallback={frameLoading(_('Footprint Viewer'))}>
               <FootprintViewer
                 kiway={kiway}
                 onExitToHome={goHome}
@@ -2333,7 +2334,7 @@ export function App(): JSX.Element {
       {symvMounted && (
         <div style={frameStyle(view === 'symviewer')}>
           <Frozen shown={view === 'symviewer'}>
-            <Suspense fallback={frameLoading('Symbol Library Browser')}>
+            <Suspense fallback={frameLoading(_('Symbol Library Browser'))}>
               <SymbolViewer
                 kiway={kiway}
                 active={view === 'symviewer'}

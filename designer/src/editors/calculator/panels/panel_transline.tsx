@@ -85,6 +85,8 @@ import {
   type PcbCalculatorTransLine,
 } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
 /**
@@ -110,12 +112,12 @@ const UNIT_LISTS: Record<string, UnitOpt[]> = {
  *  (transline_dlg_funct.cpp:45,63,81). */
 const PICKERS: Record<string, { caption: string; list: readonly MaterialPreset[]; key: string }> = {
   epsilonR: {
-    caption: 'Relative Dielectric Constants',
+    caption: _HKI('Relative Dielectric Constants'),
     list: RELATIVE_DIELECTRIC_CONSTANTS,
     key: 'Er',
   },
-  tanD: { caption: 'Dielectric Loss Factor', list: LOSS_TANGENTS, key: 'TanD' },
-  rho: { caption: 'Specific Resistance', list: CONDUCTOR_RESISTIVITIES, key: 'Rho' },
+  tanD: { caption: _HKI('Dielectric Loss Factor'), list: LOSS_TANGENTS, key: 'TanD' },
+  rho: { caption: _HKI('Specific Resistance'), list: CONDUCTOR_RESISTIVITIES, key: 'Rho' },
 };
 
 /** Every parameter of a type, in the order the slots are filled. */
@@ -723,7 +725,7 @@ export function PanelTransline(): JSX.Element {
               className="calc-btn calc-pick"
               onClick={() => setPicking(p.pick ?? null)}
             >
-              ...
+              {wxGetTranslation('...')}
             </button>
           </span>
         ) : (
@@ -759,7 +761,10 @@ export function PanelTransline(): JSX.Element {
         <div className="tl-left">
           {/* A wxRadioBox, ONE column, SetSelection( 0 )
               (panel_transline_base.cpp:33-35). */}
-          <Group title="Transmission Line Type" className="calc-radiobox tl-types">
+          <Group
+            title={wxGetTranslation('Transmission Line Type')}
+            className="calc-radiobox tl-types"
+          >
             {LINE_TYPE_ORDER.map((t) => (
               <RadioButton
                 key={t}
@@ -779,7 +784,7 @@ export function PanelTransline(): JSX.Element {
 
         <div className="tl-middle">
           <Group
-            title="Substrate Parameters"
+            title={wxGetTranslation('Substrate Parameters')}
             className="calc-grid3 tl-box"
             style={{ '--calc-vgap': '3px' /* fgSizerSubstPrms( 9, 3, 3, 0 ) */ } as CSSProperties}
           >
@@ -789,7 +794,7 @@ export function PanelTransline(): JSX.Element {
           {/* Its own static box, holding Frequency and nothing else
               (base:196-221). Ours had folded Frequency into Substrate. */}
           <Group
-            title="Component Parameters"
+            title={wxGetTranslation('Component Parameters')}
             className="calc-grid3 tl-box"
             style={{ '--calc-vgap': '0px' /* fgSizeCmpPrms( 1, 3, 0, 0 ) */ } as CSSProperties}
           >
@@ -797,7 +802,7 @@ export function PanelTransline(): JSX.Element {
                 `wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT` (base:207). */}
             <label className="calc-field" title={FREQUENCY_PRM.tip}>
               <span className="calc-field-label" style={{ textAlign: 'right' }}>
-                Frequency:
+                {wxGetTranslation('Frequency:')}
               </span>
               <TextCtrl
                 value={text('Frequency')}
@@ -822,7 +827,7 @@ export function PanelTransline(): JSX.Element {
 
         <div className="tl-right">
           <Group
-            title="Physical Parameters"
+            title={wxGetTranslation('Physical Parameters')}
             className="tl-phys tl-box"
             style={{ '--calc-vgap': '3px' /* fgSizerPhysPrms( 4, 4, 3, 0 ) */ } as CSSProperties}
           >
@@ -851,24 +856,24 @@ export function PanelTransline(): JSX.Element {
               beside it carrying small_down / small_up. */}
           <div className="tl-buttons">
             <button type="button" className="calc-btn" onClick={() => analyze()}>
-              Analyze
+              {wxGetTranslation('Analyze')}
             </button>
             <button
               type="button"
               className="calc-btn calc-bmp"
-              aria-label="Analyze"
+              aria-label={wxGetTranslation('Analyze')}
               onClick={() => analyze()}
             >
               <img src={svgUrl('calculator', 'small_down')} alt="" width={16} height={16} />
             </button>
             <span className="tl-buttons-gap" />
             <button type="button" className="calc-btn" onClick={synthesize}>
-              Synthesize
+              {wxGetTranslation('Synthesize')}
             </button>
             <button
               type="button"
               className="calc-btn calc-bmp"
-              aria-label="Synthesize"
+              aria-label={wxGetTranslation('Synthesize')}
               onClick={synthesize}
             >
               <img src={svgUrl('calculator', 'small_up')} alt="" width={16} height={16} />
@@ -876,7 +881,7 @@ export function PanelTransline(): JSX.Element {
           </div>
 
           <Group
-            title="Electrical Parameters"
+            title={wxGetTranslation('Electrical Parameters')}
             className="calc-grid3 tl-box"
             style={{ '--calc-vgap': '3px' /* fgSizerResults( 3, 3, 3, 0 ) */ } as CSSProperties}
           >
@@ -886,7 +891,7 @@ export function PanelTransline(): JSX.Element {
           {/* sbMessagesSizer is titled "Results" and holds TEN two-column rows
               of plain wxStaticText — no borders, no entries (base:399-472). */}
           <Group
-            title="Results"
+            title={wxGetTranslation('Results')}
             className="tl-results tl-box"
             style={
               { '--calc-vgap': '4px' /* fgSizerTranslResults( 10, 2, 4, 0 ) */ } as CSSProperties
@@ -907,7 +912,7 @@ export function PanelTransline(): JSX.Element {
           {/* A stretch spacer, then wxALIGN_RIGHT|wxALL 10 (base:478-481). */}
           <div className="calc-reset-row">
             <button type="button" className="calc-btn" onClick={resetDefaults}>
-              Reset to Defaults
+              {wxGetTranslation('Reset to Defaults')}
             </button>
           </div>
         </div>

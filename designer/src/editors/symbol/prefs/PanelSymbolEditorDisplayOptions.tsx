@@ -51,6 +51,7 @@ import type { JSX } from 'react';
 import { Check, Group } from '@ziroeda/common/dialogs/pref_controls.js';
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { symbolEditor, upSym } = ctx;
@@ -73,10 +74,10 @@ export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }):
         />
       </div>
       <div>
-        <Group title="Appearance">
+        <Group title={_('Appearance')}>
           {/* `wxEXPAND|wxALL, 5` — the only row in this group with a top border. */}
           <Check
-            label="Show hidden pins"
+            label={_('Show hidden pins')}
             checked={symbolEditor.show_hidden_lib_pins}
             borders={['top', 'bottom']}
             onChange={(v) =>
@@ -86,7 +87,7 @@ export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }):
             }
           />
           <Check
-            label="Show hidden fields"
+            label={_('Show hidden fields')}
             checked={symbolEditor.show_hidden_lib_fields}
             onChange={(v) =>
               upSym((s) => {
@@ -95,7 +96,7 @@ export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }):
             }
           />
           <Check
-            label="Show pin electrical type"
+            label={_('Show pin electrical type')}
             checked={symbolEditor.show_pin_electrical_type}
             onChange={(v) =>
               upSym((s) => {
@@ -109,7 +110,7 @@ export function PanelSymbolEditorDisplayOptions({ ctx }: { ctx: PrefsContext }):
               toolbar toggle, because upstream has that button commented out
               (`toolbars_symbol_editor.cpp:85`). */}
           <Check
-            label="Show pin alternate mode indicator icons"
+            label={_('Show pin alternate mode indicator icons')}
             checked={symbolEditor.show_pin_alt_icons}
             onChange={(v) =>
               upSym((s) => {

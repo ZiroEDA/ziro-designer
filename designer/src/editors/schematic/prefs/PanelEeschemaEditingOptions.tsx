@@ -13,6 +13,7 @@
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '@ziroeda/common/dialogs/pref_controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The space between `m_staticTextArcEdit` and `m_choiceArcMode`.
@@ -30,14 +31,14 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
   return (
     <div className="ze-pref-columns">
       <div>
-        <Group title="Editing">
+        <Group title={_('Editing')}>
           <Sel
-            label="Line drawing mode:"
+            label={_('Line drawing mode:')}
             value={eeschema.drawing.line_mode}
             options={[
-              [0, 'Free Angle'],
-              [1, '90 deg Angle'],
-              [2, '45 deg Angle'],
+              [0, _('Free Angle')],
+              [1, _('90 deg Angle')],
+              [2, _('45 deg Angle')],
             ]}
             onChange={(v) =>
               upE((s) => {
@@ -58,14 +59,14 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
               control is spaced by its own numbers — a `(0, 3)` spacer, and no
               wxBOTTOM on the label at all. */}
           <Sel
-            label="Arc editing mode:"
+            label={_('Arc editing mode:')}
             ariaLabel="Arc editing mode"
             stacked={ARC_MODE_STACK}
             value={eeschema.drawing.arc_edit_mode}
             options={[
-              [0, 'Keep center, adjust radius'],
-              [1, 'Keep endpoints or direction of starting point'],
-              [2, 'Keep center and radius, adjust endpoints'],
+              [0, _('Keep center, adjust radius')],
+              [1, _('Keep endpoints or direction of starting point')],
+              [2, _('Keep center and radius, adjust endpoints')],
             ]}
             onChange={(v) =>
               upE((s) => {
@@ -74,9 +75,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Mouse drag performs Drag (G) operation"
+            label={_('Mouse drag performs Drag (G) operation')}
             checked={!eeschema.input.drag_is_move}
-            title="If unchecked, mouse drag will perform move (M) operation"
+            title={_('If unchecked, mouse drag will perform move (M) operation')}
             onChange={(v) =>
               upE((s) => {
                 s.input.drag_is_move = !v;
@@ -84,9 +85,11 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Automatically start wires on unconnected pins"
+            label={_('Automatically start wires on unconnected pins')}
             checked={eeschema.drawing.auto_start_wires}
-            title="When enabled, you can start wiring by clicking on unconnected pins even when the wire tool is not active"
+            title={_(
+              'When enabled, you can start wiring by clicking on unconnected pins even when the wire tool is not active',
+            )}
             onChange={(v) =>
               upE((s) => {
                 s.drawing.auto_start_wires = v;
@@ -94,9 +97,11 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="<ESC> clears net highlighting"
+            label={_('<ESC> clears net highlighting')}
             checked={eeschema.input.esc_clears_net_highlight}
-            title="First <ESC> in selection tool clears selection, next clears net highlighting"
+            title={_(
+              'First <ESC> in selection tool clears selection, next clears net highlighting',
+            )}
             onChange={(v) =>
               upE((s) => {
                 s.input.esc_clears_net_highlight = v;
@@ -104,7 +109,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Automatically annotate symbols"
+            label={_('Automatically annotate symbols')}
             checked={eeschema.annotation.automatic}
             onChange={(v) =>
               upE((s) => {
@@ -113,13 +118,15 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Allow unconstrained pin swaps"
+            label={_('Allow unconstrained pin swaps')}
             checked={eeschema.input.allow_unconstrained_pin_swaps}
             /* `allowPinSwaps` gates the context-menu entry
                (`sch_selection_tool.cpp:385`) AND `SwapPins` itself
                (`sch_edit_tool.cpp:1769`), so turning it off removes the entry
                rather than greying it, and nothing else can reach the tool. */
-            title="Allows swapping symbol pins' positions. May cause invalid design changes; use with caution."
+            title={_(
+              "Allows swapping symbol pins' positions. May cause invalid design changes; use with caution.",
+            )}
             onChange={(v) =>
               upE((s) => {
                 s.input.allow_unconstrained_pin_swaps = v;
@@ -127,9 +134,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
         </Group>
-        <Group title="Defaults for New Objects">
+        <Group title={_('Defaults for New Objects')}>
           <ColorRow
-            label="Sheet border:"
+            label={_('Sheet border:')}
             value={eeschema.drawing.default_sheet_border_color}
             /* `sheet->SetBorderColor( cfg->m_Drawing.default_sheet_border_color )`
                (`sch_drawing_tools.cpp:3445`), stamped on the sheet as it is
@@ -142,7 +149,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <ColorRow
-            label="Sheet background:"
+            label={_('Sheet background:')}
             value={eeschema.drawing.default_sheet_background_color}
             /* `SetBackgroundColor` on the same line (`:3446`). */
             onChange={(css) =>
@@ -152,7 +159,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Sel
-            label="Power Symbols:"
+            label={_('Power Symbols:')}
             value={eeschema.drawing.new_power_symbols}
             /* `PlaceSymbol` converts the library symbol between the two power
                kinds before building the placement (`:436-471`). Default follows
@@ -169,7 +176,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
         </Group>
-        <Group title="Left Click Mouse Commands">
+        <Group title={_('Left Click Mouse Commands')}>
           {/* `m_hint1`'s string carries a newline —
               "…2 modifier keys:\nShift and Ctrl"
               (`panel_eeschema_editing_options_base.cpp:162`) — and the panel
@@ -185,25 +192,25 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
           <table className="ze-pref-mouse">
             <tbody>
               <tr>
-                <td>Long Click</td>
-                <td>Clarify selection from menu</td>
+                <td>{_('Long Click')}</td>
+                <td>{_('Clarify selection from menu')}</td>
               </tr>
               <tr>
-                <td>Shift</td>
-                <td>Add item(s) to selection</td>
+                <td>{_('Shift')}</td>
+                <td>{_('Add item(s) to selection')}</td>
               </tr>
               <tr>
-                <td>Ctrl+Shift</td>
-                <td>Remove item(s) from selection</td>
+                <td>{_('Ctrl+Shift')}</td>
+                <td>{_('Remove item(s) from selection')}</td>
               </tr>
             </tbody>
           </table>
         </Group>
       </div>
       <div>
-        <Group title="Symbol Field Automatic Placement">
+        <Group title={_('Symbol Field Automatic Placement')}>
           <Check
-            label="Automatically place symbol fields"
+            label={_('Automatically place symbol fields')}
             checked={eeschema.autoplace_fields.enable}
             onChange={(v) =>
               upE((s) => {
@@ -212,7 +219,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Allow field autoplace to change justification"
+            label={_('Allow field autoplace to change justification')}
             checked={eeschema.autoplace_fields.allow_rejustify}
             onChange={(v) =>
               upE((s) => {
@@ -221,7 +228,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Always align autoplaced fields to the 50 mil grid"
+            label={_('Always align autoplaced fields to the 50 mil grid')}
             checked={eeschema.autoplace_fields.align_to_grid}
             onChange={(v) =>
               upE((s) => {
@@ -230,9 +237,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
         </Group>
-        <Group title="Repeated Items">
+        <Group title={_('Repeated Items')}>
           <Num
-            label="Horizontal pitch:"
+            label={_('Horizontal pitch:')}
             value={eeschema.drawing.default_repeat_offset_x}
             unit="mils"
             /* `m_hPitchCtrl` is a `wxTextCtrl` (`:325`) — a UNIT_BINDER's
@@ -246,7 +253,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Num
-            label="Vertical pitch:"
+            label={_('Vertical pitch:')}
             value={eeschema.drawing.default_repeat_offset_y}
             unit="mils"
             /* `m_vPitchCtrl`, likewise a wxTextCtrl (`:336`). */
@@ -258,7 +265,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Num
-            label="Label increment:"
+            label={_('Label increment:')}
             value={eeschema.drawing.repeat_label_increment}
             /* [data] `m_spinLabelRepeatStep->SetRange( -100000, 100000 )`
                (`panel_eeschema_editing_options.cpp:83`), which OVERRIDES the
@@ -273,9 +280,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
         </Group>
-        <Group title="Dialog Preferences">
+        <Group title={_('Dialog Preferences')}>
           <Check
-            label="Show footprint previews in Symbol Chooser"
+            label={_('Show footprint previews in Symbol Chooser')}
             checked={eeschema.appearance.footprint_preview}
             onChange={(v) =>
               upE((s) => {
@@ -284,7 +291,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
             }
           />
           <Check
-            label="Never show Rescue Symbols tool"
+            label={_('Never show Rescue Symbols tool')}
             checked={eeschema.system.never_show_rescue_dialog}
             /* `m_RescueNeverShow` suppresses exactly ONE prompt, the automatic
                one, raised in the legacy branch of the file loader —

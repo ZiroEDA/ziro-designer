@@ -62,6 +62,7 @@ import {
   type BackgroundJob,
 } from '@ziroeda/common/background_jobs_monitor.js';
 import { ensureBundle } from './libraryBundleStore.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** Which hosted library set a preload covers. */
 export type PreloadKind = 'symbols' | 'footprints';
@@ -86,8 +87,8 @@ export const PRELOAD_TIME_LIMIT_MS = 120000;
  * the same constant feeds `create()` and `report()` below.
  */
 export const PRELOAD_JOB_NAME: Record<PreloadKind, string> = {
-  symbols: 'Loading Symbol Libraries',
-  footprints: 'Loading Footprint Libraries',
+  symbols: _HKI('Loading Symbol Libraries'),
+  footprints: _HKI('Loading Footprint Libraries'),
 };
 
 /**

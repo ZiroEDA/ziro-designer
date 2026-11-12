@@ -28,6 +28,8 @@ import { useCalcSaveSettings } from '../calc_settings.js';
 import { CALC_ART_SIZE } from '../art_sizes.js';
 import { settings, type PcbCalculatorViaSize } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** Every result on this page is `wxString::Format( "%g", … )`. */
 const g = (v: number | undefined | false | null): string =>
@@ -82,7 +84,7 @@ const si = (text: string, units: UnitOpt[], idx: number): number =>
 
 /** `m_staticTextRiseTimeUnits` is a static "ns" with a "nanoseconds" tooltip,
  *  not a selector (panel_via_size_base.cpp:189-193). */
-const NS_UNIT: UnitOpt[] = [{ label: 'ns', mult: 1e-9, title: 'nanoseconds' }];
+const NS_UNIT: UnitOpt[] = [{ label: _HKI('ns'), mult: 1e-9, title: _HKI('nanoseconds') }];
 
 export function PanelViaSize(): JSX.Element {
   // PANEL_VIA_SIZE::LoadSettings / SaveSettings, all seventeen of them
@@ -157,14 +159,14 @@ export function PanelViaSize(): JSX.Element {
             — label | entry | unit, the entry column taking the slack, a 4 px
             vertical gap (panel_via_size_base.cpp:25-27). */}
         <Group
-          title="Parameters"
+          title={_('Parameters')}
           className="calc-grid3 vs-params"
           style={
             { '--calc-vgap': '4px' /* [data] wxFlexGridSizer( 0, 3, 4, 0 ) */ } as CSSProperties
           }
         >
           <NumField
-            label="Finished hole diameter (D):"
+            label={_('Finished hole diameter (D):')}
             units={LEN_UNITS}
             base={holeDiaM}
             text={vs.hole_diameter}
@@ -173,7 +175,7 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('hole_diameter_units', i)}
           />
           <NumField
-            label="Plating thickness (T):"
+            label={_('Plating thickness (T):')}
             units={LEN_UNITS}
             base={platingM}
             text={vs.thickness}
@@ -182,8 +184,8 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('thickness_units', i)}
           />
           <NumField
-            label="Via length:"
-            title="Via length is the board thickness for through hole vias"
+            label={_('Via length:')}
+            title={_('Via length is the board thickness for through hole vias')}
             units={LEN_UNITS}
             base={lengthM}
             text={vs.length}
@@ -192,8 +194,8 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('length_units', i)}
           />
           <NumField
-            label="Via pad diameter:"
-            title="Diameter of pad surrounding via (annular ring)"
+            label={_('Via pad diameter:')}
+            title={_('Diameter of pad surrounding via (annular ring)')}
             units={LEN_UNITS}
             base={padDiaM}
             text={vs.pad_diameter}
@@ -202,8 +204,8 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('pad_diameter_units', i)}
           />
           <NumField
-            label="Clearance hole diameter:"
-            title="Diameter of clearance hole in ground plane(s)"
+            label={_('Clearance hole diameter:')}
+            title={_('Diameter of clearance hole in ground plane(s)')}
             units={LEN_UNITS}
             base={clearanceDiaM}
             text={vs.clearance_diameter}
@@ -213,7 +215,7 @@ export function PanelViaSize(): JSX.Element {
           />
           <NumField
             label="Z0:"
-            title="Characteristic impedance of conductor"
+            title={_('Characteristic impedance of conductor')}
             units={RES_UNITS}
             base={z0Ohm}
             text={vs.characteristic_impedance}
@@ -222,30 +224,30 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('characteristic_impedance_units', i)}
           />
           <Field
-            label="Applied current:"
+            label={_('Applied current:')}
             value={vs.applied_current}
             onChange={(t) => set('applied_current', t)}
             unit="A"
           />
           <Field
-            label="Plating resistivity:"
-            title="Specific resistance in ohms * meters"
+            label={_('Plating resistivity:')}
+            title={_('Specific resistance in ohms * meters')}
             value={vs.plating_resistivity}
             onChange={(t) => set('plating_resistivity', t)}
             pick={() => setPicking('rho')}
             unit="Ω·m"
           />
           <Field
-            label="Substrate relative permittivity:"
-            title="Relative dielectric constant (epsilon r)"
+            label={_('Substrate relative permittivity:')}
+            title={_('Relative dielectric constant (epsilon r)')}
             value={vs.permittivity}
             onChange={(t) => set('permittivity', t)}
             pick={() => setPicking('er')}
             unit=""
           />
           <Field
-            label="Temperature rise:"
-            title="Maximum acceptable rise in temperature"
+            label={_('Temperature rise:')}
+            title={_('Maximum acceptable rise in temperature')}
             value={vs.temp_rise}
             onChange={(t) => set('temp_rise', t)}
             unit="°C"
@@ -255,9 +257,9 @@ export function PanelViaSize(): JSX.Element {
               Ours had invented a unit selector here; this page has selectors
               only on the six length and impedance rows. */}
           <NumField
-            label="Pulse rise time:"
+            label={_('Pulse rise time:')}
             units={NS_UNIT}
-            title="Pulse rise time to calculate reactance"
+            title={_('Pulse rise time to calculate reactance')}
             base={riseTimeS}
             text={vs.pulse_rise_time}
             onText={(t) => set('pulse_rise_time', t)}
@@ -268,7 +270,7 @@ export function PanelViaSize(): JSX.Element {
               (panel_via_size_base.cpp:220-222). Its rows are wxStaticTexts,
               so a row is 23 px, not a 34 px control. */}
           <Group
-            title="Results"
+            title={_('Results')}
             className="calc-grid3"
             style={
               { '--calc-vgap': '5px' /* [data] wxFlexGridSizer( 0, 3, 5, 0 ) */ } as CSSProperties
@@ -277,42 +279,42 @@ export function PanelViaSize(): JSX.Element {
             {/* Every one of these is a wxStaticText whose label is rewritten
                 with "%g" (panel_via_size.cpp:276-300) — six significant
                 figures, not four, and no entry box round it. */}
-            <ResultField label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
-            <ResultField label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
-            <ResultField label="Power loss:" value={g(r?.powerLossW)} unit="W" />
+            <ResultField label={_('Resistance:')} value={g(r?.resistanceOhm)} unit="Ω" />
+            <ResultField label={_('Voltage drop:')} value={g(r?.voltageDrop)} unit="V" />
+            <ResultField label={_('Power loss:')} value={g(r?.powerLossW)} unit="W" />
             <ResultField
-              label="Thermal resistance:"
-              title="Using thermal conductivity value 401 Watts/(meter-Kelvin)"
+              label={_('Thermal resistance:')}
+              title={_('Using thermal conductivity value 401 Watts/(meter-Kelvin)')}
               value={g(r?.thermalResistance)}
               unit="°C/W"
             />
             <ResultField
-              label="Estimated ampacity:"
-              title="Based on temperature rise"
+              label={_('Estimated ampacity:')}
+              title={_('Based on temperature rise')}
               value={g(r?.ampacityA)}
               unit="A"
             />
             <ResultField
-              label="Capacitance:"
-              title="pico-Farad"
+              label={_('Capacitance:')}
+              title={_('pico-Farad')}
               value={g(r && r.capacitanceF * 1e12)}
-              unit="pF"
+              unit={_('pF')}
             />
             <ResultField
-              label="Rise time degradation:"
-              title="Rise time degradation for given Z0 and calculated capacitance"
+              label={_('Rise time degradation:')}
+              title={_('Rise time degradation for given Z0 and calculated capacitance')}
               value={g(r && r.riseTimeDegradationS * 1e12)}
-              unit="ps"
+              unit={_('ps')}
             />
             <ResultField
-              label="Inductance:"
-              title="nano-Henry"
+              label={_('Inductance:')}
+              title={_('nano-Henry')}
               value={g(r && r.inductanceH * 1e9)}
-              unit="nH"
+              unit={_('nH')}
             />
             <ResultField
-              label="Reactance:"
-              title="Inductive reactance for given rise time and calculated inductance"
+              label={_('Reactance:')}
+              title={_('Inductive reactance for given rise time and calculated inductance')}
               value={g(r?.reactanceOhm)}
               unit="Ω"
             />
@@ -324,14 +326,16 @@ export function PanelViaSize(): JSX.Element {
           (panel_via_size_base.cpp:365-366). It was missing entirely. */}
       <div className="calc-reset-row">
         <button type="button" className="calc-btn" onClick={resetDefaults}>
-          Reset to Defaults
+          {_('Reset to Defaults')}
         </button>
       </div>
 
       {picking && (
         <SingleChoiceDialog
           caption={
-            picking === 'rho' ? 'Electrical Resistivity in Ohm*m' : 'Relative Dielectric Constants'
+            picking === 'rho'
+              ? _('Electrical Resistivity in Ohm*m')
+              : _('Relative Dielectric Constants')
           }
           choices={(picking === 'rho' ? STANDARD_RESISTIVITY_LIST : STANDARD_EPSILON_R_LIST).map(
             (e) => ({ value: e.value, label: `${e.value} \t${e.name}` }),

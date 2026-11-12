@@ -55,6 +55,7 @@ import { USER_DIRS } from '../fs/chooser_places.js';
 
 import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { PANEL_SYM_LIB_TABLE_BASE } from '@ziroeda/eeschema/dialogs/panel_sym_lib_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 interface Props {
   /**
    * The open project's files (`.kicad_sym`, the table, the `.kicad_pro`); null with no project open, which shows the
@@ -251,7 +252,7 @@ export function DialogSymLibTable({
   return (
     <LibTablePanel
       Base={PANEL_SYM_LIB_TABLE_BASE}
-      title="Symbol Libraries"
+      title={_('Symbol Libraries')}
       type={LIBRARY_TABLE_TYPE.SYMBOL}
       preamble="(sym_lib_table"
       supportsVisibilityColumn

@@ -25,6 +25,7 @@
  */
 import type { PrefsPageOwner } from './types.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A row in the page tree. `id === null` is a heading — upstream's empty `wxPanel`. */
 export interface PrefsPageEntry {
@@ -41,31 +42,31 @@ export interface PrefsPageEntry {
  * them before any KIFACE is consulted; then one heading per editor.
  */
 export const PAGES: readonly PrefsPageEntry[] = [
-  { id: 'common', label: 'Common', owner: 'generic' },
-  { id: 'mouse', label: 'Mouse and Touchpad', owner: 'generic' },
+  { id: 'common', label: _HKI('Common'), owner: 'generic' },
+  { id: 'mouse', label: _HKI('Mouse and Touchpad'), owner: 'generic' },
   // `#if defined(__linux__) || defined(__FreeBSD__)` (:1590). Linux is the
   // parity target, so the row is here.
-  { id: 'spacemouse', label: 'SpaceMouse', owner: 'generic' },
-  { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
-  { id: 'version-control', label: 'Version Control', owner: 'generic' },
+  { id: 'spacemouse', label: _HKI('SpaceMouse'), owner: 'generic' },
+  { id: 'hotkeys', label: _HKI('Hotkeys'), owner: 'generic' },
+  { id: 'version-control', label: _HKI('Version Control'), owner: 'generic' },
   // eeschema's KIFACE is consulted first, and it adds TWO headings: the Symbol
   // Editor's five sub-pages (`common/eda_base_frame.cpp:1632-1637`) come before
   // the Schematic Editor's (`:1641-1652`).
-  { id: null, label: 'Symbol Editor' },
-  { id: 'sym-display', label: 'Display Options', indent: true, owner: 'symbol' },
-  { id: 'sym-grids', label: 'Grids', indent: true, owner: 'symbol' },
-  { id: 'sym-editing', label: 'Editing Options', indent: true, owner: 'symbol' },
-  { id: 'sym-colors', label: 'Colors', indent: true, owner: 'symbol' },
-  { id: 'sym-toolbars', label: 'Toolbars', indent: true, owner: 'symbol' },
+  { id: null, label: _HKI('Symbol Editor') },
+  { id: 'sym-display', label: _HKI('Display Options'), indent: true, owner: 'symbol' },
+  { id: 'sym-grids', label: _HKI('Grids'), indent: true, owner: 'symbol' },
+  { id: 'sym-editing', label: _HKI('Editing Options'), indent: true, owner: 'symbol' },
+  { id: 'sym-colors', label: _HKI('Colors'), indent: true, owner: 'symbol' },
+  { id: 'sym-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'symbol' },
   { id: null, label: 'Schematic Editor' },
-  { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
-  { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
-  { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
-  { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
-  { id: 'sch-toolbars', label: 'Toolbars', indent: true, owner: 'schematic' },
-  { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
-  { id: 'sch-datasources', label: 'Data Sources', indent: true, owner: 'schematic' },
-  { id: 'sch-simulator', label: 'Simulator', indent: true, owner: 'schematic' },
+  { id: 'sch-display', label: _HKI('Display Options'), indent: true, owner: 'schematic' },
+  { id: 'sch-grids', label: _HKI('Grids'), indent: true, owner: 'schematic' },
+  { id: 'sch-editing', label: _HKI('Editing Options'), indent: true, owner: 'schematic' },
+  { id: 'sch-colors', label: _HKI('Colors'), indent: true, owner: 'schematic' },
+  { id: 'sch-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'schematic' },
+  { id: 'sch-fields', label: _HKI('Field Name Templates'), indent: true, owner: 'schematic' },
+  { id: 'sch-datasources', label: _HKI('Data Sources'), indent: true, owner: 'schematic' },
+  { id: 'sch-simulator', label: _HKI('Simulator'), indent: true, owner: 'schematic' },
   // pcbnew's KIFACE adds THREE headings, in this order
   // (`common/eda_base_frame.cpp:1657-1697`): the Footprint Editor's nine
   // sub-pages, the PCB Editor's seven, then the 3D Viewer's four. The first and
@@ -74,29 +75,29 @@ export const PAGES: readonly PrefsPageEntry[] = [
   //
   // The Footprint Editor's nine all ship. The 3D Viewer's heading still lists
   // only its Toolbars row; the rest of it is in `OMITTED_PAGES`.
-  { id: null, label: 'Footprint Editor' },
-  { id: 'fp-display', label: 'Display Options', indent: true, owner: 'footprint' },
-  { id: 'fp-grids', label: 'Grids', indent: true, owner: 'footprint' },
-  { id: 'fp-origins', label: 'Origins & Axes', indent: true, owner: 'footprint' },
-  { id: 'fp-editing', label: 'Editing Options', indent: true, owner: 'footprint' },
-  { id: 'fp-colors', label: 'Colors', indent: true, owner: 'footprint' },
-  { id: 'fp-toolbars', label: 'Toolbars', indent: true, owner: 'footprint' },
-  { id: 'fp-defaults', label: 'Footprint Defaults', indent: true, owner: 'footprint' },
-  { id: 'fp-graphics', label: 'Graphics Defaults', indent: true, owner: 'footprint' },
-  { id: 'fp-userlayers', label: 'User Layer Names', indent: true, owner: 'footprint' },
-  { id: null, label: 'PCB Editor' },
-  { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
-  { id: 'pcb-grids', label: 'Grids', indent: true, owner: 'pcb' },
-  { id: 'pcb-origins', label: 'Origins & Axes', indent: true, owner: 'pcb' },
-  { id: 'pcb-editing', label: 'Editing Options', indent: true, owner: 'pcb' },
-  { id: 'pcb-colors', label: 'Colors', indent: true, owner: 'pcb' },
-  { id: 'pcb-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
+  { id: null, label: _HKI('Footprint Editor') },
+  { id: 'fp-display', label: _HKI('Display Options'), indent: true, owner: 'footprint' },
+  { id: 'fp-grids', label: _HKI('Grids'), indent: true, owner: 'footprint' },
+  { id: 'fp-origins', label: _HKI('Origins & Axes'), indent: true, owner: 'footprint' },
+  { id: 'fp-editing', label: _HKI('Editing Options'), indent: true, owner: 'footprint' },
+  { id: 'fp-colors', label: _HKI('Colors'), indent: true, owner: 'footprint' },
+  { id: 'fp-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'footprint' },
+  { id: 'fp-defaults', label: _HKI('Footprint Defaults'), indent: true, owner: 'footprint' },
+  { id: 'fp-graphics', label: _HKI('Graphics Defaults'), indent: true, owner: 'footprint' },
+  { id: 'fp-userlayers', label: _HKI('User Layer Names'), indent: true, owner: 'footprint' },
+  { id: null, label: _HKI('PCB Editor') },
+  { id: 'pcb-display', label: _HKI('Display Options'), indent: true, owner: 'pcb' },
+  { id: 'pcb-grids', label: _HKI('Grids'), indent: true, owner: 'pcb' },
+  { id: 'pcb-origins', label: _HKI('Origins & Axes'), indent: true, owner: 'pcb' },
+  { id: 'pcb-editing', label: _HKI('Editing Options'), indent: true, owner: 'pcb' },
+  { id: 'pcb-colors', label: _HKI('Colors'), indent: true, owner: 'pcb' },
+  { id: 'pcb-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'pcb' },
   { id: null, label: '3D Viewer' },
   // `common/eda_base_frame.cpp:1693-1696`. The first row is called "General",
   // not "Display Options" like every other editor's.
   { id: '3dv-general', label: 'General', indent: true, owner: 'pcb' },
-  { id: '3dv-toolbars', label: 'Toolbars', indent: true, owner: 'pcb' },
-  { id: '3dv-opengl', label: 'Realtime Renderer', indent: true, owner: 'pcb' },
+  { id: '3dv-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'pcb' },
+  { id: '3dv-opengl', label: _HKI('Realtime Renderer'), indent: true, owner: 'pcb' },
   // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's
   // (`common/eda_base_frame.cpp:1702-1721`).
   //
@@ -109,23 +110,23 @@ export const PAGES: readonly PrefsPageEntry[] = [
   // Colors and Toolbars *before* Grids — which is also unlike every other
   // editor's heading here, where Grids comes second.
   { id: null, label: 'Gerber Viewer' },
-  { id: 'gbr-display', label: 'Display Options', indent: true, owner: 'gerbview' },
-  { id: 'gbr-colors', label: 'Colors', indent: true, owner: 'gerbview' },
-  { id: 'gbr-toolbars', label: 'Toolbars', indent: true, owner: 'gerbview' },
-  { id: 'gbr-grids', label: 'Grids', indent: true, owner: 'gerbview' },
-  { id: 'gbr-excellon', label: 'Excellon Options', indent: true, owner: 'gerbview' },
+  { id: 'gbr-display', label: _HKI('Display Options'), indent: true, owner: 'gerbview' },
+  { id: 'gbr-colors', label: _HKI('Colors'), indent: true, owner: 'gerbview' },
+  { id: 'gbr-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'gerbview' },
+  { id: 'gbr-grids', label: _HKI('Grids'), indent: true, owner: 'gerbview' },
+  { id: 'gbr-excellon', label: _HKI('Excellon Options'), indent: true, owner: 'gerbview' },
   // pl_editor's KIFACE is added last of the five, after gerbview's
   // (`common/eda_base_frame.cpp:1726-1737`).
   { id: null, label: 'Drawing Sheet Editor' },
-  { id: 'ds-display', label: 'Display Options', indent: true, owner: 'drawingsheet' },
-  { id: 'ds-grids', label: 'Grids', indent: true, owner: 'drawingsheet' },
-  { id: 'ds-colors', label: 'Colors', indent: true, owner: 'drawingsheet' },
-  { id: 'ds-toolbars', label: 'Toolbars', indent: true, owner: 'drawingsheet' },
+  { id: 'ds-display', label: _HKI('Display Options'), indent: true, owner: 'drawingsheet' },
+  { id: 'ds-grids', label: _HKI('Grids'), indent: true, owner: 'drawingsheet' },
+  { id: 'ds-colors', label: _HKI('Colors'), indent: true, owner: 'drawingsheet' },
+  { id: 'ds-toolbars', label: _HKI('Toolbars'), indent: true, owner: 'drawingsheet' },
   // The tail of the book, after the last KIFACE's heading: `AddLazyPage(
   // PANEL_PACKAGES_AND_UPDATES )` closes the try block, then `AddPage(
   // PANEL_PLUGIN_SETTINGS )` under `#ifdef KICAD_IPC_API` and `AddPage(
   // PANEL_MAINTENANCE )`. All three are top-level, not sub-pages.
-  { id: 'maintenance', label: 'Maintenance', owner: 'generic' },
+  { id: 'maintenance', label: _HKI('Maintenance'), owner: 'generic' },
 ];
 
 /**
@@ -151,46 +152,68 @@ export const PAGES: readonly PrefsPageEntry[] = [
 export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
   // `common/eda_base_frame.cpp:1633-1637`, the five `AddLazySubPage` calls
   // under the Symbol Editor heading, in source order.
-  'Symbol Editor': ['Display Options', 'Grids', 'Editing Options', 'Colors', 'Toolbars'],
+  'Symbol Editor': [
+    _HKI('Display Options'),
+    _HKI('Grids'),
+    _HKI('Editing Options'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+  ],
   'Schematic Editor': [
-    'Display Options',
-    'Grids',
-    'Editing Options',
-    'Colors',
-    'Toolbars',
-    'Field Name Templates',
-    'Data Sources',
-    'Simulator',
+    _HKI('Display Options'),
+    _HKI('Grids'),
+    _HKI('Editing Options'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+    _HKI('Field Name Templates'),
+    _HKI('Data Sources'),
+    _HKI('Simulator'),
   ],
   // `common/eda_base_frame.cpp:1666-1676`, the nine `AddLazySubPage` calls
   // under the Footprint Editor heading, in source order.
   'Footprint Editor': [
-    'Display Options',
-    'Grids',
-    'Origins & Axes',
-    'Editing Options',
-    'Colors',
-    'Toolbars',
-    'Footprint Defaults',
-    'Graphics Defaults',
-    'User Layer Names',
+    _HKI('Display Options'),
+    _HKI('Grids'),
+    _HKI('Origins & Axes'),
+    _HKI('Editing Options'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+    _HKI('Footprint Defaults'),
+    _HKI('Graphics Defaults'),
+    _HKI('User Layer Names'),
   ],
   'PCB Editor': [
-    'Display Options',
-    'Grids',
-    'Origins & Axes',
-    'Editing Options',
-    'Colors',
-    'Toolbars',
-    'Plugins',
+    _HKI('Display Options'),
+    _HKI('Grids'),
+    _HKI('Origins & Axes'),
+    _HKI('Editing Options'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+    _HKI('Plugins'),
   ],
   // `common/eda_base_frame.cpp:1692-1696`. The 3D Viewer's first row is called
   // "General", not "Display Options".
-  '3D Viewer': ['General', 'Toolbars', 'Realtime Renderer', 'Raytracing Renderer'],
+  '3D Viewer': [
+    'General',
+    _HKI('Toolbars'),
+    _HKI('Realtime Renderer'),
+    _HKI('Raytracing Renderer'),
+  ],
   // `common/eda_base_frame.cpp:1714-1718`. Colors and Toolbars come BEFORE
   // Grids here, which no other heading does; see the note in {@link PAGES}.
-  'Gerber Viewer': ['Display Options', 'Colors', 'Toolbars', 'Grids', 'Excellon Options'],
-  'Drawing Sheet Editor': ['Display Options', 'Grids', 'Colors', 'Toolbars'],
+  'Gerber Viewer': [
+    _HKI('Display Options'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+    _HKI('Grids'),
+    _HKI('Excellon Options'),
+  ],
+  'Drawing Sheet Editor': [
+    _HKI('Display Options'),
+    _HKI('Grids'),
+    _HKI('Colors'),
+    _HKI('Toolbars'),
+  ],
 };
 
 /**
@@ -213,21 +236,21 @@ export const UPSTREAM_BOOK: Readonly<Record<string, readonly string[]>> = {
  * missing silently the way the Drawing Sheet Editor's once did.
  */
 export const UPSTREAM_TOP_LEVEL: readonly string[] = [
-  'Common',
-  'Mouse and Touchpad',
-  'SpaceMouse',
-  'Hotkeys',
-  'Version Control',
-  'Symbol Editor',
+  _HKI('Common'),
+  _HKI('Mouse and Touchpad'),
+  _HKI('SpaceMouse'),
+  _HKI('Hotkeys'),
+  _HKI('Version Control'),
+  _HKI('Symbol Editor'),
   'Schematic Editor',
-  'Footprint Editor',
-  'PCB Editor',
+  _HKI('Footprint Editor'),
+  _HKI('PCB Editor'),
   '3D Viewer',
   'Gerber Viewer',
   'Drawing Sheet Editor',
-  'Packages and Updates',
-  'Plugins',
-  'Maintenance',
+  _HKI('Packages and Updates'),
+  _HKI('Plugins'),
+  _HKI('Maintenance'),
 ];
 
 /** A page upstream has under a heading that we do not ship, and why not. */
@@ -253,7 +276,7 @@ export interface DeclaredPage {
  */
 export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
   {
-    label: 'Packages and Updates',
+    label: _HKI('Packages and Updates'),
     reason:
       'Built, then removed. Every control on it is about the desktop: whether to check for a ' +
       'KiCad release, and how the PCM writes installed libraries into the global library table ' +
@@ -261,7 +284,7 @@ export const OMITTED_TOP_LEVEL: readonly DeclaredPage[] = [
       'A row that only explains why it is empty is worse than no row.',
   },
   {
-    label: 'Plugins',
+    label: _HKI('Plugins'),
     reason:
       'Built, then removed. PANEL_PLUGIN_SETTINGS enables a local IPC socket for other programs ' +
       'on the same machine and points at a native Python interpreter. A browser tab has neither, ' +
@@ -299,7 +322,7 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // is geometry we already build, and a raycast is the rollover highlight.
   '3D Viewer': [
     {
-      label: 'Raytracing Renderer',
+      label: _HKI('Raytracing Renderer'),
       reason:
         'PANEL_3D_RAYTRACING_OPTIONS configures a path tracer this port does not have, and ' +
         'is not something a browser canvas can grow.',
@@ -310,7 +333,7 @@ export const OMITTED_PAGES: Readonly<Record<string, readonly DeclaredPage[]>> = 
   // their board-editor variant.
   'PCB Editor': [
     {
-      label: 'Plugins',
+      label: _HKI('Plugins'),
       reason:
         'PANEL_PCBNEW_ACTION_PLUGINS lists Python action plugins, which have no browser form.',
     },

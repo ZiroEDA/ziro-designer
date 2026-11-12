@@ -28,6 +28,7 @@ import {
 } from '@ziroeda/pcb_calculator';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { parseNum } from '../fields.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The resistor calculator offers only the coarser series (E1…E24).
 const R_SERIES = ESERIES.filter((e) => e.id <= ESeriesId.E24);
@@ -94,7 +95,7 @@ export function PanelRCalculator(): JSX.Element {
     <>
       <span>{label}</span>
       <TextCtrl value={row.formula} readOnly className="calc-input ro rc-solution" />
-      <span className="rc-approx-label">Approximation:</span>
+      <span className="rc-approx-label">{_('Approximation:')}</span>
       <TextCtrl value={row.approxPct} readOnly className="calc-input ro rc-approx" />
       <span>%</span>
     </>
@@ -116,11 +117,11 @@ export function PanelRCalculator(): JSX.Element {
     <div className="rc-panel">
       <div className="calc-row rc-middle">
         <fieldset className="calc-group rc-inputs">
-          <legend>Inputs</legend>
+          <legend>{_('Inputs')}</legend>
           <div className="rc-input-grid">
-            {inputRow('Required resistance:', required, setRequired)}
-            {inputRow('Exclude value 1:', exclude1, setExclude1)}
-            {inputRow('Exclude value 2:', exclude2, setExclude2)}
+            {inputRow(_('Required resistance:'), required, setRequired)}
+            {inputRow(_('Exclude value 1:'), exclude1, setExclude1)}
+            {inputRow(_('Exclude value 2:'), exclude2, setExclude2)}
           </div>
           <hr className="calc-hr" />
           <div className="rc-series">
@@ -138,17 +139,17 @@ export function PanelRCalculator(): JSX.Element {
         </fieldset>
 
         <fieldset className="calc-group rc-solutions">
-          <legend>Solutions</legend>
+          <legend>{_('Solutions')}</legend>
           <div className="rc-solution-grid">
-            {solutionRow('Simple solution:', simple)}
-            {solutionRow('3R solution:', r3)}
-            {solutionRow('4R solution:', r4)}
+            {solutionRow(_('Simple solution:'), simple)}
+            {solutionRow(_('3R solution:'), r3)}
+            {solutionRow(_('4R solution:'), r4)}
           </div>
           <hr className="calc-hr" />
           {/* m_buttonEScalculate belongs to sbSizerESeriesSolutions
               (panel_r_calculator_base.cpp:168-169), not to Inputs. */}
           <button type="button" className="calc-btn" onClick={calculate}>
-            Calculate
+            {_('Calculate')}
           </button>
         </fieldset>
       </div>
@@ -157,7 +158,7 @@ export function PanelRCalculator(): JSX.Element {
           `r_calculator_help.md` through ConvertMarkdown2Html. The text below is
           that file, line for line. */}
       <fieldset className="calc-group calc-help rc-help">
-        <legend>Help</legend>
+        <legend>{_('Help')}</legend>
         <div className="calc-help-body">
           <ul>
             <li>

@@ -18,9 +18,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { unmarked } from '../translation/unmarked.js';
 
 const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
+  unmarked(
+    readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8'),
+  );
 const CHOOSER = read('fs/FileChooser.tsx');
 const HOME = read('home/HomePage.tsx');
 
@@ -112,8 +115,7 @@ describe('a renamed project reaches the manager and the cloud', () => {
 describe('both project dialogs offer both', () => {
   for (const title of ['Open Existing Project', 'New Project Folder']) {
     it(title, () => {
-      // The title is a message: `wxString title = _( "..." )`, so it is marked.
-      const at = HOME.indexOf(`title={_('${title}')}`);
+      const at = HOME.indexOf(`title="${title}"`);
       expect(at).toBeGreaterThan(0);
       // Up to the dialog's Cancel, which every chooser has and which sits
       // after the two props in both; `/>` would stop inside `extra`'s buttons.

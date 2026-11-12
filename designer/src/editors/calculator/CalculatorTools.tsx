@@ -42,6 +42,8 @@ import {
   useCalcSaveSettings,
 } from './calc_settings.js';
 import { HomeLink } from '../../ui/HomeLink.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface TreeItem {
   id: string;
@@ -56,37 +58,37 @@ interface TreeGroup {
 
 const TREE: TreeGroup[] = [
   {
-    name: 'General system design',
+    name: _HKI('General system design'),
     items: [
-      { id: 'regulators', name: 'Regulators', panel: PanelRegulator },
-      { id: 'r_calculator', name: 'Resistor Calculator', panel: PanelRCalculator },
+      { id: 'regulators', name: _HKI('Regulators'), panel: PanelRegulator },
+      { id: 'r_calculator', name: _HKI('Resistor Calculator'), panel: PanelRCalculator },
     ],
   },
   {
-    name: 'Power, current and isolation',
+    name: _HKI('Power, current and isolation'),
     items: [
-      { id: 'electrical_spacing', name: 'Electrical Spacing', panel: PanelElectricalSpacing },
-      { id: 'via_size', name: 'Via Size', panel: PanelViaSize },
-      { id: 'track_width', name: 'Track Width', panel: PanelTrackWidth },
-      { id: 'fusing_current', name: 'Fusing Current', panel: PanelFusingCurrent },
-      { id: 'cable_size', name: 'Cable Size', panel: PanelCableSize },
+      { id: 'electrical_spacing', name: _HKI('Electrical Spacing'), panel: PanelElectricalSpacing },
+      { id: 'via_size', name: _HKI('Via Size'), panel: PanelViaSize },
+      { id: 'track_width', name: _HKI('Track Width'), panel: PanelTrackWidth },
+      { id: 'fusing_current', name: _HKI('Fusing Current'), panel: PanelFusingCurrent },
+      { id: 'cable_size', name: _HKI('Cable Size'), panel: PanelCableSize },
     ],
   },
   {
-    name: 'High Speed',
+    name: _HKI('High Speed'),
     items: [
-      { id: 'wavelength', name: 'Wavelength', panel: PanelWavelength },
-      { id: 'rf_attenuators', name: 'RF Attenuators', panel: PanelRfAttenuators },
-      { id: 'transmission_lines', name: 'Transmission Lines', panel: PanelTransline },
+      { id: 'wavelength', name: _HKI('Wavelength'), panel: PanelWavelength },
+      { id: 'rf_attenuators', name: _HKI('RF Attenuators'), panel: PanelRfAttenuators },
+      { id: 'transmission_lines', name: _HKI('Transmission Lines'), panel: PanelTransline },
     ],
   },
   {
-    name: 'Memo',
+    name: _HKI('Memo'),
     items: [
-      { id: 'eseries', name: 'E-Series', panel: PanelEseriesDisplay },
-      { id: 'color_code', name: 'Color Code', panel: PanelColorCode },
-      { id: 'board_classes', name: 'Board Classes', panel: PanelBoardClass },
-      { id: 'galvanic_corrosion', name: 'Galvanic Corrosion', panel: PanelGalvanicCorrosion },
+      { id: 'eseries', name: _HKI('E-Series'), panel: PanelEseriesDisplay },
+      { id: 'color_code', name: _HKI('Color Code'), panel: PanelColorCode },
+      { id: 'board_classes', name: _HKI('Board Classes'), panel: PanelBoardClass },
+      { id: 'galvanic_corrosion', name: _HKI('Galvanic Corrosion'), panel: PanelGalvanicCorrosion },
     ],
   },
 ];
@@ -110,10 +112,10 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
 
   const menus: Menu[] = [
     {
-      label: 'File',
+      label: _('File'),
       items: [
-        addClose('Calculator Tools', onExitToHome),
-        addQuit('Calculator Tools', onExitToHome),
+        addClose(_('Calculator Tools'), onExitToHome),
+        addQuit(_('Calculator Tools'), onExitToHome),
       ],
     },
     // PCB_CALCULATOR_FRAME::doReCreateMenuBar (pcb_calculator_frame.cpp:215-222)
@@ -123,9 +125,9 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
     // frame opens, with no calculator page of its own. Ours had invented a
     // "Reset stored data (regulators)" item instead and offered neither.
     {
-      label: 'Preferences',
+      label: _('Preferences'),
       items: [
-        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { label: _('Preferences...'), shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
         setLanguageMenuItem({
           current: common.system.language,
@@ -146,7 +148,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
       <MenuBar
         menus={menus}
         leftSlot={<HomeLink onClick={onExitToHome} />}
-        title="Calculator Tools"
+        title={_('Calculator Tools')}
       />
       <div className="calc-body">
         <nav className="calc-tree" data-testid="calc-tree">
@@ -164,7 +166,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
                 }
               >
                 <span className={`twisty expandable${collapsed.has(group.name) ? '' : ' open'}`} />
-                {group.name}
+                {_(group.name)}
               </div>
               {!collapsed.has(group.name) &&
                 group.items.map((it) => (
@@ -173,7 +175,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
                     className={`calc-tree-item${it.id === active ? ' active' : ''}`}
                     onClick={() => setActive(it.id)}
                   >
-                    {it.name}
+                    {_(it.name)}
                   </div>
                 ))}
             </div>
