@@ -76,6 +76,7 @@ import { BITMAP_TYPE } from './bitmap.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `GRID_HELPER` as `COMMON_TOOLS::CursorControl` reads it. A frame that
@@ -1045,7 +1046,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     for (let ii = 0; ii < zoomFactors.length; ++ii) {
       const current = zoomFactors[ii]!;
 
-      this.m_zoomSelectBox.Append(`Zoom ${current.toFixed(2)}`);
+      this.m_zoomSelectBox.Append(wxFormat(_('Zoom %.2f'), current.toFixed(2)));
 
       if (zoom === current) this.m_zoomSelectBox.SetSelection(ii + 1);
     }
@@ -1080,7 +1081,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
       if (this.m_zoomSelectBox.GetSelection() !== preset) this.m_zoomSelectBox.SetSelection(preset);
     } else {
       // Off-preset zoom, show the exact value in its own entry just below Zoom Auto.
-      const text = `Zoom ${zoom.toFixed(2)}`;
+      const text = wxFormat(_('Zoom %.2f'), zoom.toFixed(2));
 
       if (this.m_zoomCustomEntry === wxNOT_FOUND)
         this.m_zoomCustomEntry = this.m_zoomSelectBox.Insert(text, 1);
@@ -1314,7 +1315,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
 
     if (!grid) return;
 
-    const msg = `grid ${grid.UserUnitsMessageText(this, false)}`;
+    const msg = wxFormat(_('grid %s'), grid.UserUnitsMessageText(this, false));
 
     this.SetStatusText(msg, 4);
   }

@@ -68,6 +68,8 @@ import { PosixPath, SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { SCH_EASYEDAPRO_PARSER, type SYM_INFO } from './sch_easyedapro_parser.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface PRJ_DATA {
   m_Symbols: Map<string, SYM_INFO>;
@@ -121,7 +123,7 @@ export class SCH_IO_EASYEDAPRO extends SCH_IO {
   private data(aPath: string): Uint8Array {
     const d = this.m_readFile(aPath);
 
-    if (!d) throw new IO_ERROR(`Cannot open file '${aPath}'`);
+    if (!d) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'"), aPath));
 
     return d;
   }

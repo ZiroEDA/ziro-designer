@@ -30,6 +30,8 @@ import { SCH_TEXT } from './sch_text.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * Define the edge of the sheet that the sheet pin is positioned.
@@ -417,7 +419,10 @@ export class SCH_SHEET_PIN extends SCH_HIERLABEL {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Hierarchical Sheet Pin '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Hierarchical Sheet Pin '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override SetPosition(aPosition: VECTOR2I): void {

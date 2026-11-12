@@ -12,6 +12,8 @@
 import { parse, serialize, type SList, type SNode } from '@ziroeda/sexpr';
 import { Prettify } from './io/kicad/kicad_io_utils.js';
 import { wxDirEnumerate } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `traverseSEXPR` (gestfich.cpp): depth first, the node before its children. */
 function traverseSEXPR(aNode: SNode, aVisitor: (aNode: SNode) => void): void {
@@ -66,7 +68,7 @@ export function CopySexprFile(
   if (out === null) {
     if (aErrors.value !== '') aErrors.value += '\n';
 
-    aErrors.value += `Cannot copy file '${aDestPath}'.`;
+    aErrors.value += wxFormat(_("Cannot copy file '%s'."), aDestPath);
   }
 
   return out;

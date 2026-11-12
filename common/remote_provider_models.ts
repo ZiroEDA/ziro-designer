@@ -14,6 +14,7 @@ import {
   ValidateRemoteUrlSecurity,
 } from './remote_provider_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum REMOTE_PROVIDER_ERROR_TYPE {
   NONE,
@@ -143,7 +144,10 @@ export class REMOTE_PROVIDER_PART_MANIFEST {
     new JSON_SCHEMA_VALIDATOR(aSchema).Validate(aJson, handler);
 
     if (handler.HasErrors()) {
-      aError.value = `Remote provider manifest failed schema validation: ${handler.FirstError()}`;
+      aError.value = wxFormat(
+        _('Remote provider manifest failed schema validation: %s'),
+        handler.FirstError(),
+      );
       return null;
     }
 
@@ -180,7 +184,10 @@ export class REMOTE_PROVIDER_PART_MANIFEST {
         manifest.assets.push(asset);
       }
     } catch (e) {
-      aError.value = `Unable to parse remote provider manifest: ${e instanceof Error ? e.message : String(e)}`;
+      aError.value = wxFormat(
+        _('Unable to parse remote provider manifest: %s'),
+        e instanceof Error ? e.message : String(e),
+      );
       return null;
     }
 

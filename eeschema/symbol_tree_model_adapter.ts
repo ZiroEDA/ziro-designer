@@ -26,6 +26,8 @@ import { letterSubReference } from './fieldbox.js';
 import { libTreeItem, type LibTreeItem, libTreeItemSearchTerms } from './lib_tree_item.js';
 import type { LibIndexEntry } from './libraries/symbol_library_adapter.js';
 import type { LibSymbol } from './types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `m_check_pending_libraries_timer->Start( 1000 )`
@@ -69,7 +71,7 @@ export function addUnitRows(node: LibTreeNode, units: number): void {
     const unit = new LibTreeNode();
     unit.type = LibTreeNodeType.UNIT;
     unit.parent = node;
-    unit.name = `Unit ${letterSubReference(u)}`;
+    unit.name = wxFormat(_('Unit %s'), letterSubReference(u));
     unit.unit = u;
     unit.libNickname = node.libNickname;
     unit.libItemName = node.libItemName;

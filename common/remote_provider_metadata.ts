@@ -16,6 +16,7 @@ import {
   ValidateRemoteUrlSecurity,
 } from './remote_provider_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum REMOTE_PROVIDER_AUTH_TYPE {
   NONE,
@@ -73,7 +74,10 @@ export class REMOTE_PROVIDER_METADATA {
     new JSON_SCHEMA_VALIDATOR(aSchema).Validate(aJson, handler);
 
     if (handler.HasErrors()) {
-      aError.value = `Remote provider metadata failed schema validation: ${handler.FirstError()}`;
+      aError.value = wxFormat(
+        _('Remote provider metadata failed schema validation: %s'),
+        handler.FirstError(),
+      );
       return null;
     }
 
@@ -113,7 +117,7 @@ export class REMOTE_PROVIDER_METADATA {
 
       for (const [name, value] of Object.entries(capabilities)) {
         if (!SUPPORTED_CAPABILITIES.has(name)) {
-          aError.value = `Unsupported provider capability '${name}'.`;
+          aError.value = wxFormat(_("Unsupported provider capability '%s'."), name);
           return null;
         }
 
@@ -128,7 +132,10 @@ export class REMOTE_PROVIDER_METADATA {
         metadata.parts_endpoint_template = RemoteProviderJsonString(parts, 'endpoint_template');
       }
     } catch (e) {
-      aError.value = `Unable to parse remote provider metadata: ${e instanceof Error ? e.message : String(e)}`;
+      aError.value = wxFormat(
+        _('Unable to parse remote provider metadata: %s'),
+        e instanceof Error ? e.message : String(e),
+      );
       return null;
     }
 

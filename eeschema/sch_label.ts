@@ -89,6 +89,7 @@ import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `MIRRORVAL`. */
 const MIRRORVAL = (aPoint: number, aMirrorRef: number): number =>
@@ -1681,7 +1682,10 @@ export class SCH_LABEL extends SCH_LABEL_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Label '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Label '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override IsReplaceable(): boolean {
@@ -1918,8 +1922,16 @@ export class SCH_DIRECTIVE_LABEL extends SCH_LABEL_BASE {
         : KIUI_EllipsizeMenuText(firstField.GetText());
 
       if (content === '')
-        return `Directive Label [${unescapeString(this.m_fields[0]!.GetName())} (empty)]`;
-      else return `Directive Label [${unescapeString(this.m_fields[0]!.GetName())} ${content}]`;
+        return wxFormat(
+          _('Directive Label [%s (empty)]'),
+          unescapeString(this.m_fields[0]!.GetName()),
+        );
+      else
+        return wxFormat(
+          _('Directive Label [%s %s]'),
+          unescapeString(this.m_fields[0]!.GetName()),
+          content,
+        );
     }
   }
 
@@ -2254,7 +2266,10 @@ export class SCH_GLOBALLABEL extends SCH_LABEL_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Global Label '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Global Label '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override IsPointClickableAnchor(aPos: VECTOR2I): boolean {
@@ -2411,7 +2426,10 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Hierarchical Label '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Hierarchical Label '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override Clone(): SCH_HIERLABEL {

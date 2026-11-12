@@ -56,6 +56,7 @@ import {
 } from './ds_data_item.js';
 import { DS_DATA_MODEL } from './ds_data_model.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COLOR4D::UNSPECIFIED`. */
 const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
@@ -298,7 +299,7 @@ export class DS_DRAW_ITEM_LINE extends DS_DRAW_ITEM_BASE {
     const end = this.GetEnd();
     const length = Math.hypot(end.x - start.x, end.y - start.y);
 
-    return `Line, length ${aUnitsProvider!.MessageTextFromValue(length)}`;
+    return wxFormat(_('Line, length %s'), aUnitsProvider!.MessageTextFromValue(length));
   }
 }
 
@@ -528,7 +529,11 @@ export class DS_DRAW_ITEM_RECT extends DS_DRAW_ITEM_BASE {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return `Rectangle, width ${aUnitsProvider!.MessageTextFromValue(Math.abs(this.GetStart().x - this.GetEnd().x))} height ${aUnitsProvider!.MessageTextFromValue(Math.abs(this.GetStart().y - this.GetEnd().y))}`;
+    return wxFormat(
+      _('Rectangle, width %s height %s'),
+      aUnitsProvider!.MessageTextFromValue(Math.abs(this.GetStart().x - this.GetEnd().x)),
+      aUnitsProvider!.MessageTextFromValue(Math.abs(this.GetStart().y - this.GetEnd().y)),
+    );
   }
 }
 
@@ -738,7 +743,10 @@ export class DS_DRAW_ITEM_TEXT extends DS_DRAW_ITEM_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Text '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Text '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   /** `getFontMetrics()` override: `GetFontMetrics()`, the base's default metrics. */

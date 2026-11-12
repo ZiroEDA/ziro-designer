@@ -33,6 +33,7 @@ import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_CONDITIONS } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 let g_LastPinType = ELECTRICAL_PINTYPE.PT_INPUT;
 let g_LastPinOrient = PIN_ORIENTATION.PIN_RIGHT;
@@ -267,7 +268,10 @@ export class SYMBOL_EDITOR_PIN_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
       if (test.GetBodyStyle() && test.GetBodyStyle() !== aPin.GetBodyStyle()) continue;
 
       if (ask_for_pin && frame.SynchronizePins()) {
-        const msg = `This position is already occupied by another pin, in unit ${test.GetUnit()}.`;
+        const msg = wxFormat(
+          _('This position is already occupied by another pin, in unit %d.'),
+          test.GetUnit(),
+        );
 
         const status =
           (yield* aRunning.RunMainStackModal(() =>

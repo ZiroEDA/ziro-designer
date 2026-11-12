@@ -84,6 +84,7 @@ import {
   RPT_SEVERITY_INFO,
 } from '@ziroeda/common/reporter.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -1461,8 +1462,15 @@ export class SCH_PLOTTER {
       this.m_lastOutputFilePath = plotFileName;
 
       if (!this.plotOneSheetSVG(plotFileName, screen, aRenderSettings, aPlotOpts))
-        aReporter?.Report(`Failed to create file '${plotFileName}'.`, RPT_SEVERITY_ERROR);
-      else aReporter?.Report(`Plotted to '${plotFileName}'.`, RPT_SEVERITY_ACTION);
+        aReporter?.Report(
+          wxFormat(wxGetTranslation("Failed to create file '%s'."), plotFileName),
+          RPT_SEVERITY_ERROR,
+        );
+      else
+        aReporter?.Report(
+          wxFormat(wxGetTranslation("Plotted to '%s'."), plotFileName),
+          RPT_SEVERITY_ACTION,
+        );
     }
 
     aReporter?.ReportTail(wxGetTranslation('Done.'), RPT_SEVERITY_INFO);

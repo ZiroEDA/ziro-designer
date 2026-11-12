@@ -34,6 +34,8 @@ import { PosixPath } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { SCH_EASYEDA_PARSER } from './sch_easyeda_parser.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface FOUND {
   js: JSON_VALUE;
@@ -198,7 +200,8 @@ export class SCH_IO_EASYEDA extends SCH_IO {
     const bytes = this.m_readFile(aPath);
     const found = bytes ? FindSchFileInStream(aPath, bytes) : null;
 
-    if (!found) throw new IO_ERROR(`Unable to find a valid schematic file in '${aPath}'`);
+    if (!found)
+      throw new IO_ERROR(wxFormat(_("Unable to find a valid schematic file in '%s'"), aPath));
 
     return found;
   }
@@ -268,7 +271,12 @@ export class SCH_IO_EASYEDA extends SCH_IO {
       }
     } catch (e) {
       throw new IO_ERROR(
-        `Error loading symbol '${aAliasName}' from library '${aLibraryPath}': ${e instanceof Error ? e.message : String(e)}`,
+        wxFormat(
+          _("Error loading symbol '%s' from library '%s': %s"),
+          aAliasName,
+          aLibraryPath,
+          e instanceof Error ? e.message : String(e),
+        ),
       );
     }
 
@@ -313,7 +321,11 @@ export class SCH_IO_EASYEDA extends SCH_IO {
       }
     } catch (e) {
       throw new IO_ERROR(
-        `Error enumerating symbol library '${aLibraryPath}': ${e instanceof Error ? e.message : String(e)}`,
+        wxFormat(
+          _("Error enumerating symbol library '%s': %s"),
+          aLibraryPath,
+          e instanceof Error ? e.message : String(e),
+        ),
       );
     }
   }
@@ -413,7 +425,11 @@ export class SCH_IO_EASYEDA extends SCH_IO {
       }
     } catch (e) {
       throw new IO_ERROR(
-        `Error loading schematic '${aFileName}': ${e instanceof Error ? e.message : String(e)}`,
+        wxFormat(
+          _("Error loading schematic '%s': %s"),
+          aFileName,
+          e instanceof Error ? e.message : String(e),
+        ),
       );
     }
   }

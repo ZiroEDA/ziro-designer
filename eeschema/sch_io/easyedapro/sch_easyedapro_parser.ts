@@ -84,6 +84,8 @@ import { SCH_SYMBOL } from '../../sch_symbol.js';
 import { SCH_TEXT } from '../../sch_text.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // clang-format off
 const c_attributesWhitelist: readonly string[] = [
@@ -191,7 +193,7 @@ export class SCH_EASYEDAPRO_PARSER {
   static Convert(aValue: string): number {
     const value = ToCDouble(aValue);
 
-    if (value === null) throw new IO_ERROR(`Failed to parse value: '${aValue}'`);
+    if (value === null) throw new IO_ERROR(wxFormat(_("Failed to parse value: '%s'"), aValue));
 
     return value;
   }
@@ -744,7 +746,7 @@ export class SCH_EASYEDAPRO_PARSER {
 
         if (globalNetname !== '') {
           ksymbol.SetDescription(
-            `Power symbol creates a global label with name '${globalNetname}'`,
+            wxFormat(_("Power symbol creates a global label with name '%s'"), globalNetname),
           );
         }
       }

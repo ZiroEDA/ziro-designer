@@ -141,6 +141,7 @@ import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
 import type { SCH_GROUP } from './sch_group.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `EditSheetProperties`' out-parameters (sheet.cpp): what OK left to be done. */
 export interface SHEET_PROPERTIES_RESULT {
@@ -1107,7 +1108,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     // Check for reserved name (case-insensitive)
     if (variantName.toLowerCase() === GetDefaultVariantName().toLowerCase()) {
       this.GetInfoBar()?.ShowMessageFor(
-        `'${GetDefaultVariantName()}' is a reserved variant name.`,
+        wxFormat(_("'%s' is a reserved variant name."), GetDefaultVariantName()),
         10000,
         'error',
       );
@@ -1118,7 +1119,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     for (const existingName of this.Schematic().GetVariantNames()) {
       if (existingName.toLowerCase() === variantName.toLowerCase()) {
         this.GetInfoBar()?.ShowMessageFor(
-          `Variant '${existingName}' already exists.`,
+          wxFormat(_("Variant '%s' already exists."), existingName),
           10000,
           'error',
         );
@@ -1198,7 +1199,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     if (variantName === '') return;
 
     const dlg: VARIANT_DESCRIPTION_DIALOG_ARG = {
-      title: `Edit Description for '${variantName}'`,
+      title: wxFormat(_("Edit Description for '%s'"), variantName),
       description: this.Schematic().GetVariantDescription(variantName),
     };
 
@@ -1647,7 +1648,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** `UpdateNetHighlightStatus` (sch_edit_frame.cpp:2097): the highlighted net in the status bar. */
   UpdateNetHighlightStatus(): void {
     if (this.GetHighlightedConnection() !== '') {
-      this.SetStatusText(`Highlighted net: ${unescapeString(this.GetHighlightedConnection())}`);
+      this.SetStatusText(
+        wxFormat(_('Highlighted net: %s'), unescapeString(this.GetHighlightedConnection())),
+      );
     } else {
       this.SetStatusText('');
     }
@@ -2025,13 +2028,17 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
       if (otherSheetName === '') otherSheetName = _('Root');
 
-      const msg = `Symbol unit '${targetUnitName}' is already placed (on sheet '${otherSheetName}')`;
+      const msg = wxFormat(
+        _("Symbol unit '%s' is already placed (on sheet '%s')"),
+        targetUnitName,
+        otherSheetName,
+      );
 
       const ret =
         this.hooks.unitAlreadyPlaced?.(
           msg,
-          `&Swap '${targetUnitName}' and '${currUnitName}'`,
-          `&Duplicate '${targetUnitName}'`,
+          wxFormat(_("&Swap '%s' and '%s'"), targetUnitName, currUnitName),
+          wxFormat(_("&Duplicate '%s'"), targetUnitName),
         ) ?? 'cancel';
 
       if (ret === 'cancel') return;
@@ -2327,7 +2334,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       this.GetToolManager()!.RunAction(SCH_ACTIONS.updateNetHighlighting);
       this.RefreshNetNavigator();
 
-      this.SetStatusText(`Highlighted net: ${unescapeString(netName)}`);
+      this.SetStatusText(wxFormat(_('Highlighted net: %s'), unescapeString(netName)));
 
       return;
     } else if (idcmd === '$CLEAR:') {

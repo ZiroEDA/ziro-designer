@@ -89,6 +89,7 @@ import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCHEMATIC } from './schematic.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * One row of the rescue dialog — `RESCUE_SYMBOL_LIB_TABLE_CANDIDATE`.
@@ -319,10 +320,17 @@ function compareLibId(a: string, b: string): number {
 export function rescueActionDescription(c: RescueCandidate): string {
   const u = unescapeString;
   if (!c.cache && !c.lib)
-    return `Cannot rescue symbol ${u(libItemName(c.requestedId))} which is not available in any library or the cache.`;
+    return wxFormat(
+      _('Cannot rescue symbol %s which is not available in any library or the cache.'),
+      u(libItemName(c.requestedId)),
+    );
   if (c.cache && !c.lib)
-    return `Rescue symbol ${u(c.requestedId)} found only in cache library to ${u(c.newId)}.`;
-  return `Rescue modified symbol ${u(c.requestedId)} to ${u(c.newId)}`;
+    return wxFormat(
+      _('Rescue symbol %s found only in cache library to %s.'),
+      u(c.requestedId),
+      u(c.newId),
+    );
+  return wxFormat(_('Rescue modified symbol %s to %s'), u(c.requestedId), u(c.newId));
 }
 
 /**
@@ -715,12 +723,23 @@ export class RESCUE_SYMBOL_LIB_TABLE_CANDIDATE extends RESCUE_CANDIDATE {
 
   GetActionDescription(): string {
     if (!this.m_cache_candidate && !this.m_lib_candidate) {
-      return `Cannot rescue symbol ${unescapeString(this.m_requested_id.GetLibItemName())} which is not available in any library or the cache.`;
+      return wxFormat(
+        _('Cannot rescue symbol %s which is not available in any library or the cache.'),
+        unescapeString(this.m_requested_id.GetLibItemName()),
+      );
     } else if (this.m_cache_candidate && !this.m_lib_candidate) {
-      return `Rescue symbol ${unescapeString(this.m_requested_id.Format())} found only in cache library to ${unescapeString(this.m_new_id.Format())}.`;
+      return wxFormat(
+        _('Rescue symbol %s found only in cache library to %s.'),
+        unescapeString(this.m_requested_id.Format()),
+        unescapeString(this.m_new_id.Format()),
+      );
     }
 
-    return `Rescue modified symbol ${unescapeString(this.m_requested_id.Format())} to ${unescapeString(this.m_new_id.Format())}`;
+    return wxFormat(
+      _('Rescue modified symbol %s to %s'),
+      unescapeString(this.m_requested_id.Format()),
+      unescapeString(this.m_new_id.Format()),
+    );
   }
 
   PerformAction(aRescuer: RESCUER): boolean {
@@ -970,7 +989,10 @@ export class SYMBOL_LIB_TABLE_RESCUER extends RESCUER {
     } catch (ioe) {
       if (!(ioe instanceof IO_ERROR)) throw ioe;
 
-      DisplayErrorMessage(`Failed to save rescue library ${fullPathOf(fn)}.`, ioe.message);
+      DisplayErrorMessage(
+        wxFormat(_('Failed to save rescue library %s.'), fullPathOf(fn)),
+        ioe.message,
+      );
       return false;
     }
 

@@ -40,6 +40,7 @@ import { Pgm } from './pgm_base.js';
 import { PROJECT } from './project.js';
 import { wxFileExists } from '@ziroeda/wx/filefn.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum SAVE_T {
   SAVE_OK,
@@ -76,9 +77,15 @@ export class DESIGN_BLOCK_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
       if (wxFileExists(this.m_manager!.GetFullURI(row, true)))
         return { ok: false, error: new LIBRARY_TABLE_OK() };
 
-      return { ok: false, error: new LIBRARY_ERROR(`Nested table '${row.URI()}' not found.`) };
+      return {
+        ok: false,
+        error: new LIBRARY_ERROR(wxFormat(_("Nested table '%s' not found."), row.URI())),
+      };
     } else if (type === DESIGN_BLOCK_FILE_T.DESIGN_BLOCK_FILE_UNKNOWN) {
-      return { ok: false, error: new LIBRARY_ERROR(`Unknown library type ${row.Type()} `) };
+      return {
+        ok: false,
+        error: new LIBRARY_ERROR(wxFormat(_('Unknown library type %s '), row.Type())),
+      };
     }
 
     const plugin = DESIGN_BLOCK_IO_MGR.FindPlugin(type);

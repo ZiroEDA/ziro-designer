@@ -19,6 +19,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { IO_ERROR } from '../../exceptions.js';
 import { strtodPrefix, ToCDoubleOk } from '@ziroeda/libc/stdlib.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What `TransformTextToBaseline` reads and writes of an `EDA_TEXT`. */
 export interface EASYEDA_TEXT_LIKE {
@@ -37,7 +39,8 @@ export abstract class EASYEDA_PARSER_BASE {
   protected m_relOrigin: Vec2 = { x: 0, y: 0 };
 
   static Convert(aValue: string): number {
-    if (!ToCDoubleOk(aValue)) throw new IO_ERROR(`Failed to parse number from '${aValue}'`);
+    if (!ToCDoubleOk(aValue))
+      throw new IO_ERROR(wxFormat(_("Failed to parse number from '%s'"), aValue));
 
     return strtodPrefix(aValue, 0)!.value;
   }

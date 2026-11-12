@@ -53,6 +53,8 @@ import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { GEDA_BUILTIN_SYMBOLS } from './geda_builtin_symbols.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const GEDA_DEFAULT_TEXT_SIZE_MILS = 50;
 
@@ -2155,9 +2157,9 @@ export class SCH_IO_GEDA extends SCH_IO {
         }
       }
 
-      let msg = `Symbol '${aBasename}' not found in gEDA libraries.`;
+      let msg = wxFormat(wxGetTranslation("Symbol '%s' not found in gEDA libraries."), aBasename);
 
-      if (suggestion !== '') msg += ` Did you mean '${suggestion}'?`;
+      if (suggestion !== '') msg += wxFormat(wxGetTranslation(" Did you mean '%s'?"), suggestion);
 
       this.m_reporter.Report(msg);
     }
@@ -2283,7 +2285,15 @@ export class SCH_IO_GEDA extends SCH_IO {
           const label = refdes === '' ? comp.basename : refdes;
 
           this.m_reporter.Report(
-            `Symbol version mismatch for '${label}' (${comp.basename}): schematic has symversion ${compSymver}, library symbol has symversion ${symSymver}.`,
+            wxFormat(
+              wxGetTranslation(
+                "Symbol version mismatch for '%s' (%s): schematic has symversion %s, library symbol has symversion %s.",
+              ),
+              label,
+              comp.basename,
+              compSymver,
+              symSymver,
+            ),
             RPT_SEVERITY_WARNING,
           );
         }
@@ -2512,14 +2522,17 @@ export class SCH_IO_GEDA extends SCH_IO {
 
     if (!exists) {
       this.m_reporter?.Report(
-        `Hierarchical source '${aSourceFile}' not found, creating empty sheet.`,
+        wxFormat(
+          wxGetTranslation("Hierarchical source '%s' not found, creating empty sheet."),
+          aSourceFile,
+        ),
         RPT_SEVERITY_WARNING,
       );
     }
 
     if (this.m_importStack.has(fullPath)) {
       this.m_reporter?.Report(
-        `Circular hierarchy detected for '${aSourceFile}', skipping.`,
+        wxFormat(wxGetTranslation("Circular hierarchy detected for '%s', skipping."), aSourceFile),
         RPT_SEVERITY_WARNING,
       );
 
@@ -2819,7 +2832,11 @@ export class SCH_IO_GEDA extends SCH_IO {
         if (!(e instanceof IO_ERROR)) throw e;
 
         this.m_reporter?.Report(
-          `Failed to load sub-schematic '${deferred.sourceFile}': ${e.What()}`,
+          wxFormat(
+            wxGetTranslation("Failed to load sub-schematic '%s': %s"),
+            deferred.sourceFile,
+            e.What(),
+          ),
           RPT_SEVERITY_WARNING,
         );
       }
@@ -2920,9 +2937,10 @@ export class SCH_IO_GEDA extends SCH_IO {
 
     const file = this.openTextFile(aFileName);
 
-    if (!file) throw new IO_ERROR(`Cannot open file '${aFileName}'.`);
+    if (!file) throw new IO_ERROR(wxFormat(wxGetTranslation("Cannot open file '%s'."), aFileName));
 
-    if (file.GetLineCount() === 0) throw new IO_ERROR(`File '${aFileName}' is empty.`);
+    if (file.GetLineCount() === 0)
+      throw new IO_ERROR(wxFormat(wxGetTranslation("File '%s' is empty."), aFileName));
 
     // First pass: scan for max Y coordinate to set up the Y-flip transform.
     // We need this before creating objects because coordinates are transformed during creation.
@@ -3043,7 +3061,9 @@ export class SCH_IO_GEDA extends SCH_IO {
     lineIdx.v++;
 
     if (!this.parseVersionLine(firstLine))
-      throw new IO_ERROR(`File '${aFileName}' is not a valid gEDA schematic.`);
+      throw new IO_ERROR(
+        wxFormat(wxGetTranslation("File '%s' is not a valid gEDA schematic."), aFileName),
+      );
 
     // Main parse loop
     while (lineIdx.v < file.GetLineCount()) {
@@ -3129,7 +3149,9 @@ export class SCH_IO_GEDA extends SCH_IO {
 
         const subSheet = new SCH_SHEET(this.m_rootSheet, pos, size);
 
-        subSheet.GetField(FIELD_T.SHEET_NAME)!.SetText(`Page ${pageNum}`);
+        subSheet
+          .GetField(FIELD_T.SHEET_NAME)!
+          .SetText(wxFormat(wxGetTranslation('Page %s'), pageNum));
         subSheet.GetField(FIELD_T.SHEET_FILENAME)!.SetText(fn.fullName);
         subSheet.SetFileName(fn.fullName);
 
@@ -3158,7 +3180,7 @@ export class SCH_IO_GEDA extends SCH_IO {
             if (!(e instanceof IO_ERROR)) throw e;
 
             this.m_reporter?.Report(
-              `Failed to load page '${fn.fullName}': ${e.What()}`,
+              wxFormat(wxGetTranslation("Failed to load page '%s': %s"), fn.fullName, e.What()),
               RPT_SEVERITY_WARNING,
             );
           }

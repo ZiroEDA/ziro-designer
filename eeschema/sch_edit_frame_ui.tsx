@@ -451,6 +451,7 @@ import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -3447,11 +3448,11 @@ export function SchematicEditor({
           if (onOutputFile) {
             void blob.arrayBuffer().then((buf) => {
               onOutputFile(path, new Uint8Array(buf), blob.type);
-              report(`Plotted to '${path}'.`, RPT_SEVERITY_ACTION);
+              report(wxFormat(_("Plotted to '%s'."), path), RPT_SEVERITY_ACTION);
             });
           } else {
             downloadBlob(blob, filename);
-            report(`Plotted to '${filename}'.`, RPT_SEVERITY_ACTION);
+            report(wxFormat(_("Plotted to '%s'."), filename), RPT_SEVERITY_ACTION);
           }
           if (preview) {
             // Browsers render PDF/SVG/PNG inline but can't display PostScript or
@@ -3603,7 +3604,7 @@ export function SchematicEditor({
 
   const loadText = useCallback(
     async (text: string, name?: string) => {
-      setLoading(`Loading ${name ?? 'untitled.kicad_sch'}...`);
+      setLoading(wxFormat(_('Loading %s...'), name ?? 'untitled.kicad_sch'));
       await nextPaint();
       try {
         const next = { ...readSchematic(parse(text)), fileName: name ?? 'untitled.kicad_sch' };
@@ -3668,7 +3669,10 @@ export function SchematicEditor({
           if (!/\.kicad_sch$/i.test(base)) continue;
           // `Loading %s...` (sch_io_kicad_sexpr.cpp:324) per sheet; the gauge
           // is the sheet count, one phase per file as KiCad's loader adds them.
-          setLoading({ message: `Loading ${base}...`, value: parsed / sheets.length });
+          setLoading({
+            message: wxFormat(_('Loading %s...'), base),
+            value: parsed / sheets.length,
+          });
           // Unconditional: `Report()` is followed by `KeepRefreshing()` before
           // the read (sch_io_kicad_sexpr.cpp:324-327), so the name is on screen
           // while the sheet parses — for one sheet as much as for twelve. Skipping
@@ -3701,7 +3705,7 @@ export function SchematicEditor({
           const rootSch = legacyRootFile(sch, proName?.replace(/\.kicad_pro$/i, ''));
           if (rootSch) {
             legacy = true;
-            setLoading(`Loading ${rootSch}...`);
+            setLoading(wxFormat(_('Loading %s...'), rootSch));
             await nextPaint();
             const converted = readLegacyProject({
               files: sch,
@@ -4505,7 +4509,11 @@ export function SchematicEditor({
         // saveSchematicFile's catch( IO_ERROR ) -> DisplayError, and success
         // stays false, so neither the dirty flag nor the status text is touched.
         setError(
-          `Error saving schematic file '${newFilename}'.\n${e instanceof Error ? e.message : String(e)}`,
+          wxFormat(
+            _("Error saving schematic file '%s'.\n%s"),
+            newFilename,
+            e instanceof Error ? e.message : String(e),
+          ),
         );
         return;
       }

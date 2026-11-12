@@ -104,6 +104,7 @@ import { SCH_TABLECELL } from '../../sch_tablecell.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `LIB_SYMBOL_MAP`: symbols by name (a `std::map`, so walked in key order). */
 export type LIB_SYMBOL_MAP = Map<string, LIB_SYMBOL>;
@@ -356,7 +357,11 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
             if (!(e instanceof PARSE_ERROR || e instanceof IO_ERROR)) throw e;
 
             // Record the error and skip to the end of this symbol block
-            const warning = `Error parsing symbol at line ${this.CurLineNumber()}: ${e.message}\nSkipping symbol and continuing.`;
+            const warning = wxFormat(
+              _('Error parsing symbol at line %d: %s\nSkipping symbol and continuing.'),
+              this.CurLineNumber(),
+              e.message,
+            );
             this.m_parseWarnings.push(warning);
 
             // Skip to the end of this symbol's block. We're already inside the symbol
@@ -393,7 +398,9 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         newSymbol = this.parseLibSymbol(aSymbolLibMap);
         resolveChildFonts(newSymbol);
       } else {
-        this.throwParse(`Cannot parse ${DSNLEXER.GetTokenString(this.CurTok())} as a symbol`);
+        this.throwParse(
+          wxFormat(_('Cannot parse %s as a symbol'), DSNLEXER.GetTokenString(this.CurTok())),
+        );
       }
     }
 
@@ -541,7 +548,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
           name = this.CurText().replaceAll('{slash}', '/');
 
           if (!name.startsWith(this.m_symbolName))
-            this.throwParse(`Invalid symbol unit name prefix ${name}`);
+            this.throwParse(wxFormat(_('Invalid symbol unit name prefix %s'), name));
 
           name = name.substring(this.m_symbolName.length + 1);
 
@@ -549,17 +556,19 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
           // tokens between delimiters count, a trailing empty one does not.
           const tokens = tokenizeDefault(name, '_');
 
-          if (tokens.length !== 2) this.throwParse(`Invalid symbol unit name suffix ${name}`);
+          if (tokens.length !== 2)
+            this.throwParse(wxFormat(_('Invalid symbol unit name suffix %s'), name));
 
           const unit = wxToLong(tokens[0]!);
 
-          if (unit === null) this.throwParse(`Invalid symbol unit number ${name}`);
+          if (unit === null) this.throwParse(wxFormat(_('Invalid symbol unit number %s'), name));
 
           this.m_unit = unit;
 
           const bodyStyle = wxToLong(tokens[1]!);
 
-          if (bodyStyle === null) this.throwParse(`Invalid symbol body style number ${name}`);
+          if (bodyStyle === null)
+            this.throwParse(wxFormat(_('Invalid symbol body style number %s'), name));
 
           this.m_bodyStyle = bodyStyle;
 
@@ -891,7 +900,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
           const hyperlink = this.CurText();
 
           if (!EDA_TEXT_CLASS.ValidateHyperlink(hyperlink))
-            this.throwParse(`Invalid hyperlink url '${hyperlink}'`);
+            this.throwParse(wxFormat(_("Invalid hyperlink url '%s'"), hyperlink));
           else aText.SetHyperlink(hyperlink);
 
           this.NeedRIGHT();
@@ -915,7 +924,9 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
    */
   protected parseHeader(aHeaderType: string, aFileVersion: number): void {
     if (this.CurTok() !== aHeaderType)
-      this.throwParse(`Cannot parse '${DSNLEXER.GetTokenString(this.CurTok())}' as a header.`);
+      this.throwParse(
+        wxFormat(_("Cannot parse '%s' as a header."), DSNLEXER.GetTokenString(this.CurTok())),
+      );
 
     this.NeedLEFT();
 

@@ -23,6 +23,8 @@ import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface SheetRef {
   path: string;
@@ -155,12 +157,12 @@ export class SCH_NAVIGATE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         }
       }
 
-      this.m_frame!.ShowInfoBarError(`Page '${destPage.value}' not found.`);
+      this.m_frame!.ShowInfoBarError(wxFormat(_("Page '%s' not found."), destPage.value));
     } else {
       // wxMenu menu; menu.Append( 1, "Open %s" ); GetPopupMenuSelectionFromUser( menu ) == 1:
       // the popup answers when it closes.
       const menu = new ACTION_MENU(true);
-      menu.Append(1, `Open ${href}`);
+      menu.Append(1, wxFormat(_('Open %s'), href));
 
       this.m_frame!.PopupMenu(menu, () => {
         if (menu.GetSelected() === 1)

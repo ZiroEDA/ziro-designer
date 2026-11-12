@@ -92,6 +92,7 @@ import type { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_LIST, type SCH_SHEET_PATH, SYMBOL_FILTER } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The selection annotate.cpp reads from SCH_SELECTION_TOOL: none yet (see above). */
 function annotationSelection(_aFrame: SCH_EDIT_FRAME): EDA_ITEM[] {
@@ -195,9 +196,13 @@ export class SCH_ANNOTATE_MIXIN {
         let msg: string;
 
         if (symbol.GetUnitCount() > 1) {
-          msg = `Cleared annotation for ${symbol.GetValue(true, aSheet, false)} (unit ${symbol.SubReference(symbol.GetUnit(), false)}).`;
+          msg = wxFormat(
+            _('Cleared annotation for %s (unit %s).'),
+            symbol.GetValue(true, aSheet, false),
+            symbol.SubReference(symbol.GetUnit(), false),
+          );
         } else {
-          msg = `Cleared annotation for ${symbol.GetValue(true, aSheet, false)}.`;
+          msg = wxFormat(_('Cleared annotation for %s.'), symbol.GetValue(true, aSheet, false));
         }
 
         symbol.ClearAnnotation(aSheet, aResetPrefixes);
@@ -320,7 +325,7 @@ export class SCH_ANNOTATE_MIXIN {
 
       if (count)
         aReporter.ReportTail(
-          `${count} duplicate time stamps were found and replaced.`,
+          wxFormat(_('%d duplicate time stamps were found and replaced.'), count),
           RPT_SEVERITY_WARNING,
         );
     }
@@ -470,15 +475,31 @@ export class SCH_ANNOTATE_MIXIN {
         if (newRef === prevRef) continue;
 
         if (symbol.GetUnitCount() > 1) {
-          msg = `Updated ${symbol.GetValue(true, sheet, false)} (unit ${symbol.SubReference(symbol.GetUnit(), false)}) from ${prevRef} to ${newRef}.`;
+          msg = wxFormat(
+            _('Updated %s (unit %s) from %s to %s.'),
+            symbol.GetValue(true, sheet, false),
+            symbol.SubReference(symbol.GetUnit(), false),
+            prevRef,
+            newRef,
+          );
         } else {
-          msg = `Updated ${symbol.GetValue(true, sheet, false)} from ${prevRef} to ${newRef}.`;
+          msg = wxFormat(
+            _('Updated %s from %s to %s.'),
+            symbol.GetValue(true, sheet, false),
+            prevRef,
+            newRef,
+          );
         }
       } else {
         if (symbol.GetUnitCount() > 1) {
-          msg = `Annotated ${symbol.GetValue(true, sheet, false)} (unit ${symbol.SubReference(symbol.GetUnit(), false)}) as ${newRef}.`;
+          msg = wxFormat(
+            _('Annotated %s (unit %s) as %s.'),
+            symbol.GetValue(true, sheet, false),
+            symbol.SubReference(symbol.GetUnit(), false),
+            newRef,
+          );
         } else {
-          msg = `Annotated ${symbol.GetValue(true, sheet, false)} as ${newRef}.`;
+          msg = wxFormat(_('Annotated %s as %s.'), symbol.GetValue(true, sheet, false), newRef);
         }
       }
 

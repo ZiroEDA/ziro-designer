@@ -115,6 +115,7 @@ import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/wx/defs.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { SCH_SCREEN, SCH_SCREENS } from '../sch_screen.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `MAX_PAGE_SIZE_EESCHEMA_MILS` (page_info.h). [data] */
 const MAX_PAGE_SIZE_EESCHEMA_MILS = 120000;
@@ -327,13 +328,13 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     if (symbol) {
       if (aSearchType === SCH_SEARCH_T.HIGHLIGHT_PIN) {
-        if (foundItem) msg = `${displayRef} pin ${aSearchText} found`;
-        else msg = `${displayRef} found but pin ${aSearchText} not found`;
+        if (foundItem) msg = wxFormat(_('%s pin %s found'), displayRef, aSearchText);
+        else msg = wxFormat(_('%s found but pin %s not found'), displayRef, aSearchText);
       } else {
-        msg = `${displayRef} found`;
+        msg = wxFormat(_('%s found'), displayRef);
       }
     } else {
-      msg = `${displayRef} not found`;
+      msg = wxFormat(_('%s not found'), displayRef);
     }
 
     this.m_frame!.SetStatusText(msg);
@@ -770,7 +771,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, rootSheetPath);
     }
 
-    const msg = `Revert '${schematic.GetFileName()}' (and all sub-sheets) to last version saved?`;
+    const msg = wxFormat(
+      _("Revert '%s' (and all sub-sheets) to last version saved?"),
+      schematic.GetFileName(),
+    );
 
     if (!(yield* this.RunMainStackModal(() => this.m_frame!.IsOKAsync(msg)))) {
       // User cancelled - navigate back to original sheet
@@ -2420,13 +2424,19 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const designBlock = designBlockPane.GetDesignBlock(group.GetDesignBlockLibId(), true, true);
 
     if (!designBlock) {
-      const msg = `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`;
+      const msg = wxFormat(
+        _('Could not find design block %s.'),
+        group.GetDesignBlockLibId().GetUniStringLibId(),
+      );
       editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
       return 1;
     }
 
     if (designBlock.GetSchematicFile() === '') {
-      const msg = `Design block ${group.GetDesignBlockLibId().GetUniStringLibId()} does not have a schematic file.`;
+      const msg = wxFormat(
+        _('Design block %s does not have a schematic file.'),
+        group.GetDesignBlockLibId().GetUniStringLibId(),
+      );
       editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
       return 1;
     }
@@ -2457,7 +2467,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const designBlock = designBlockPane.GetDesignBlock(group.GetDesignBlockLibId(), true, true);
 
     if (!designBlock) {
-      const msg = `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`;
+      const msg = wxFormat(
+        _('Could not find design block %s.'),
+        group.GetDesignBlockLibId().GetUniStringLibId(),
+      );
       editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
       return 1;
     }

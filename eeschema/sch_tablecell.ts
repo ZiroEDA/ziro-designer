@@ -38,6 +38,7 @@ import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { KIUI_EllipsizeStatusText } from '@ziroeda/common/widgets/ui_common.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `parseCellAddress`: "B3" -> row 3, column 1 (rows are 0-based as written). */
 function parseCellAddress(aAddr: string): { row: number; col: number } | null {
@@ -130,7 +131,7 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return `Table Cell ${this.GetAddr()}`;
+    return wxFormat(_('Table Cell %s'), this.GetAddr());
   }
 
   override Clone(): SCH_TABLECELL {

@@ -129,6 +129,7 @@ import { GetUnplacedUnitsForSymbol, IsUnannotatedUnitOccupied } from './sch_tool
 import { SCH_LINE_WIRE_BUS_TOOL } from './sch_line_wire_bus_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FILEEXT::KiCadSchematicFileExtension` (wildcards_and_files_ext.cpp). */
 const KiCadSchematicFileExtension = 'kicad_sch';
@@ -1732,7 +1733,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             created.SetStroke(this.m_lastStroke);
             created.SetFillColor(this.m_lastFillColor);
             created.SetParent(schematic);
-            description = `Add ${created.GetFriendlyName()}`;
+            description = wxFormat(_('Add %s'), created.GetFriendlyName());
           }
 
           item = created;
@@ -1800,7 +1801,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
             const commit = new SCH_COMMIT(this.m_toolMgr!);
             commit.Add(drawn, this.m_frame!.GetScreen());
-            commit.Push(`Draw ${drawn.GetClass()}`);
+            commit.Push(wxFormat(_('Draw %s'), drawn.GetClass()));
 
             this.m_selectionTool!.AddItemToSel(drawn);
             item = null;
@@ -2392,7 +2393,9 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
             if (!image || !bytes || !image.GetReferenceImage().ReadImageFile(bytes)) {
               // wxMessageBox
-              this.m_frame!.DisplayError(`Could not load image from '${fullFilename}'.`);
+              this.m_frame!.DisplayError(
+                wxFormat(_("Could not load image from '%s'."), fullFilename),
+              );
               image = null;
               continue;
             }
@@ -2668,7 +2671,10 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
           if (!designBlock) {
             this.m_frame!.ShowInfoBarError(
-              `Could not find design block ${designBlockPane.GetSelectedLibId().GetUniStringLibId()}.`,
+              wxFormat(
+                _('Could not find design block %s.'),
+                designBlockPane.GetSelectedLibId().GetUniStringLibId(),
+              ),
               true,
             );
             return 0;
@@ -2998,7 +3004,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     }
 
     if ((isDrawSheetCopy || isDrawSheetFromDesignBlock) && !wxFileExists(filename)) {
-      this.m_frame!.DisplayError(`File '${filename}' does not exist.`);
+      this.m_frame!.DisplayError(wxFormat(_("File '%s' does not exist."), filename));
       return 0;
     }
 

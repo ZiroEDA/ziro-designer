@@ -23,6 +23,8 @@ import {
   ReplaceIllegalFileNameChars,
 } from '../../string_utils.js';
 import type { wxXmlNode } from '@ziroeda/wx/xml.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `NODE_MAP`: `std::unordered_map<wxString, wxXmlNode*>`. */
 export type NODE_MAP = Map<string, wxXmlNode>;
@@ -458,7 +460,7 @@ export class ECOORD {
         break;
     }
 
-    if (ret > 0 !== aValue > 0) console.error(`Invalid size ${aValue}: too large`);
+    if (ret > 0 !== aValue > 0) console.error(wxFormat(_('Invalid size %lld: too large'), aValue));
 
     return ret;
   }

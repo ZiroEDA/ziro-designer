@@ -24,6 +24,7 @@
 import { DoubleValueFromString, type EdaUnits } from '../eda_units.js';
 import { wildCompareString } from '../string_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const TR_OP_BINARY_MASK = 0x200;
 export const TR_OP_UNARY_MASK = 0x100;
@@ -536,7 +537,11 @@ export class UOP {
           arg2.GetType() === VAR_TYPE_T.VT_STRING
         ) {
           ctx.ReportError(
-            `Type mismatch between ${formatLf(arg1.AsDouble())} and '${arg2.AsString()}'`,
+            wxFormat(
+              _("Type mismatch between %lf and '%s'"),
+              formatLf(arg1.AsDouble()),
+              arg2.AsString(),
+            ),
           );
         }
       }
@@ -1148,7 +1153,7 @@ export class COMPILER {
           else
             this.reportError(
               COMPILATION_STAGE.CST_PARSE,
-              `Unrecognized character '${String.fromCharCode(ch)}'`,
+              wxFormat(_("Unrecognized character '%c'"), String.fromCharCode(ch)),
             );
 
           break;
@@ -1438,14 +1443,14 @@ export class COMPILER {
               const vref = aCode.CreateVarRef(itemName, propName);
 
               if (!vref) {
-                msg = `Unrecognized item '${itemName}'`;
+                msg = wxFormat(_("Unrecognized item '%s'"), itemName);
                 this.reportError(
                   COMPILATION_STAGE.CST_CODEGEN,
                   msg,
                   node.leaf[0]!.srcPos - itemName.length,
                 );
               } else if (vref.GetType() === VAR_TYPE_T.VT_PARSE_ERROR) {
-                msg = `Unrecognized property '${propName}'`;
+                msg = wxFormat(_("Unrecognized property '%s'"), propName);
                 this.reportError(
                   COMPILATION_STAGE.CST_CODEGEN,
                   msg,
@@ -1471,7 +1476,7 @@ export class COMPILER {
               const vref = aCode.CreateVarRef(itemName, '');
 
               if (!vref) {
-                msg = `Unrecognized item '${itemName}'`;
+                msg = wxFormat(_("Unrecognized item '%s'"), itemName);
                 this.reportError(
                   COMPILATION_STAGE.CST_CODEGEN,
                   msg,
@@ -1484,7 +1489,7 @@ export class COMPILER {
               const params = squashParamList(node.leaf[1]!.leaf[1]);
 
               if (!func) {
-                msg = `Unrecognized function '${functionName}'`;
+                msg = wxFormat(_("Unrecognized function '%s'"), functionName);
                 this.reportError(COMPILATION_STAGE.CST_CODEGEN, msg, node.leaf[0]!.srcPos + 1);
               }
 
@@ -1536,7 +1541,7 @@ export class COMPILER {
               const vref = aCode.CreateVarRef(itemName, propName);
 
               if (!vref) {
-                msg = `Unrecognized item '${itemName}'`;
+                msg = wxFormat(_("Unrecognized item '%s'"), itemName);
                 this.reportError(
                   COMPILATION_STAGE.CST_CODEGEN,
                   msg,
@@ -1544,7 +1549,7 @@ export class COMPILER {
                 );
               }
 
-              msg = `Unrecognized property '${propName}'`;
+              msg = wxFormat(_("Unrecognized property '%s'"), propName);
               this.reportError(COMPILATION_STAGE.CST_CODEGEN, msg, node.leaf[0]!.srcPos + 1);
 
               node.leaf[0]!.isVisited = true;
@@ -1568,7 +1573,7 @@ export class COMPILER {
             value = 0.0;
           } else if (son && son.op === TOKEN_TYPE_T.TR_UNIT) {
             if (this.m_unitResolver.GetSupportedUnits().length === 0) {
-              msg = `Unexpected units for '${formatNode(node)}'`;
+              msg = wxFormat(_("Unexpected units for '%s'"), formatNode(node));
               this.reportError(COMPILATION_STAGE.CST_CODEGEN, msg, node.srcPos);
             }
 
@@ -1578,7 +1583,11 @@ export class COMPILER {
             son.isVisited = true;
           } else {
             if (this.m_unitResolver.GetSupportedUnitsMessage().length > 0) {
-              missingUnitsMsg = `Missing units for '${formatNode(node)}'| (${this.m_unitResolver.GetSupportedUnitsMessage()})`;
+              missingUnitsMsg = wxFormat(
+                _("Missing units for '%s'| (%s)"),
+                formatNode(node),
+                this.m_unitResolver.GetSupportedUnitsMessage(),
+              );
               missingUnitsSrcPos = node.srcPos;
             }
 
@@ -1603,7 +1612,7 @@ export class COMPILER {
           const vref = aCode.CreateVarRef(formatNode(node), '');
 
           if (!vref) {
-            msg = `Unrecognized item '${formatNode(node)}'`;
+            msg = wxFormat(_("Unrecognized item '%s'"), formatNode(node));
             this.reportError(
               COMPILATION_STAGE.CST_CODEGEN,
               msg,

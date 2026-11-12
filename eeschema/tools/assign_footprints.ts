@@ -36,6 +36,7 @@ import { SCH_REFERENCE_LIST } from '../sch_reference_list.js';
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCH_EDITOR_CONTROL } from './sch_editor_control.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `wxSingleChoiceDialog`'s answer, which the window fills on OK. */
 export interface SINGLE_CHOICE_ARG {
@@ -246,7 +247,7 @@ export class SCH_ASSIGN_FOOTPRINTS_MIXIN {
     const visibilityState = choiceDlg.selection === 1;
 
     if (!this.processCmpToFootprintLinkFile(filename, forceVisibility, visibilityState)) {
-      const msg = `Failed to open symbol-footprint link file '${filename}'.`;
+      const msg = wxFormat(_("Failed to open symbol-footprint link file '%s'."), filename);
 
       frame.DisplayError(msg);
       return 0;

@@ -131,6 +131,8 @@ import { niluuid } from '@ziroeda/common/kiid.js';
 import { SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface EAGLE_LIBRARY {
   name: string;
@@ -519,7 +521,7 @@ export class SCH_IO_EAGLE extends SCH_IO {
     this.m_schematic = aSchematic;
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Loading ${aFileName}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
       if (!this.m_progressReporter.KeepRefreshing()) throw new IO_ERROR('Open canceled by user.');
     }
@@ -674,7 +676,7 @@ export class SCH_IO_EAGLE extends SCH_IO {
     }
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Loading ${aLibraryPath}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aLibraryPath));
 
       if (!this.m_progressReporter.KeepRefreshing()) throw new IO_ERROR('Open canceled by user.');
     }
@@ -696,7 +698,7 @@ export class SCH_IO_EAGLE extends SCH_IO {
   private loadXmlDocument(aFileName: string): wxXmlNode {
     const data = this.m_readFile(aFileName);
 
-    if (!data) throw new IO_ERROR(`Unable to read file '${aFileName}'.`);
+    if (!data) throw new IO_ERROR(wxFormat(_("Unable to read file '%s'."), aFileName));
 
     const text = new TextDecoder('utf-8').decode(data);
 
@@ -705,7 +707,10 @@ export class SCH_IO_EAGLE extends SCH_IO {
 
     if (!line.startsWith('<?xml') && !line.startsWith('<!--') && !line.startsWith('<eagle ')) {
       throw new IO_ERROR(
-        `'${aFileName}' is an Eagle binary-format file; only Eagle XML-format files can be imported.`,
+        wxFormat(
+          _("'%s' is an Eagle binary-format file; only Eagle XML-format files can be imported."),
+          aFileName,
+        ),
       );
     }
 
@@ -724,7 +729,7 @@ export class SCH_IO_EAGLE extends SCH_IO {
       } catch (e2) {
         if (!(e2 instanceof wxXmlParseError)) throw e2;
 
-        throw new IO_ERROR(`Unable to read file '${aFileName}'.`);
+        throw new IO_ERROR(wxFormat(_("Unable to read file '%s'."), aFileName));
       }
     }
   }
@@ -1089,7 +1094,11 @@ export class SCH_IO_EAGLE extends SCH_IO {
     // Find the module referenced by the module instance.
     if (!module) {
       throw new IO_ERROR(
-        `No module instance '${aModuleInstance.name}' found in schematic file:\n${this.m_filename}`,
+        wxFormat(
+          _("No module instance '%s' found in schematic file:\n%s"),
+          aModuleInstance.name,
+          this.m_filename,
+        ),
       );
     }
 
@@ -1746,7 +1755,12 @@ export class SCH_IO_EAGLE extends SCH_IO {
 
     if (!epart) {
       this.Report(
-        `Error parsing Eagle file. Could not find '${aInstance.part}' instance but it is referenced in the schematic.`,
+        wxFormat(
+          _(
+            "Error parsing Eagle file. Could not find '%s' instance but it is referenced in the schematic.",
+          ),
+          aInstance.part,
+        ),
         RPT_SEVERITY_ERROR,
       );
 
@@ -1820,7 +1834,7 @@ export class SCH_IO_EAGLE extends SCH_IO {
 
     if (!part) {
       this.Report(
-        `Could not find '${unescapeString(kisymbolname)}' in the imported library.`,
+        wxFormat(_("Could not find '%s' in the imported library."), unescapeString(kisymbolname)),
         RPT_SEVERITY_ERROR,
       );
       return;

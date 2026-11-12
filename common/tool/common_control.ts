@@ -37,6 +37,7 @@ import type { RESET_REASON } from './tool_base.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `URL_GET_INVOLVED`. */
 export const URL_GET_INVOLVED = 'https://github.com/ZiroEDA/ziro-designer';
@@ -157,7 +158,12 @@ export class COMMON_CONTROL extends TOOL_INTERACTIVE {
   GetInvolved(_aEvent: TOOL_EVENT): number {
     if (!wxLaunchDefaultBrowser(URL_GET_INVOLVED)) {
       void DisplayInfoMessage(
-        `Could not launch the default browser.\nFor information on how to help the KiCad project, visit ${URL_GET_INVOLVED}`,
+        wxFormat(
+          _(
+            'Could not launch the default browser.\nFor information on how to help the KiCad project, visit %s',
+          ),
+          URL_GET_INVOLVED,
+        ),
       );
     }
 
@@ -167,7 +173,10 @@ export class COMMON_CONTROL extends TOOL_INTERACTIVE {
   Donate(_aEvent: TOOL_EVENT): number {
     if (!wxLaunchDefaultBrowser(URL_DONATE)) {
       void DisplayInfoMessage(
-        `Could not launch the default browser.\nTo donate to the KiCad project, visit ${URL_DONATE}`,
+        wxFormat(
+          _('Could not launch the default browser.\nTo donate to the KiCad project, visit %s'),
+          URL_DONATE,
+        ),
       );
     }
 

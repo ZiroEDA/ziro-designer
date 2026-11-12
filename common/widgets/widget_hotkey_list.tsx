@@ -22,6 +22,7 @@ import { DisplayErrorMessage, ShowKicadMessageDialog } from '../confirm.js';
 import { wxNO_DEFAULT, wxYES_NO } from '@ziroeda/wx/defs.js';
 import { wxID_YES } from '@ziroeda/wx/menu.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A row being rebound: HK_PROMPT_DIALOG's subject. */
 interface Prompt {
@@ -129,7 +130,9 @@ export function WidgetHotkeyList({
       return;
     }
     if (isReservedHotkey(keys)) {
-      DisplayErrorMessage(`'${keys}' is a reserved hotkey in KiCad and cannot be assigned.`);
+      DisplayErrorMessage(
+        wxFormat(_("'%s' is a reserved hotkey in KiCad and cannot be assigned."), keys),
+      );
       return;
     }
     // WIDGET_HOTKEY_LIST::resolveKeyConflicts — both bindings are kept, and only
@@ -138,7 +141,14 @@ export function WidgetHotkeyList({
     if (taken) {
       // KICAD_MESSAGE_DIALOG( …, wxYES_NO | wxNO_DEFAULT ).ShowModal() == wxID_YES.
       void ShowKicadMessageDialog({
-        message: `'${keys}' is already assigned to '${taken.command}' in section '${taken.section}'. Both bindings are kept, but only one runs per key press. Continue?`,
+        message: wxFormat(
+          _(
+            "'%s' is already assigned to '%s' in section '%s'. Both bindings are kept, but only one runs per key press. Continue?",
+          ),
+          keys,
+          taken.command,
+          taken.section,
+        ),
         caption: _('Hotkey conflict'),
         style: wxYES_NO | wxNO_DEFAULT,
       }).then((aAnswer) => {

@@ -105,6 +105,7 @@ import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SCH_BASE_FRAME } from '../sch_base_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface SYMBOL_EDIT_FRAME_HOOKS {
   /**
@@ -579,7 +580,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
     const adapter = SymbolLibAdapter(this.Prj());
 
     if (adapter.HasLibrary(libName)) {
-      DisplayErrorMessage(`Library '${libName}' already exists.`);
+      DisplayErrorMessage(wxFormat(_("Library '%s' already exists."), libName));
       return '';
     }
 
@@ -654,7 +655,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
     const adapter = SymbolLibAdapter(this.Prj());
 
     if (adapter.HasLibrary(libName)) {
-      DisplayErrorMessage(`Library '${libName}' already exists.`);
+      DisplayErrorMessage(wxFormat(_("Library '%s' already exists."), libName));
       return;
     }
 
@@ -712,7 +713,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       if (wxFileExists(backupFileName)) wxRemoveFile(backupFileName);
 
       if (!wxCopyFile(aOriginalFile, backupFileName)) {
-        DisplayErrorMessage(`Failed to save backup to '${backupFileName}'.`);
+        DisplayErrorMessage(wxFormat(_("Failed to save backup to '%s'."), backupFileName));
         return false;
       }
     }
@@ -1235,11 +1236,14 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (this.IsSymbolFromSchematic()) {
       msgs.push(
-        `Editing symbol ${this.m_reference} from schematic.  Saving will update the schematic only.`,
+        wxFormat(
+          _('Editing symbol %s from schematic.  Saving will update the schematic only.'),
+          this.m_reference,
+        ),
       );
 
       infobar.AddButton({
-        label: `Open symbol from library ${aLibName}`,
+        label: wxFormat(_('Open symbol from library %s'), aLibName),
         onClick: () => this.GetToolManager()?.RunAction(SCH_ACTIONS.editLibSymbolWithLibEdit),
       });
     } else if (this.IsSymbolFromLegacyLibrary()) {
@@ -1268,7 +1272,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
         const rootSymbolName = rootSymbol.GetName();
 
         infobar.AddButton({
-          label: `Open ${unescapeString(rootSymbolName)}`,
+          label: wxFormat(_('Open %s'), unescapeString(rootSymbolName)),
           onClick: () => void this.LoadSymbolFromCurrentLib(rootSymbolName, unit, bodyStyle),
         });
       }
@@ -1284,7 +1288,10 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       infobar.AddButton({
         label: _('Create an editable copy'),
         onClick: async () => {
-          const msg = `Create an editable copy of the symbol or the entire library (${aLibName})?`;
+          const msg = wxFormat(
+            _('Create an editable copy of the symbol or the entire library (%s)?'),
+            aLibName,
+          );
 
           // These buttons are in a weird order(?)
           const choice = await this.ShowKiDialog({
@@ -1673,7 +1680,10 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
           const libTableRow = adapter.FindRowByURI(uri);
 
           if (!libTableRow) {
-            msg = `The current configuration does not include the symbol library '${uri}'.`;
+            msg = wxFormat(
+              _("The current configuration does not include the symbol library '%s'."),
+              uri,
+            );
             msg += '\nUse Manage Symbol Libraries to edit the configuration.';
             DisplayErrorMessage(_('Library not found in symbol library table.'), msg);
             break;
@@ -1682,7 +1692,10 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
           libNickname = libTableRow.Nickname();
 
           if (!adapter.HasLibrary(libNickname, true)) {
-            msg = `The symbol library '${unescapeString(libNickname)}' is not enabled in the current configuration.`;
+            msg = wxFormat(
+              _("The symbol library '%s' is not enabled in the current configuration."),
+              unescapeString(libNickname),
+            );
             msg += '\nUse Manage Symbol Libraries to edit the configuration.';
             DisplayErrorMessage(_('Symbol library not enabled.'), msg);
             break;

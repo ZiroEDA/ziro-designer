@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js'; // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
@@ -72,7 +73,7 @@ export class ERROR_COLLECTOR {
 
   AddSyntaxError(aLine = -1, aColumn = -1): void {
     if (aLine >= 0 && aColumn >= 0)
-      this.AddError(`Syntax error at line ${aLine}, column ${aColumn}`);
+      this.AddError(wxFormat(_('Syntax error at line %zu, column %zu'), aLine, aColumn));
     else this.AddError('Syntax error in calculation expression');
   }
 

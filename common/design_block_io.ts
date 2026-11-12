@@ -38,6 +38,7 @@ import {
 } from '@ziroeda/wx/filefn.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `KICTL_NONKICAD_ONLY` (io_mgr.h): only guess non-KiCad library types. */
 export const KICTL_NONKICAD_ONLY = 1 << 0;
@@ -102,11 +103,16 @@ export class DESIGN_BLOCK_IO {
   /** `CreateLibrary` (design_block_io.cpp:171-192). */
   CreateLibrary(aLibraryPath: string): void {
     if (wxDirExists(aLibraryPath))
-      throw new IO_ERROR(`Cannot overwrite library path '${aLibraryPath}'.`);
+      throw new IO_ERROR(wxFormat(_("Cannot overwrite library path '%s'."), aLibraryPath));
 
     if (!wxMkdir(aLibraryPath)) {
       throw new IO_ERROR(
-        `Library path '${aLibraryPath}' could not be created.\n\nMake sure you have write permissions and try again.`,
+        wxFormat(
+          _(
+            "Library path '%s' could not be created.\n\nMake sure you have write permissions and try again.",
+          ),
+          aLibraryPath,
+        ),
       );
     }
   }
@@ -117,13 +123,15 @@ export class DESIGN_BLOCK_IO {
     if (!wxDirExists(aLibraryPath)) return false;
 
     if (!this.IsLibraryWritable(aLibraryPath))
-      throw new IO_ERROR(`Insufficient permissions to delete folder '${aLibraryPath}'.`);
+      throw new IO_ERROR(
+        wxFormat(_("Insufficient permissions to delete folder '%s'."), aLibraryPath),
+      );
 
     const entries = wxDirEnumerate(aLibraryPath) ?? [];
 
     // Design block folders should only contain sub-folders for each design block
     if (entries.some((e) => !e.isDir))
-      throw new IO_ERROR(`Library folder '${aLibraryPath}' has unexpected files.`);
+      throw new IO_ERROR(wxFormat(_("Library folder '%s' has unexpected files."), aLibraryPath));
 
     // Must delete all sub-directories before deleting the library directory. Upstream
     // tests each one's extension against the LIBRARY extension (`kicad_blocks`), not a
@@ -140,7 +148,7 @@ export class DESIGN_BLOCK_IO {
     }
 
     if (!wxRemoveDirTree(aLibraryPath))
-      throw new IO_ERROR(`Design block library '${aLibraryPath}' cannot be deleted.`);
+      throw new IO_ERROR(wxFormat(_("Design block library '%s' cannot be deleted."), aLibraryPath));
 
     return true;
   }
@@ -153,7 +161,8 @@ export class DESIGN_BLOCK_IO {
   ): void {
     const entries = wxDirEnumerate(aLibraryPath);
 
-    if (entries === null) throw new IO_ERROR(`Design block '${aLibraryPath}' does not exist.`);
+    if (entries === null)
+      throw new IO_ERROR(wxFormat(_("Design block '%s' does not exist."), aLibraryPath));
 
     for (const e of entries) {
       if (e.isDir && e.name.endsWith(`.${KiCadDesignBlockPathExtension}`)) {
@@ -184,7 +193,8 @@ export class DESIGN_BLOCK_IO {
     const dbPcbPath = `${dbPath}${aDesignBlockName}.${KiCadPcbFileExtension}`;
     const dbMetadataPath = `${dbPath}${aDesignBlockName}.${JsonFileExtension}`;
 
-    if (!wxDirExists(dbPath)) throw new IO_ERROR(`Design block '${dbPath}' does not exist.`);
+    if (!wxDirExists(dbPath))
+      throw new IO_ERROR(wxFormat(_("Design block '%s' does not exist."), dbPath));
 
     const newDB = new DESIGN_BLOCK_CLASS();
 
@@ -212,7 +222,9 @@ export class DESIGN_BLOCK_IO {
             newDB.GetFields().set(name, asString(value));
         }
       } catch {
-        throw new IO_ERROR(`Design block metadata file '${dbMetadataPath}' could not be read.`);
+        throw new IO_ERROR(
+          wxFormat(_("Design block metadata file '%s' could not be read."), dbMetadataPath),
+        );
       }
     }
 
@@ -237,10 +249,10 @@ export class DESIGN_BLOCK_IO {
     const boardFile = aDesignBlock.GetBoardFile();
 
     if (schematicFile !== '' && !wxFileExists(schematicFile))
-      throw new IO_ERROR(`Schematic source file '${schematicFile}' does not exist.`);
+      throw new IO_ERROR(wxFormat(_("Schematic source file '%s' does not exist."), schematicFile));
 
     if (boardFile !== '' && !wxFileExists(boardFile))
-      throw new IO_ERROR(`Board source file '${boardFile}' does not exist.`);
+      throw new IO_ERROR(wxFormat(_("Board source file '%s' does not exist."), boardFile));
 
     // Create the design block folder
     const itemName = aDesignBlock.GetLibId().GetLibItemName();
@@ -248,7 +260,7 @@ export class DESIGN_BLOCK_IO {
 
     if (!wxDirExists(dbFolder)) {
       if (!wxMkdir(dbFolder))
-        throw new IO_ERROR(`Design block folder '${dbFolder}' could not be created.`);
+        throw new IO_ERROR(wxFormat(_("Design block folder '%s' could not be created."), dbFolder));
     }
 
     if (schematicFile !== '') {
@@ -260,7 +272,11 @@ export class DESIGN_BLOCK_IO {
       if (schematicFile !== dbSchematicFile) {
         if (!wxCopyFile(schematicFile, dbSchematicFile)) {
           throw new IO_ERROR(
-            `Schematic file '${schematicFile}' could not be saved as design block at '${dbSchematicFile}'.`,
+            wxFormat(
+              _("Schematic file '%s' could not be saved as design block at '%s'."),
+              schematicFile,
+              dbSchematicFile,
+            ),
           );
         }
       }
@@ -273,7 +289,11 @@ export class DESIGN_BLOCK_IO {
       if (boardFile !== dbBoardFile) {
         if (!wxCopyFile(boardFile, dbBoardFile)) {
           throw new IO_ERROR(
-            `Board file '${boardFile}' could not be saved as design block at '${dbBoardFile}'.`,
+            wxFormat(
+              _("Board file '%s' could not be saved as design block at '%s'."),
+              boardFile,
+              dbBoardFile,
+            ),
           );
         }
       }
@@ -289,7 +309,9 @@ export class DESIGN_BLOCK_IO {
     ]);
 
     if (!wxWriteFileSync(dbMetadataFile, new TextEncoder().encode(dump0(dbMetadata))))
-      throw new IO_ERROR(`Design block metadata file '${dbMetadataFile}' could not be saved.`);
+      throw new IO_ERROR(
+        wxFormat(_("Design block metadata file '%s' could not be saved."), dbMetadataFile),
+      );
   }
 
   /** `DesignBlockDelete` (:491-510). */
@@ -303,7 +325,7 @@ export class DESIGN_BLOCK_IO {
 
     // Delete the whole design block folder
     if (!wxRemoveDirTree(dbDir))
-      throw new IO_ERROR(`Design block folder '${dbDir}' could not be deleted.`);
+      throw new IO_ERROR(wxFormat(_("Design block folder '%s' could not be deleted."), dbDir));
   }
 
   /** `IsLibraryWritable` (:513-517): a path on a writable mount. */

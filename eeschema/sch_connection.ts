@@ -47,6 +47,7 @@ import type { SCH_PIN } from './sch_pin.js';
 import { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum CONNECTION_TYPE {
   NONE, ///< No connection to this item
@@ -714,7 +715,10 @@ export class SCH_CONNECTION {
 
       if (alias) {
         aList.push(
-          new MSG_PANEL_ITEM(`Bus Alias ${this.m_name} Members`, alias.Members().join(' ')),
+          new MSG_PANEL_ITEM(
+            wxFormat(_('Bus Alias %s Members'), this.m_name),
+            alias.Members().join(' '),
+          ),
         );
       } else if (NET_SETTINGS.ParseBusGroup(this.m_name, group_name, group_members)) {
         for (const group_member of group_members) {
@@ -723,7 +727,7 @@ export class SCH_CONNECTION {
           if (group_alias) {
             aList.push(
               new MSG_PANEL_ITEM(
-                `Bus Alias ${group_alias.GetName()} Members`,
+                wxFormat(_('Bus Alias %s Members'), group_alias.GetName()),
                 group_alias.Members().join(' '),
               ),
             );

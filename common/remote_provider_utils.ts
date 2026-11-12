@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js'; // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
@@ -116,7 +117,10 @@ export function ValidateRemoteUrlSecurity(
 
   if (scheme === 'http' && aAllowInsecureLocalhost && IsLoopbackHost(uri.server)) return true;
 
-  aError.value = `${aLabel} must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL.`;
+  aError.value = wxFormat(
+    _('%s must use HTTPS unless allow_insecure_localhost is enabled for a loopback URL.'),
+    aLabel,
+  );
   return false;
 }
 

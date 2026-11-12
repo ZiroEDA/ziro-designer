@@ -76,6 +76,8 @@ import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
 import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
 import { SCH_FIELD } from './sch_field.js';
 import type { SCH_RENDER_SETTINGS } from './sch_render_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { EE_RTREE, type EE_RTREE_LIKE } from './sch_rtree.js';
 
@@ -701,7 +703,12 @@ export class SCH_SCREEN extends BASE_SCREEN {
 
       if (!symbol.GetLibId().IsValid()) {
         if (aReporter) {
-          msg = `Schematic symbol reference '${unescapeString(symbol.GetLibId().Format())}' library identifier is not valid. Unable to link library symbol.`;
+          msg = wxFormat(
+            _(
+              "Schematic symbol reference '%s' library identifier is not valid. Unable to link library symbol.",
+            ),
+            unescapeString(symbol.GetLibId().Format()),
+          );
           aReporter.ReportTail(msg, RPT_SEVERITY_WARNING);
         }
 
@@ -717,7 +724,12 @@ export class SCH_SCREEN extends BASE_SCREEN {
 
       if (!hasLibraryRow && !legacyLibs) {
         if (aReporter) {
-          msg = `Symbol library '${nickname}' not found and no fallback cache library available.  Unable to link library symbol.`;
+          msg = wxFormat(
+            _(
+              "Symbol library '%s' not found and no fallback cache library available.  Unable to link library symbol.",
+            ),
+            nickname,
+          );
           aReporter.ReportTail(msg, RPT_SEVERITY_WARNING);
         }
 
@@ -736,7 +748,11 @@ export class SCH_SCREEN extends BASE_SCREEN {
           if (!(ioe instanceof IO_ERROR)) throw ioe;
 
           if (aReporter) {
-            msg = `I/O error ${ioe.message} resolving library symbol ${unescapeString(symbol.GetLibId().Format())}`;
+            msg = wxFormat(
+              _('I/O error %s resolving library symbol %s'),
+              ioe.message,
+              unescapeString(symbol.GetLibId().Format()),
+            );
             aReporter.ReportTail(msg, RPT_SEVERITY_ERROR);
           }
         }

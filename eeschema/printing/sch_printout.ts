@@ -34,6 +34,8 @@ import type { SCH_SCREEN } from '../sch_screen.js';
 import type { SCH_VIEW } from '../sch_view.js';
 import { SCH_WORLD_UNIT } from '../sch_view.js';
 import { SCH_SELECTION_TOOL } from '../tools/sch_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * Custom print out for printing schematics.
@@ -73,7 +75,7 @@ export class SCH_PRINTOUT extends wxPrintout {
     // wxCHECK_MSG( sheetList[ page - 1].LastScreen() != nullptr, false, ... )
     if (!sheetList[aPage - 1]!.LastScreen()) return false;
 
-    this.m_parent.SetMsgPanel(`Print page ${aPage}`, '');
+    this.m_parent.SetMsgPanel(wxFormat(_('Print page %d'), aPage), '');
 
     const oldsheetpath = this.m_parent.GetCurrentSheet().Clone();
 

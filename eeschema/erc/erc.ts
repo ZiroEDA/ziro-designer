@@ -8,7 +8,7 @@
  * CONNECTION_GRAPH::RunERC.
  */
 
-import { wxMatches } from '@ziroeda/wx/wxstring.js';
+import { wxFormat, wxMatches } from '@ziroeda/wx/wxstring.js';
 import {
   ExpandEnvVarSubstitutions,
   ResolveShownText,
@@ -289,7 +289,7 @@ export class ERC_TESTER {
       if (missing_units.length > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_UNIT)) {
         report(
           missing_units,
-          (s, u) => `Symbol ${s} has unplaced units ${u}`,
+          (s, u) => wxFormat(_('Symbol %s has unplaced units %s'), s, u),
           ERCE.ERCE_MISSING_UNIT,
         );
       }
@@ -336,7 +336,8 @@ export class ERC_TESTER {
       ) {
         report(
           ascending(missing_power),
-          (s, u) => `Symbol ${s} has input power pins in units ${u} that are not placed`,
+          (s, u) =>
+            wxFormat(_('Symbol %s has input power pins in units %s that are not placed'), s, u),
           ERCE.ERCE_MISSING_POWER_INPUT_PIN,
         );
       }
@@ -344,7 +345,7 @@ export class ERC_TESTER {
       if (missing_input.size > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_INPUT_PIN)) {
         report(
           ascending(missing_input),
-          (s, u) => `Symbol ${s} has input pins in units ${u} that are not placed`,
+          (s, u) => wxFormat(_('Symbol %s has input pins in units %s that are not placed'), s, u),
           ERCE.ERCE_MISSING_INPUT_PIN,
         );
       }
@@ -352,7 +353,8 @@ export class ERC_TESTER {
       if (missing_bidi.size > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_BIDI_PIN)) {
         report(
           ascending(missing_bidi),
-          (s, u) => `Symbol ${s} has bidirectional pins in units ${u} that are not placed`,
+          (s, u) =>
+            wxFormat(_('Symbol %s has bidirectional pins in units %s that are not placed'), s, u),
           ERCE.ERCE_MISSING_BIDI_PIN,
         );
       }
@@ -391,7 +393,12 @@ export class ERC_TESTER {
               const ercItem = ERC_ITEM.Create(ERCE.ERCE_DIFFERENT_UNIT_NET)!;
 
               ercItem.SetErrorMessage(
-                `Pin ${pin.GetShownNumber()} is connected to both ${netName} and ${first[0]}`,
+                wxFormat(
+                  _('Pin %s is connected to both %s and %s'),
+                  pin.GetShownNumber(),
+                  netName,
+                  first[0],
+                ),
               );
 
               ercItem.SetItems(pin, first[1]);
@@ -588,7 +595,11 @@ export class ERC_TESTER {
           ercItem.SetItemsSheetPaths(pins[pinIt]!.Sheet(), pins[nearest_pin]!.Sheet());
 
           ercItem.SetErrorMessage(
-            `Pins of type ${ElectricalPinTypeGetText(pin.GetType())} and ${ElectricalPinTypeGetText(other_pin.GetType())} are connected`,
+            wxFormat(
+              _('Pins of type %s and %s are connected'),
+              ElectricalPinTypeGetText(pin.GetType()),
+              ElectricalPinTypeGetText(other_pin.GetType()),
+            ),
           );
 
           const marker = new SCH_MARKER_LIVE(ercItem, pin.GetPosition());
@@ -764,7 +775,9 @@ export class ERC_TESTER {
           for (const pin of mismatched) {
             const ercItem = ERC_ITEM.Create(ERCE.ERCE_GROUND_PIN_NOT_GROUND)!;
 
-            ercItem.SetErrorMessage(`Pin ${pin.GetShownName()} not connected to ground net`);
+            ercItem.SetErrorMessage(
+              wxFormat(_('Pin %s not connected to ground net'), pin.GetShownName()),
+            );
             ercItem.SetItems(pin);
             ercItem.SetSheetSpecificPath(sheet);
             ercItem.SetItemsSheetPaths(sheet);
@@ -1148,13 +1161,20 @@ export class ERC_TESTER {
         if (!row || row.Disabled()) {
           if (this.m_settings.IsTestEnabled(ERCE.ERCE_LIB_SYMBOL_ISSUES))
             issue(
-              `The current configuration does not include the symbol library '${unescapeString(libName)}'`,
+              wxFormat(
+                _("The current configuration does not include the symbol library '%s'"),
+                unescapeString(libName),
+              ),
             );
           continue;
         } else if (!adapter.IsLibraryLoaded(libName)) {
           if (this.m_settings.IsTestEnabled(ERCE.ERCE_LIB_SYMBOL_ISSUES))
             issue(
-              `The symbol library '${unescapeString(libName)}' was not found at '${manager.GetFullURI(row, true)}'`,
+              wxFormat(
+                _("The symbol library '%s' was not found at '%s'"),
+                unescapeString(libName),
+                manager.GetFullURI(row, true),
+              ),
             );
           continue;
         }
@@ -1165,7 +1185,11 @@ export class ERC_TESTER {
         if (!libSymbol) {
           if (this.m_settings.IsTestEnabled(ERCE.ERCE_LIB_SYMBOL_ISSUES))
             issue(
-              `Symbol '${unescapeString(symbolName)}' not found in symbol library '${unescapeString(libName)}'`,
+              wxFormat(
+                _("Symbol '%s' not found in symbol library '%s'"),
+                unescapeString(symbolName),
+                unescapeString(libName),
+              ),
             );
           continue;
         }
@@ -1189,7 +1213,11 @@ export class ERC_TESTER {
             const ercItem = ERC_ITEM.Create(ERCE.ERCE_LIB_SYMBOL_MISMATCH)!;
             ercItem.SetItems(symbol);
             ercItem.SetErrorMessage(
-              `Symbol '${unescapeString(symbolName)}' doesn't match copy in library '${unescapeString(libName)}'`,
+              wxFormat(
+                _("Symbol '%s' doesn't match copy in library '%s'"),
+                unescapeString(symbolName),
+                unescapeString(libName),
+              ),
             );
             markers.push(new SCH_MARKER_LIVE(ercItem, symbol.GetPosition()));
           }
@@ -1240,7 +1268,7 @@ export class ERC_TESTER {
         const fpID = new LIB_ID_LIVE();
 
         if (fpID.Parse(footprint, true) >= 0) {
-          issue(`'${footprint}' is not a valid footprint identifier`);
+          issue(wxFormat(_("'%s' is not a valid footprint identifier"), footprint));
           continue;
         }
 
@@ -1249,11 +1277,21 @@ export class ERC_TESTER {
         const ret = linkTester(footprint, aProject);
 
         if (ret === KIFACE_ADDR_ID.KIFACE_TEST_FOOTPRINT_LINK_NO_LIBRARY) {
-          issue(`The current configuration does not include the footprint library '${libName}'`);
+          issue(
+            wxFormat(
+              _("The current configuration does not include the footprint library '%s'"),
+              libName,
+            ),
+          );
         } else if (ret === KIFACE_ADDR_ID.KIFACE_TEST_FOOTPRINT_LINK_LIBRARY_NOT_ENABLED) {
-          issue(`The footprint library '${libName}' is not enabled in the current configuration`);
+          issue(
+            wxFormat(
+              _("The footprint library '%s' is not enabled in the current configuration"),
+              libName,
+            ),
+          );
         } else if (ret === KIFACE_ADDR_ID.KIFACE_TEST_FOOTPRINT_LINK_NO_FOOTPRINT) {
-          issue(`Footprint '${fpName}' not found in library '${libName}'`);
+          issue(wxFormat(_("Footprint '%s' not found in library '%s'"), fpName, libName));
         }
       }
 
@@ -1338,7 +1376,7 @@ export class ERC_TESTER {
             ercItem.SetItemsSheetPaths(sheet, sheet);
             ercItem.SetSheetSpecificPath(sheet);
             ercItem.SetErrorMessage(
-              `Field name has leading or trailing whitespace: '${field.GetName()}'`,
+              wxFormat(_("Field name has leading or trailing whitespace: '%s'"), field.GetName()),
             );
 
             const marker = new SCH_MARKER_LIVE(ercItem, field.GetPosition());
@@ -1415,7 +1453,13 @@ export class ERC_TESTER {
             const second = pinNetPairs[1]![1];
 
             ercItem.SetErrorMessage(
-              `Pin ${pinNumber} on symbol '${symbol.GetRef(sheet)}' is connected to different nets: ${firstNet === '' ? _('<no net>') : firstNet} and ${second === '' ? _('<no net>') : second}`,
+              wxFormat(
+                _("Pin %s on symbol '%s' is connected to different nets: %s and %s"),
+                pinNumber,
+                symbol.GetRef(sheet),
+                firstNet === '' ? _('<no net>') : firstNet,
+                second === '' ? _('<no net>') : second,
+              ),
             );
             ercItem.SetItems(pinNetPairs[0]![0], conflictPin);
             ercItem.SetSheetSpecificPath(sheet);
@@ -1499,7 +1543,7 @@ export class ERC_TESTER {
       const ercItem = ERC_ITEM.Create(ERCE.ERCE_UNDEFINED_NETCLASS)!;
 
       ercItem.SetItems(item);
-      ercItem.SetErrorMessage(`Netclass ${netclass} is not defined`);
+      ercItem.SetErrorMessage(wxFormat(_('Netclass %s is not defined'), netclass));
 
       const marker = new SCH_MARKER_LIVE(ercItem, item.GetPosition());
       sheet.LastScreen()!.Append(marker);
@@ -1587,7 +1631,7 @@ export class ERC_TESTER {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_FOUR_WAY_JUNCTION)!;
 
           ercItem.SetItems(items[0]!, items[1]!, items[2]!, items[3]!);
-          ercItem.SetErrorMessage(`Four items connected at ${pt.x}, ${pt.y}`);
+          ercItem.SetErrorMessage(wxFormat(_('Four items connected at %d, %d'), pt.x, pt.y));
           ercItem.SetSheetSpecificPath(sheet);
 
           const marker = new SCH_MARKER_LIVE(ercItem, pt);
@@ -1634,7 +1678,9 @@ export class ERC_TESTER {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_LABEL_MULTIPLE_WIRES)!;
 
           ercItem.SetItems(labels[0]!, lines[0] ?? null, lines[1] ?? null, lines[2] ?? null);
-          ercItem.SetErrorMessage(`Label connects more than one wire at ${pt.x}, ${pt.y}`);
+          ercItem.SetErrorMessage(
+            wxFormat(_('Label connects more than one wire at %d, %d'), pt.x, pt.y),
+          );
           ercItem.SetSheetSpecificPath(sheet);
 
           const marker = new SCH_MARKER_LIVE(ercItem, pt);
@@ -1681,7 +1727,9 @@ export class ERC_TESTER {
 
         if (unit && secondFp !== '' && unitFP !== secondFp) {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_DIFFERENT_UNIT_FP)!;
-          ercItem.SetErrorMessage(`Different footprints assigned to ${unitName} and ${secondName}`);
+          ercItem.SetErrorMessage(
+            wxFormat(_('Different footprints assigned to %s and %s'), unitName, secondName),
+          );
           ercItem.SetItems(unit, secondUnit);
 
           const marker = new SCH_MARKER_LIVE(ercItem, secondUnit.GetPosition());
@@ -1738,7 +1786,11 @@ export class ERC_TESTER {
         if (!found) {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_FOOTPRINT_FILTERS)!;
           ercItem.SetErrorMessage(
-            `Assigned footprint (${footprint.GetUniStringLibItemName()}) doesn't match footprint filters (${filters.join(' ')})`,
+            wxFormat(
+              _("Assigned footprint (%s) doesn't match footprint filters (%s)"),
+              footprint.GetUniStringLibItemName(),
+              filters.join(' '),
+            ),
           );
           ercItem.SetItems(sch_symbol);
           markers.push(new SCH_MARKER_LIVE(ercItem, sch_symbol.GetPosition()));

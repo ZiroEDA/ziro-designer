@@ -30,6 +30,8 @@ import {
   type FpLibRow,
 } from '@ziroeda/common/fp_lib_table.js';
 import { findProjectFile as findProjectFileByUri } from '@ziroeda/common/project_paths.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A project file as the editor holds it. */
 export interface ProjectFile {
@@ -218,7 +220,7 @@ export function AddSymbolLibraryToProject(
   const rows = projectSymLibTable(aProjectFiles);
 
   if ([...rows.map((r) => r.name), ...aOtherNicknames].includes(nickname))
-    return { ok: false, error: `Library '${nickname}' already exists.` };
+    return { ok: false, error: wxFormat(_("Library '%s' already exists."), nickname) };
 
   const tablePath = projectSymLibTablePath(aProjectFiles);
   const name = `${tablePath.slice(0, tablePath.lastIndexOf('/') + 1)}${leaf}`;

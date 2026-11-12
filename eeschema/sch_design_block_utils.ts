@@ -37,6 +37,7 @@ import { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 let s_tempCounter = 0;
 
@@ -60,7 +61,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     return this.GetDesignBlockPane()!
       .Dialogs()
       .OKOrCancel(
-        `Design block '${aNewName}' already exists in library '${aLibname}'.`,
+        wxFormat(_("Design block '%s' already exists in library '%s'."), aNewName, aLibname),
         _('Overwrite existing design block?'),
         _('Overwrite'),
       );
@@ -71,7 +72,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     return this.GetDesignBlockPane()!
       .Dialogs()
       .OKOrCancel(
-        `Design block '${aLibId.GetUniStringLibItemName()}' already has a schematic.`,
+        wxFormat(_("Design block '%s' already has a schematic."), aLibId.GetUniStringLibItemName()),
         _('Overwrite existing schematic?'),
         _('Overwrite'),
       );
@@ -204,7 +205,9 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     }
 
     if (!blk) {
-      dialogs.DisplayError(`Design block '${aLibId.GetUniStringLibItemName()}' does not exist.`);
+      dialogs.DisplayError(
+        wxFormat(_("Design block '%s' does not exist."), aLibId.GetUniStringLibItemName()),
+      );
       return false;
     }
 
@@ -456,7 +459,9 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     }
 
     if (!blk) {
-      dialogs.DisplayError(`Design block '${aLibId.GetUniStringLibItemName()}' does not exist.`);
+      dialogs.DisplayError(
+        wxFormat(_("Design block '%s' does not exist."), aLibId.GetUniStringLibItemName()),
+      );
       return false;
     }
 

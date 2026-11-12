@@ -42,6 +42,7 @@ import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_CONDITIONS, SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
   constructor() {
@@ -297,7 +298,7 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     dialog.DeleteAllPages();
     dialog.SetUserItemID(symbol.m_Uuid);
 
-    const symbolDesc = `Symbol ${symbol.GetField(FIELD_T.REFERENCE)!.GetText()}`;
+    const symbolDesc = wxFormat(_('Symbol %s'), symbol.GetField(FIELD_T.REFERENCE)!.GetText());
     const libId = symbol.GetLibId();
     const libName = libId.GetLibNickname();
     const symbolName = libId.GetLibItemName();
@@ -347,7 +348,7 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
       if (libAlias) flattenedLibSymbol = libAlias.Flatten();
 
       if (!flattenedLibSymbol) {
-        r.Report(`The library no longer contains the item ${symbolName}.`);
+        r.Report(wxFormat(_('The library no longer contains the item %s.'), symbolName));
       } else {
         const fields: SCH_FIELD[] = [];
 

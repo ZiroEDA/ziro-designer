@@ -45,6 +45,7 @@ import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { SYMBOL_EDITOR_PIN_TOOL } from './symbol_editor_pin_tool.js';
 import type { IMPORT_GFX_RESULT } from '../import_gfx/dialog_import_gfx_sch.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
   private m_lastTextBold = false;
@@ -460,7 +461,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
               this.m_lastFillStyle,
             );
             item.SetParent(symbol);
-            description = `Add ${item.GetFriendlyName()}`;
+            description = wxFormat(_('Add %s'), item.GetFriendlyName());
           }
 
           item.SetStroke(this.m_lastStroke);

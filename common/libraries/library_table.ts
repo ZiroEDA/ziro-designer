@@ -31,6 +31,7 @@ import {
   type LIBRARY_TABLE_ROW_IR,
 } from './library_table_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `LIBRARY_TABLE_TYPE`. */
 export enum LIBRARY_TABLE_TYPE {
@@ -232,7 +233,7 @@ export class LIBRARY_TABLE {
 
     if (aText === null) {
       table.m_ok = false;
-      table.m_errorDescription = `The library table path '${aPath}' does not exist`;
+      table.m_errorDescription = wxFormat(_("The library table path '%s' does not exist"), aPath);
       return table;
     }
 
@@ -440,7 +441,10 @@ export class LIBRARY_TABLE {
    */
   Save(): LIBRARY_RESULT<void> {
     if (this.IsReadOnly())
-      return { ok: false, error: new LIBRARY_ERROR(`Library table '${this.Path()}' is read-only`) };
+      return {
+        ok: false,
+        error: new LIBRARY_ERROR(wxFormat(_("Library table '%s' is read-only"), this.Path())),
+      };
 
     if (!wxWriteFileSync(this.Path(), new TextEncoder().encode(this.FormatForSave())))
       return { ok: false, error: new LIBRARY_ERROR(`Could not write '${this.Path()}'`) };

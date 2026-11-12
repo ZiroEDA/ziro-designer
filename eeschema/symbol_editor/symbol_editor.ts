@@ -76,7 +76,10 @@ export function deleteSymbolPrompts(opts: {
 
   if (opts.modified) {
     prompts.push({
-      message: `The symbol '${opts.symName}' has been modified.\nDo you want to remove it from the library?`,
+      message: wxFormat(
+        _("The symbol '%s' has been modified.\nDo you want to remove it from the library?"),
+        opts.symName,
+      ),
     });
   }
 
@@ -373,7 +376,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       const libName = this.GetCurSymbol()!.GetLibId().GetLibNickname();
 
       if (this.GetLibManager().IsLibraryReadOnly(libName)) {
-        const msg = `Symbol library '${libName}' is not writable.`;
+        const msg = wxFormat(_("Symbol library '%s' is not writable."), libName);
         const msg2 = _('You must save to a different location.');
 
         if ((await OKOrCancelDialog(_('Warning'), msg, msg2)) === wxID_OK)
@@ -443,7 +446,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
           if (!(ioe instanceof IO_ERROR)) throw ioe;
 
           DisplayErrorMessage(
-            `Error loading symbol ${aLibId.GetUniStringLibId()} from library '${aLibId.GetLibItemName()}'.`,
+            wxFormat(
+              _("Error loading symbol %s from library '%s'."),
+              aLibId.GetUniStringLibId(),
+              aLibId.GetLibItemName(),
+            ),
             ioe.What(),
           );
           return false;
@@ -511,7 +518,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       if (!(ioe instanceof IO_ERROR)) throw ioe;
 
       DisplayErrorMessage(
-        `Error loading symbol ${aSymbolName} from library '${this.GetCurLib()}'.`,
+        wxFormat(_("Error loading symbol %s from library '%s'."), aSymbolName, this.GetCurLib()),
         ioe.What(),
       );
       return false;
@@ -618,7 +625,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     const symbol = this.GetLibManager().GetBufferedSymbol(aAlias, aLibrary);
 
     if (!symbol) {
-      DisplayErrorMessage(`Symbol ${aAlias} not found in library '${aLibrary}'.`);
+      DisplayErrorMessage(wxFormat(_("Symbol %s not found in library '%s'."), aAlias, aLibrary));
       this.RefreshLibTree();
       return;
     }
@@ -651,7 +658,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     if (libName === '') {
       await this.saveCurrentSymbol();
     } else if (this.GetLibManager().IsLibraryReadOnly(libName)) {
-      const msg = `Symbol library '${libName}' is not writable.`;
+      const msg = wxFormat(_("Symbol library '%s' is not writable."), libName);
       const msg2 = _('You must save to a different location.');
 
       if ((await OKOrCancelDialog(_('Warning'), msg, msg2)) === wxID_OK)
@@ -704,7 +711,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       // account's Symbols folder otherwise - and a name the place has is refused, not written
       // over.
       const name = await this.AskLibraryName(
-        `Save Library '${aLibrary}' As...`,
+        wxFormat(_("Save Library '%s' As..."), aLibrary),
         aLibrary,
         saveAsHook,
       );
@@ -725,7 +732,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       const path = `${(inProject ? prj.GetProjectPath() : this.UserSymbolsPath()).replace(/\/+$/, '')}/${name}.${KiCadSymbolLibFileExtension}`;
 
       if (wxFileExists(path)) {
-        DisplayErrorMessage(`Library '${name}' already exists.`);
+        DisplayErrorMessage(wxFormat(_("Library '%s' already exists."), name));
         return false;
       }
 
@@ -757,7 +764,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     if (!libMgr.SaveLibrary(aLibrary, fn, fileType)) {
       DisplayErrorMessage(
         _('Error Saving Library'),
-        `Failed to save changes to symbol library file '${fn}'.`,
+        wxFormat(_("Failed to save changes to symbol library file '%s'."), fn),
       );
       return false;
     }
@@ -822,7 +829,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       if (!libMgr.IsLibraryModified(libNickname)) continue;
 
       if (aRequireConfirmation && !applyToAll.value) {
-        const msg = `Save changes to '${libNickname}' before closing?`;
+        const msg = wxFormat(_("Save changes to '%s' before closing?"), libNickname);
 
         switch (await this.UnsavedChangesDialog(msg, dirtyCount > 1 ? applyToAll : undefined)) {
           case 'save':
@@ -840,7 +847,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
         // If saving under existing name fails then do a Save As..., and if that
         // fails then cancel close action.
         if (libMgr.IsLibraryReadOnly(libNickname)) {
-          const msg = `Symbol library '${libNickname}' is not writable.`;
+          const msg = wxFormat(_("Symbol library '%s' is not writable."), libNickname);
           const msg2 = _('You must save to a different location.');
 
           if (dirtyCount === 1) {
@@ -892,7 +899,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       }
 
       if (lib !== '' && libMgr.SymbolNameInUse(newName, lib)) {
-        const msg = `Symbol '${unescapeString(newName)}' already exists in library '${lib}'.`;
+        const msg = wxFormat(
+          _("Symbol '%s' already exists in library '%s'."),
+          unescapeString(newName),
+          lib,
+        );
 
         return (
           (await this.ShowKiDialog({
@@ -1330,12 +1341,16 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       const saver = new SYMBOL_SAVE_AS_HANDLER(libMgr, strategy, false);
 
       if (libMgr.IsLibraryReadOnly(libraryName)) {
-        DisplayErrorMessage(`Library '${libraryName}' is read-only.`);
+        DisplayErrorMessage(wxFormat(_("Library '%s' is read-only."), libraryName));
         return;
       }
 
       if (libMgr.SymbolNameInUse(symbol.GetName(), libraryName)) {
-        const msg = `Symbol '${symbol.GetName()}' already exists in library '${libraryName}'.`;
+        const msg = wxFormat(
+          _("Symbol '%s' already exists in library '%s'."),
+          symbol.GetName(),
+          libraryName,
+        );
 
         if (
           (await this.ShowKiDialog({
@@ -1369,7 +1384,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
         if (!(ioe instanceof IO_ERROR) && !(ioe instanceof PARSE_ERROR)) throw ioe;
 
         DisplayErrorMessage(
-          `Error occurred attempting to load symbol library file '${fullPath}'.`,
+          wxFormat(_("Error occurred attempting to load symbol library file '%s'."), fullPath),
           // catch( const IO_ERROR& ), which upstream's PARSE_ERROR derives from (ours does not yet).
           ioe instanceof IO_ERROR ? ioe.What() : ioe.message,
         );
@@ -1377,7 +1392,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       }
 
       if (old_symbol) {
-        const msg = `Symbol ${unescapeString(symbol.GetName())} already exists in library '${fullName}'.`;
+        const msg = wxFormat(
+          _("Symbol %s already exists in library '%s'."),
+          unescapeString(symbol.GetName()),
+          fullName,
+        );
 
         if (
           (await this.ShowKiDialog({
@@ -1393,7 +1412,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     }
 
     if (!wxIsDirWritable(slash < 0 ? '' : fullPath.slice(0, slash) || '/')) {
-      DisplayErrorMessage(`Insufficient permissions to save library '${fullPath}'.`);
+      DisplayErrorMessage(wxFormat(_("Insufficient permissions to save library '%s'."), fullPath));
       return;
     }
 
@@ -1407,15 +1426,18 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     } catch (ioe) {
       if (!(ioe instanceof IO_ERROR)) throw ioe;
 
-      DisplayErrorMessage(`Failed to create symbol library file '${fullPath}'.`, ioe.What());
-      this.SetStatusText(`Error creating symbol library '${fullName}'.`);
+      DisplayErrorMessage(
+        wxFormat(_("Failed to create symbol library file '%s'."), fullPath),
+        ioe.What(),
+      );
+      this.SetStatusText(wxFormat(_("Error creating symbol library '%s'."), fullName));
       return;
     }
 
     this.SetMruPath(slash < 0 ? '' : fullPath.slice(0, slash));
 
     this.SetStatusText(
-      `Symbol ${unescapeString(symbol.GetName())} saved to library '${fullPath}'.`,
+      wxFormat(_("Symbol %s saved to library '%s'."), unescapeString(symbol.GetName()), fullPath),
     );
   }
 
@@ -1435,7 +1457,9 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     if (lib !== '' && aOldName !== undefined && aOldName !== symbol.GetName()) {
       // Test the current library for name conflicts
       if (libMgr.SymbolNameInUse(symbol.GetName(), lib)) {
-        DisplayErrorMessage(`Symbol name '${unescapeString(symbol.GetName())}' already in use.`);
+        DisplayErrorMessage(
+          wxFormat(_("Symbol name '%s' already in use."), unescapeString(symbol.GetName())),
+        );
         symbol.SetName(aOldName);
       } else {
         libMgr.UpdateSymbolAfterRename(symbol, aOldName, lib);
@@ -1485,7 +1509,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     // Empty if this is the library itself that is selected.
     const symbolName = libId.GetLibItemName();
 
-    const msg = `Revert '${symbolName === '' ? libName : symbolName}' to last version saved?`;
+    const msg = wxFormat(
+      _("Revert '%s' to last version saved?"),
+      symbolName === '' ? libName : symbolName,
+    );
 
     if (aConfirm && !(await ConfirmRevertDialog(msg))) return;
 

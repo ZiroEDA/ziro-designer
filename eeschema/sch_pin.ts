@@ -73,7 +73,7 @@ import {
 } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { wxCmp } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   ANGLE_90,
@@ -1800,12 +1800,36 @@ export class SCH_PIN extends SCH_ITEM {
 
     if (this.IsVisible()) {
       if (name !== '')
-        return `Pin ${this.GetShownNumber()} [${name}, ${electricalTypeName}, ${pinShapeName}]`;
-      else return `Pin ${this.GetShownNumber()} [${electricalTypeName}, ${pinShapeName}]`;
+        return wxFormat(
+          _('Pin %s [%s, %s, %s]'),
+          this.GetShownNumber(),
+          name,
+          electricalTypeName,
+          pinShapeName,
+        );
+      else
+        return wxFormat(
+          _('Pin %s [%s, %s]'),
+          this.GetShownNumber(),
+          electricalTypeName,
+          pinShapeName,
+        );
     } else {
       if (name !== '')
-        return `Hidden pin ${this.GetShownNumber()} [${name}, ${electricalTypeName}, ${pinShapeName}]`;
-      else return `Hidden pin ${this.GetShownNumber()} [${electricalTypeName}, ${pinShapeName}]`;
+        return wxFormat(
+          _('Hidden pin %s [%s, %s, %s]'),
+          this.GetShownNumber(),
+          name,
+          electricalTypeName,
+          pinShapeName,
+        );
+      else
+        return wxFormat(
+          _('Hidden pin %s [%s, %s]'),
+          this.GetShownNumber(),
+          electricalTypeName,
+          pinShapeName,
+        );
     }
   }
 

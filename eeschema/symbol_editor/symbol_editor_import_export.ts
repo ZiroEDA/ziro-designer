@@ -21,6 +21,7 @@ import { SCH_FILE_T, SCH_FILE_T_vector, SCH_IO_MGR } from '../sch_io/sch_io_mgr.
 import { CONFLICT_RESOLUTION } from '../symbol_import_manager.js';
 import type { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `DIALOG_IMPORT_SYMBOL_SELECT( this, aFilePath, aDestLibrary, aPluginType )`'s inputs, and what its
@@ -81,7 +82,7 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
     const piType = SCH_IO_MGR.GuessPluginTypeFromLibPath(path);
 
     if (piType === SCH_FILE_T.SCH_FILE_UNKNOWN) {
-      DisplayErrorMessage(`Unable to find a reader for '${path}'.`);
+      DisplayErrorMessage(wxFormat(_("Unable to find a reader for '%s'."), path));
       return;
     }
 
@@ -130,7 +131,11 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
         if (!(ioe instanceof IO_ERROR) && !(ioe instanceof PARSE_ERROR)) throw ioe;
 
         DisplayErrorMessage(
-          `Cannot import symbol '${symbolName}': ${ioe instanceof IO_ERROR ? ioe.What() : ioe.message}`,
+          wxFormat(
+            _("Cannot import symbol '%s': %s"),
+            symbolName,
+            ioe instanceof IO_ERROR ? ioe.What() : ioe.message,
+          ),
         );
       }
     }
@@ -140,7 +145,9 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
       await this.LoadSymbol(firstImported, libName, 1);
 
       if (skippedCount > 0)
-        await DisplayInfoMessage(`Imported ${importedCount} symbol(s), skipped ${skippedCount}.`);
+        await DisplayInfoMessage(
+          wxFormat(_('Imported %d symbol(s), skipped %d.'), importedCount, skippedCount),
+        );
     }
   }
 }

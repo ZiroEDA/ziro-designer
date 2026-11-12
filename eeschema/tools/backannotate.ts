@@ -62,6 +62,7 @@ import {
   SymbolHasSheetInstances,
 } from './sch_tool_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** wxString's operator<: code-point order. */
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -412,7 +413,7 @@ export class BACK_ANNOTATE {
         else path = getStr(itemTree.get_child('timestamp'));
 
         if (path === '') {
-          msg = `Footprint '${DescribeRef(ref)}' has no assigned symbol.`;
+          msg = wxFormat(_("Footprint '%s' has no assigned symbol."), DescribeRef(ref));
           this.m_reporter.ReportHead(msg, RPT_SEVERITY_WARNING);
           continue;
         }
@@ -470,7 +471,11 @@ export class BACK_ANNOTATE {
 
       if (existing) {
         // Module with this path already exists - generate error
-        msg = `Footprints '${DescribeRef(existing.m_ref)}' and '${DescribeRef(ref)}' linked to same symbol.`;
+        msg = wxFormat(
+          _("Footprints '%s' and '%s' linked to same symbol."),
+          DescribeRef(existing.m_ref),
+          DescribeRef(ref),
+        );
         this.m_reporter.ReportHead(msg, RPT_SEVERITY_ERROR);
       } else {
         // Add footprint to the map
@@ -517,7 +522,7 @@ export class BACK_ANNOTATE {
       } else {
         // Haven't found linked symbol in multiunits or common refs. Generate error
         this.m_reporter.ReportTail(
-          `Cannot find symbol for footprint '${DescribeRef(pcbData.m_ref)}'.`,
+          wxFormat(_("Cannot find symbol for footprint '%s'."), DescribeRef(pcbData.m_ref)),
           RPT_SEVERITY_ERROR,
         );
       }
@@ -789,7 +794,12 @@ export class BACK_ANNOTATE {
 
           if (unitBString === '') unitBString = `${bUnit}`;
 
-          msg = `Swap ${DescribeRef(baseRef)} unit ${unitAString} with unit ${unitBString}.`;
+          msg = wxFormat(
+            _('Swap %s unit %s with unit %s.'),
+            DescribeRef(baseRef),
+            unitAString,
+            unitBString,
+          );
           this.m_reporter.ReportHead(msg, RPT_SEVERITY_ACTION);
           ++this.m_changesCount;
         }
@@ -839,7 +849,11 @@ export class BACK_ANNOTATE {
         !symbol.GetField(FIELD_T.REFERENCE)!.HasTextVars()
       ) {
         ++this.m_changesCount;
-        msg = `Change ${DescribeRef(ref.GetRef())} reference designator to '${fpData.m_ref}'.`;
+        msg = wxFormat(
+          _("Change %s reference designator to '%s'."),
+          DescribeRef(ref.GetRef()),
+          fpData.m_ref,
+        );
 
         if (!this.m_dryRun) symbol.SetRef(ref.GetSheetPath(), fpData.m_ref);
 
@@ -925,7 +939,11 @@ export class BACK_ANNOTATE {
           if (swappedPins.has(pinNumber)) continue;
 
           if (!pin) {
-            msg = `Cannot find ${DescribeRef(ref.GetRef())} pin '${EscapeHTML(pinNumber)}'.`;
+            msg = wxFormat(
+              _("Cannot find %s pin '%s'."),
+              DescribeRef(ref.GetRef()),
+              EscapeHTML(pinNumber),
+            );
             this.m_reporter.ReportHead(msg, RPT_SEVERITY_ERROR);
 
             continue;
@@ -1007,7 +1025,11 @@ export class BACK_ANNOTATE {
 
           if (!fpData.m_fieldsMap.has(field.GetCanonicalName())) {
             this.m_changesCount++;
-            msg = `Delete ${DescribeRef(ref.GetRef())} field '${EscapeHTML(field.GetName())}.'`;
+            msg = wxFormat(
+              _("Delete %s field '%s.'"),
+              DescribeRef(ref.GetRef()),
+              EscapeHTML(field.GetName()),
+            );
 
             fieldsToDelete.push(field.GetName());
             this.m_reporter.ReportHead(msg, RPT_SEVERITY_ACTION);

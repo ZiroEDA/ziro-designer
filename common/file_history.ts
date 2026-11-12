@@ -63,6 +63,7 @@
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `MAX_FILE_HISTORY_SIZE` (`include/id.h:50`). The hard ceiling the
@@ -94,7 +95,8 @@ export const DEFAULT_CLEAR_TEXT = _HKI('Clear Recent Files');
 export const NO_FILES_LABEL = _HKI('No Files');
 
 /** `EDA_BASE_FRAME::GetFileFromHistory`'s dialog, :1503-1509. */
-export const missingFileMessage = (name: string): string => `File '${name}' was not found.\n`;
+export const missingFileMessage = (name: string): string =>
+  wxFormat(wxGetTranslation("File '%s' was not found.\n"), name);
 export const MISSING_FILE_EXTENDED = _HKI(
   'Do you want to remove it from list of recently opened files?',
 );

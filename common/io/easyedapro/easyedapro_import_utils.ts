@@ -30,6 +30,8 @@ import {
 import { wxZipInputStream } from '@ziroeda/wx/zipstrm.js';
 import type { IMPORT_PROJECT_DESC } from '../common/plugin_common_choose_project.js';
 import { PRJ_BOARD_from_json, PRJ_SCHEMATIC_from_json } from './easyedapro_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `EASY_IT_CONTINUE` / `EASY_IT_BREAK`: what an `IterateZipFiles` callback returns. */
 export const EASY_IT_CONTINUE = false;
@@ -162,11 +164,11 @@ export function FindJsonFile(aZipData: Uint8Array, aFileNames: ReadonlySet<strin
       }
     } catch (e) {
       if (e instanceof JSON_EXCEPTION)
-        throw new IO_ERROR(`JSON error reading '${name}': ${e.message}`);
+        throw new IO_ERROR(wxFormat(_("JSON error reading '%s': %s"), name, e.message));
 
       if (e instanceof IO_ERROR) throw e;
 
-      throw new IO_ERROR(`Error reading '${name}': ${(e as Error).message}`);
+      throw new IO_ERROR(wxFormat(_("Error reading '%s': %s"), name, (e as Error).message));
     }
   }
 
@@ -181,7 +183,12 @@ export function ReadProjectOrDeviceFile(aZipData: Uint8Array, aZipFileName: stri
   if (j !== null) return j;
 
   throw new IO_ERROR(
-    `'${aZipFileName}' does not appear to be a valid EasyEDA (JLCEDA) Pro project or library file. Cannot find project.json or device.json.`,
+    wxFormat(
+      _(
+        "'%s' does not appear to be a valid EasyEDA (JLCEDA) Pro project or library file. Cannot find project.json or device.json.",
+      ),
+      aZipFileName,
+    ),
   );
 }
 
@@ -195,7 +202,7 @@ export function IterateZipFiles(
 ): void {
   const zip = new wxZipInputStream(aZipData);
 
-  if (!zip.IsOk()) throw new IO_ERROR(`Cannot read ZIP archive '${aFileName}'`);
+  if (!zip.IsOk()) throw new IO_ERROR(wxFormat(_("Cannot read ZIP archive '%s'"), aFileName));
 
   for (let entry = zip.GetNextEntry(); entry !== null; entry = zip.GetNextEntry()) {
     const name = entry.GetName();
@@ -210,11 +217,11 @@ export function IterateZipFiles(
       if (aCallback(name, baseName, entry.Read() ?? new Uint8Array())) break;
     } catch (e) {
       if (e instanceof JSON_EXCEPTION)
-        throw new IO_ERROR(`JSON error reading '${name}': ${e.message}`);
+        throw new IO_ERROR(wxFormat(_("JSON error reading '%s': %s"), name, e.message));
 
       if (e instanceof IO_ERROR) throw e;
 
-      throw new IO_ERROR(`Error reading '${name}': ${(e as Error).message}`);
+      throw new IO_ERROR(wxFormat(_("Error reading '%s': %s"), name, (e as Error).message));
     }
   }
 }
@@ -259,7 +266,9 @@ export function ParseJsonLines(
     } catch (e) {
       if (!(e instanceof JSON_EXCEPTION)) throw e;
 
-      aWarn?.(`Cannot parse JSON line ${currentLine} in '${aSource}': ${e.message}`);
+      aWarn?.(
+        wxFormat(_("Cannot parse JSON line %d in '%s': %s"), currentLine, aSource, e.message),
+      );
     }
 
     currentLine++;
@@ -292,7 +301,9 @@ export function ParseJsonLinesWithSeparation(
     } catch (e) {
       if (!(e instanceof JSON_EXCEPTION)) throw e;
 
-      aWarn?.(`Cannot parse JSON line ${currentLine} in '${aSource}': ${e.message}`);
+      aWarn?.(
+        wxFormat(_("Cannot parse JSON line %d in '%s': %s"), currentLine, aSource, e.message),
+      );
     }
 
     currentLine++;

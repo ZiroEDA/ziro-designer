@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js'; // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
@@ -64,4 +65,4 @@ export const ABOUT_TITLES = {
 } as const;
 
 /** `wxString::Format( _( "About %s" ), m_titleName )`. */
-export const aboutWindowTitle = (frameTitle: string): string => `About ${frameTitle}`;
+export const aboutWindowTitle = (frameTitle: string): string => wxFormat(_('About %s'), frameTitle);

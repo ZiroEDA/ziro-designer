@@ -30,6 +30,7 @@ import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface SCH_GROUP extends EDA_GROUP {}
 
@@ -246,7 +247,7 @@ export class SCH_GROUP extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    if (this.m_name === '') return `Unnamed Group, ${this.m_items.size} members`;
+    if (this.m_name === '') return wxFormat(_('Unnamed Group, %zu members'), this.m_items.size);
     else return `Group '${this.m_name}', ${this.m_items.size} members`;
   }
 

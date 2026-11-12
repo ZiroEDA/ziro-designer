@@ -181,6 +181,7 @@ import {
 } from './altium_parser_sch.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A record's properties as the property helpers take them. */
 type PROPS = Map<string, string>;
@@ -1562,7 +1563,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     if (this.m_rootFilepath === '') this.m_rootFilepath = parentPath;
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Importing ${baseName(aFileName)}`);
+      this.m_progressReporter.Report(wxFormat(_('Importing %s'), baseName(aFileName)));
 
       if (!this.m_progressReporter.KeepRefreshing())
         throw new IO_ERROR(_('File import canceled by user.'));
@@ -1571,7 +1572,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     if (this.isBinaryFile(aFileName)) {
       const bytes = this.m_readFile(aFileName);
 
-      if (!bytes) throw new IO_ERROR(`Cannot open file '${aFileName}'`);
+      if (!bytes) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'"), aFileName));
 
       const altiumSchFile = new ALTIUM_COMPOUND_FILE(bytes);
 
@@ -1584,7 +1585,9 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       } catch (exception) {
         if (exception instanceof CFBException) throw new IO_ERROR(exception.message);
         if (exception instanceof IO_ERROR) throw exception;
-        throw new IO_ERROR(`Error parsing Altium schematic: ${(exception as Error).message}`);
+        throw new IO_ERROR(
+          wxFormat(_('Error parsing Altium schematic: %s'), (exception as Error).message),
+        );
       }
     } // ASCII
     else {
@@ -1602,7 +1605,12 @@ export class SCH_IO_ALTIUM extends SCH_IO {
 
       if (baseName(loadAltiumFileName) === '' || this.m_readFile(loadAltiumFileName) === null) {
         this.error(
-          `The file name for sheet ${sheet.GetName()} is undefined, this is probably an Altium signal harness that got converted to a sheet.`,
+          wxFormat(
+            _(
+              'The file name for sheet %s is undefined, this is probably an Altium signal harness that got converted to a sheet.',
+            ),
+            sheet.GetName(),
+          ),
           RPT_SEVERITY_INFO,
         );
         sheet.SetScreen(new SCH_SCREEN(this.m_schematic));
@@ -1679,7 +1687,10 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     // throw IO Error.
     if (reader.GetRemainingBytes() !== 0) {
       this.error(
-        `Storage file not fully parsed (${reader.GetRemainingBytes()} bytes remaining).`,
+        wxFormat(
+          _('Storage file not fully parsed (%d bytes remaining).'),
+          reader.GetRemainingBytes(),
+        ),
         RPT_SEVERITY_ERROR,
       );
     }
@@ -1816,7 +1827,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
   private ParseASCIISchematic(aFileName: string): void {
     const bytes = this.m_readFile(aFileName);
 
-    if (!bytes) throw new IO_ERROR(`Cannot open file '${aFileName}'`);
+    if (!bytes) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'"), aFileName));
 
     // Read storage content first
     {
@@ -2096,7 +2107,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
 
       default:
         this.error(
-          `Unknown or unexpected record id ${recordId} found in ${aSectionName}.`,
+          wxFormat(_('Unknown or unexpected record id %d found in %s.'), recordId, aSectionName),
           RPT_SEVERITY_ERROR,
         );
         break;
@@ -2650,7 +2661,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
 
     if (elem.points.length < 2) {
       this.error(
-        `Bezier has ${elem.points.length} control points. At least 2 are expected.`,
+        wxFormat(_('Bezier has %d control points. At least 2 are expected.'), elem.points.length),
         RPT_SEVERITY_WARNING,
       );
       return;
@@ -3654,7 +3665,9 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       libSymbol.GetReferenceField().SetVisible(false);
       libSymbol.GetValueField().SetText(elem.text);
       libSymbol.GetValueField().SetVisible(true);
-      libSymbol.SetDescription(`Power symbol creates a global label with name '${elem.text}'`);
+      libSymbol.SetDescription(
+        wxFormat(_("Power symbol creates a global label with name '%s'"), elem.text),
+      );
       libSymbol.SetKeyWords('power-flag');
       libSymbol.SetLibId(libId);
 
@@ -3790,7 +3803,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       }
 
       if (!connectionFound)
-        this.error(`Port ${aElem.Name} has no connections.`, RPT_SEVERITY_WARNING);
+        this.error(wxFormat(_('Port %s has no connections.'), aElem.Name), RPT_SEVERITY_WARNING);
     }
 
     // Select label position. In case both match, we will add a line later.
@@ -3947,7 +3960,10 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       const storageFile = this.GetFileFromStorage(elem.filename);
 
       if (!storageFile) {
-        this.error(`Embedded file ${elem.filename} not found in storage.`, RPT_SEVERITY_ERROR);
+        this.error(
+          wxFormat(_('Embedded file %s not found in storage.'), elem.filename),
+          RPT_SEVERITY_ERROR,
+        );
         return;
       }
 
@@ -3961,19 +3977,19 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       }
 
       if (!image || !refImage.ReadImageFile(image)) {
-        this.error(`Error reading image ${elem.filename}.`, RPT_SEVERITY_ERROR);
+        this.error(wxFormat(_('Error reading image %s.'), elem.filename), RPT_SEVERITY_ERROR);
         return;
       }
     } else {
       const bytes = this.m_readFile(elem.filename);
 
       if (!bytes) {
-        this.error(`File not found ${elem.filename}.`, RPT_SEVERITY_ERROR);
+        this.error(wxFormat(_('File not found %s.'), elem.filename), RPT_SEVERITY_ERROR);
         return;
       }
 
       if (!refImage.ReadImageFile(bytes)) {
-        this.error(`Error reading image ${elem.filename}.`, RPT_SEVERITY_ERROR);
+        this.error(wxFormat(_('Error reading image %s.'), elem.filename), RPT_SEVERITY_ERROR);
         return;
       }
     }
@@ -4606,7 +4622,11 @@ export class SCH_IO_ALTIUM extends SCH_IO {
 
           default:
             this.error(
-              `Unknown or unexpected record id ${recordId} found in ${symbols[0]?.GetName() ?? ''}.`,
+              wxFormat(
+                _('Unknown or unexpected record id %d found in %s.'),
+                recordId,
+                symbols[0]?.GetName() ?? '',
+              ),
               RPT_SEVERITY_ERROR,
             );
             break;
@@ -4661,7 +4681,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     try {
       const bytes = (): Uint8Array => {
         const b = this.m_readFile(aLibraryPath);
-        if (!b) throw new IO_ERROR(`Cannot open file '${aLibraryPath}'`);
+        if (!b) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'"), aLibraryPath));
         return b;
       };
 
@@ -4701,7 +4721,9 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     } catch (exception) {
       if (exception instanceof CFBException) throw new IO_ERROR(exception.message);
       if (exception instanceof IO_ERROR) throw exception;
-      throw new IO_ERROR(`Error parsing Altium library: ${(exception as Error).message}`);
+      throw new IO_ERROR(
+        wxFormat(_('Error parsing Altium library: %s'), (exception as Error).message),
+      );
     }
   }
 

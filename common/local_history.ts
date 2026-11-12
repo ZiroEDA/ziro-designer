@@ -9,6 +9,7 @@
 import type { FORMAT_MODE } from './io/kicad/kicad_io_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface HISTORY_FILE_DATA {
   relativePath: string; ///< Destination path relative to the project root
@@ -141,8 +142,8 @@ export function relativeTime(at: number, now: number): string {
   const hours = Math.floor(elapsedMs / 3_600_000);
 
   if (minutes < 1) return _('Moments ago');
-  if (minutes < 91) return `${minutes} minutes ago`;
-  if (hours < 24) return `${hours} hours ago`;
+  if (minutes < 91) return wxFormat(_('%d minutes ago'), minutes);
+  if (hours < 24) return wxFormat(_('%d hours ago'), hours);
   return new Date(at).toLocaleString();
 }
 
@@ -247,7 +248,7 @@ export function restoreConfirmMessage(at: number): string {
   const stamp =
     `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
     `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  return `Restore the project to the version from ${stamp}?`;
+  return wxFormat(_('Restore the project to the version from %s?'), stamp);
 }
 
 /**

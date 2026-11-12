@@ -40,6 +40,8 @@ import { type EdaIuScale, SCH_IU_PER_MM, drawSheetIUScale } from '../index.js';
 import { COORD_TYPES_T, type ORIGIN_TRANSFORMS } from '../origin_transforms.js';
 import type { StatusUnits } from './kistatusbar_format.js';
 import { INDETERMINATE_ACTION, INDETERMINATE_STATE } from './ui_common.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `EDA_UNITS`, restricted to the three a drawing frame's toolbar offers. Same
@@ -227,10 +229,18 @@ export function validateUnitValue(
   const desc = valueDescriptionFromLabel(label);
 
   if (value < range.min * iuScale.IU_PER_MM)
-    return `${desc} must be at least ${stringFromValue(range.min, units, true, iuScale)}.`;
+    return wxFormat(
+      _('%s must be at least %s.'),
+      desc,
+      stringFromValue(range.min, units, true, iuScale),
+    );
 
   if (value > range.max * iuScale.IU_PER_MM)
-    return `${desc} must be less than ${stringFromValue(range.max, units, true, iuScale)}.`;
+    return wxFormat(
+      _('%s must be less than %s.'),
+      desc,
+      stringFromValue(range.max, units, true, iuScale),
+    );
 
   return null;
 }

@@ -50,6 +50,7 @@ import {
 } from './remote_symbol_import_utils.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface REMOTE_SYMBOL_IMPORT_CONTEXT {
   symbol_name: string;
@@ -90,7 +91,10 @@ function validateSymbolPayload(
   }
 
   if (!payload.includes(`(symbol "${aExpectedSymbolName}"`)) {
-    aError.value = `Downloaded symbol payload did not include expected symbol '${aExpectedSymbolName}'.`;
+    aError.value = wxFormat(
+      _("Downloaded symbol payload did not include expected symbol '%s'."),
+      aExpectedSymbolName,
+    );
     return false;
   }
 
@@ -319,7 +323,10 @@ export class REMOTE_SYMBOL_IMPORT_JOB {
 
             plugin.SaveSymbol(outFile, loaded);
           } catch (e) {
-            aError.value = `Unable to save the downloaded symbol: ${e instanceof Error ? e.message : String(e)}`;
+            aError.value = wxFormat(
+              _('Unable to save the downloaded symbol: %s'),
+              e instanceof Error ? e.message : String(e),
+            );
             return false;
           }
         }

@@ -26,6 +26,8 @@ import { SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { CADSTAR_SCH_ARCHIVE_LOADER } from './cadstar_sch_archive_loader.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class SCH_IO_CADSTAR_ARCHIVE extends SCH_IO {
   constructor() {
@@ -88,7 +90,7 @@ export class SCH_IO_CADSTAR_ARCHIVE extends SCH_IO {
 
     const data = this.m_readFile(aFileName);
 
-    if (!data) throw new IO_ERROR(`Cannot open file '${aFileName}'`);
+    if (!data) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'"), aFileName));
 
     const csaLoader = new CADSTAR_SCH_ARCHIVE_LOADER(
       aFileName,

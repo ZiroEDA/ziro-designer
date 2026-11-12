@@ -11,6 +11,7 @@ import type { DESIGN_BLOCK } from '../design_block.js';
 import { LIB_ID } from '../lib_id.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What the dialog shows: the three text controls and the grid's rows. */
 export interface DESIGN_BLOCK_PROPERTIES_VALUES {
@@ -52,7 +53,11 @@ export function DesignBlockPropertiesFromWindow(
   if (illegalCh === 0 && aValues.name.includes('/')) illegalCh = '/'.charCodeAt(0);
 
   if (illegalCh)
-    return `Illegal character '${String.fromCharCode(illegalCh)}' in name '${aValues.name}'.`;
+    return wxFormat(
+      _("Illegal character '%c' in name '%s'."),
+      String.fromCharCode(illegalCh),
+      aValues.name,
+    );
 
   aDesignBlock.SetLibId(new LIB_ID(aDesignBlock.GetLibId().GetLibNickname(), aValues.name));
   aDesignBlock.SetLibDescription(aValues.description);

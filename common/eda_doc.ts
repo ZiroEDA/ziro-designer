@@ -20,6 +20,8 @@ import { DisplayErrorMessage } from './confirm.js';
 import { type EMBEDDED_FILES, KiCadUriPrefix } from './embedded_files.js';
 import { wxFileExists, wxNormalizePath, wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { wxLaunchDefaultBrowser } from '@ziroeda/wx/utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `wxTheMimeTypesManager->GetFileTypeFromExtension()` with `EDAfallbacks`
@@ -117,7 +119,7 @@ export function GetAssociatedDocument(
   let fullfilename = docname;
 
   if (!wxFileExists(fullfilename)) {
-    DisplayErrorMessage(`Documentation file '${docname}' not found.`);
+    DisplayErrorMessage(wxFormat(_("Documentation file '%s' not found."), docname));
     return false;
   }
 
@@ -131,7 +133,8 @@ export function GetAssociatedDocument(
   const type = MIME_TYPES[fileExt.toLowerCase()];
   const success = type !== undefined && openFileInBrowser(fullfilename, type);
 
-  if (!success) DisplayErrorMessage(`Unknown MIME type for documentation file '${fullfilename}'`);
+  if (!success)
+    DisplayErrorMessage(wxFormat(_("Unknown MIME type for documentation file '%s'"), fullfilename));
 
   return success;
 }

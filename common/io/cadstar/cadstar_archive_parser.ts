@@ -24,7 +24,7 @@ export type EDA_TEXT_LIKE = Omit<
 import { IO_ERROR } from '../../exceptions.js';
 import type { PROGRESS_REPORTER } from '../../progress_reporter.js';
 import { convertToNewOverbarNotation, ESCAPE_CONTEXT, EscapeString } from '../../string_utils.js';
-import { wxCmp } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { XNODE, wxXmlNodeType } from '../../xnode.js';
 import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
@@ -147,24 +147,24 @@ function wxLogWarning(_aMessage: string): void {
 }
 
 export const THROW_MISSING_NODE_IO_ERROR = (nodename: string, location: string): never => {
-  throw new IO_ERROR(`Missing node '${nodename}' in '${location}'`);
+  throw new IO_ERROR(wxFormat(_("Missing node '%s' in '%s'"), nodename, location));
 };
 export const THROW_UNKNOWN_NODE_IO_ERROR = (nodename: string, location: string): never => {
-  throw new IO_ERROR(`Unknown node '${nodename}' in '${location}'`);
+  throw new IO_ERROR(wxFormat(_("Unknown node '%s' in '%s'"), nodename, location));
 };
 export const THROW_MISSING_PARAMETER_IO_ERROR = (param: string, location: string): never => {
-  throw new IO_ERROR(`Missing Parameter '${param}' in '${location}'`);
+  throw new IO_ERROR(wxFormat(_("Missing Parameter '%s' in '%s'"), param, location));
 };
 export const THROW_UNKNOWN_PARAMETER_IO_ERROR = (param: string, location: string): never => {
-  throw new IO_ERROR(`Unknown Parameter '${param}' in '${location}'`);
+  throw new IO_ERROR(wxFormat(_("Unknown Parameter '%s' in '%s'"), param, location));
 };
 export const THROW_PARSING_IO_ERROR = (param: string, location: string): never => {
-  throw new IO_ERROR(`Unable to parse '${param}' in '${location}'`);
+  throw new IO_ERROR(wxFormat(_("Unable to parse '%s' in '%s'"), param, location));
 };
 export const WARN_UNKNOWN_NODE_IO_ERROR = (nodename: string, location: string): void =>
-  wxLogWarning(`Unknown node '${nodename}' in '${location}'`);
+  wxLogWarning(wxFormat(_("Unknown node '%s' in '%s'"), nodename, location));
 export const WARN_UNKNOWN_PARAMETER_IO_ERROR = (param: string, location: string): void =>
-  wxLogWarning(`Unknown Parameter '${param}' in '${location}'`);
+  wxLogWarning(wxFormat(_("Unknown Parameter '%s' in '%s'"), param, location));
 
 // ---------------------------------------------------------------------------
 // ids

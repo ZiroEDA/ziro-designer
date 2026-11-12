@@ -28,6 +28,7 @@
  */
 import { LIBRARY_TABLE_TYPE } from './library_table.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `LIBRARY_TABLE_ROW_IR`. */
 export interface LIBRARY_TABLE_ROW_IR {
@@ -326,7 +327,10 @@ export class LIBRARY_TABLE_PARSER {
    * over the file's text with its path; the path only names it in the message.
    */
   Parse(aPath: string, aText: string): LIBRARY_PARSE_RESULT {
-    return this.parse(aText, `An unexpected error occurred while reading library table ${aPath} `);
+    return this.parse(
+      aText,
+      wxFormat(_('An unexpected error occurred while reading library table %s '), aPath),
+    );
   }
 
   /** `ParseBuffer( aBuffer )`. */
@@ -351,7 +355,11 @@ export class LIBRARY_TABLE_PARSER {
       const { line, column } = lineColumn(aText, e.offset);
       return {
         ok: false,
-        error: { description: `Syntax error at line ${line}, column ${column}`, line, column },
+        error: {
+          description: wxFormat(_('Syntax error at line %zu, column %zu'), line, column),
+          line,
+          column,
+        },
       };
     }
 

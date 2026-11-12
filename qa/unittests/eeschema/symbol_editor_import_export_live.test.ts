@@ -19,6 +19,7 @@ import type { ChooserFilter } from '@ziroeda/wx/filedlg.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { type SYMBOL_EDIT_HARNESS, symbolEditHarness } from './support/symbol_edit_harness.js';
 
 const prop = (aName: string, aValue: string) =>
@@ -125,7 +126,9 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
     expect(out).toContain('(symbol "D"');
     expect(out).not.toContain('extends');
     expect(out).toContain('rectangle');
-    expect(t.frame.GetStatusText()).toBe("Symbol D saved to library '/libs/out.kicad_sym'.");
+    expect(t.frame.GetStatusText()).toBe(
+      wxFormat(_("Symbol %s saved to library '%s'."), 'D', '/libs/out.kicad_sym'),
+    );
     expect(t.frame.GetMruPath()).toBe('/libs');
   });
 
@@ -138,7 +141,9 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
 
     await t.frame.ExportSymbol();
 
-    expect(kiAsked[0]!.message).toBe("Symbol U already exists in library 'out.kicad_sym'.");
+    expect(kiAsked[0]!.message).toBe(
+      wxFormat(_("Symbol %s already exists in library '%s'."), 'U', 'out.kicad_sym'),
+    );
     expect(kiAsked[0]!.labels?.ok).toBe(_('Overwrite'));
     expect(text('out.kicad_sym')).toContain('old');
 
@@ -165,7 +170,9 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
     treeLibId = new LIB_ID('mine', 'U');
     kiAnswer = 'cancel';
     await t.frame.ExportSymbol();
-    expect(kiAsked[0]!.message).toBe("Symbol 'U' already exists in library 'other'.");
+    expect(kiAsked[0]!.message).toBe(
+      wxFormat(_("Symbol '%s' already exists in library '%s'."), 'U', 'other'),
+    );
   });
 
   it('refuses a read-only library, an unwritable folder, and no symbol', async () => {
@@ -180,8 +187,8 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
     await t.frame.ExportSymbol();
 
     expect(errors).toEqual([
-      "Library 'other' is read-only.",
-      "Insufficient permissions to save library '/nowhere/out.kicad_sym'.",
+      wxFormat(_("Library '%s' is read-only."), 'other'),
+      wxFormat(_("Insufficient permissions to save library '%s'."), '/nowhere/out.kicad_sym'),
     ]);
     expect(names('other')).toEqual(['U']);
 
@@ -220,7 +227,7 @@ describe('SYMBOL_EDIT_FRAME::ImportSymbol', () => {
     expect(libMgr().GetBufferedSymbol('U', 'mine')!.GetKeyWords()).toBe('');
     // The first one imported is the one opened.
     expect(t.frame.GetCurSymbol()!.GetName()).toBe('A');
-    expect(infos).toEqual(['Imported 2 symbol(s), skipped 1.']);
+    expect(infos).toEqual([wxFormat(_('Imported %d symbol(s), skipped %d.'), 2, 1)]);
     // The chooser: every format a plugin reads, then each plugin's own.
     const filters = fileAsks[0]!.filters;
     expect(filters[0]!.label).toBe(_('All supported formats'));
@@ -253,7 +260,7 @@ describe('SYMBOL_EDIT_FRAME::ImportSymbol', () => {
     filePath = '/libs/notes.txt';
 
     await t.frame.ImportSymbol();
-    expect(errors).toEqual(["Unable to find a reader for '/libs/notes.txt'."]);
+    expect(errors).toEqual([wxFormat(_("Unable to find a reader for '%s'."), '/libs/notes.txt')]);
     expect(modals).toEqual([]);
 
     t.fs.Write('src.kicad_sym', new TextEncoder().encode(lib(root('A'))));

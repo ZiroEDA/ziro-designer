@@ -51,6 +51,7 @@ import type { EdaUnits } from '../widgets/unit_binder.js';
 import type { EdaIuScale } from '../index.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // Folded in from grid_settings_rows.ts (09-26): upstream this is the same
@@ -171,7 +172,8 @@ const EMPTY_GRID: GridEntry = { name: '', x: '', y: '' };
  * and `:296-298`), whose `%s` is `g.UserUnitsMessageText( m_unitsProvider )` —
  * the EXISTING row's text in the user's units, not the one just typed.
  */
-const duplicateMessage = (existing: string): string => `Grid size '${existing}' already exists.`;
+const duplicateMessage = (existing: string): string =>
+  wxFormat(_("Grid size '%s' already exists."), existing);
 
 /** Which modal, if any, the panel has open. */
 type OpenDialog =

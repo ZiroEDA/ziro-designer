@@ -28,7 +28,7 @@ import {
 } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
-import { wxCmp } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { SymbolLibAdapter } from '../project_sch.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
@@ -277,7 +277,9 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
       id.Parse(new_libid);
 
       if (!id.IsValid()) {
-        await DisplayInfoMessage(`Symbol library identifier ${new_libid} is not valid.`);
+        await DisplayInfoMessage(
+          wxFormat(_('Symbol library identifier %s is not valid.'), new_libid),
+        );
 
         this.m_grid.SetGridCursor(row, COL_NEW_LIBID);
 
@@ -359,11 +361,14 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
         // Mainly for user: select the row being edited
         this.m_grid.SelectRow(grid_row_idx);
 
-        const msg = `Available Candidates for ${this.m_grid.GetCellValue(grid_row_idx, COL_CURR_LIBID)} `;
+        const msg = wxFormat(
+          _('Available Candidates for %s '),
+          this.m_grid.GetCellValue(grid_row_idx, COL_CURR_LIBID),
+        );
 
         const picked = await this.m_host.singleChoice(
           msg,
-          `Candidates count ${libIdCandidateCount} `,
+          wxFormat(_('Candidates count %d '), libIdCandidateCount),
           candidateSymbNames,
         );
 
@@ -374,10 +379,14 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
     // Not all orphan symbols are fixed.
     if (fixesCount < this.m_OrphansRowIndexes.length) {
       await DisplayInfoMessage(
-        `${fixesCount} link(s) mapped, ${this.m_OrphansRowIndexes.length - fixesCount} not found`,
+        wxFormat(
+          _('%u link(s) mapped, %u not found'),
+          fixesCount,
+          this.m_OrphansRowIndexes.length - fixesCount,
+        ),
       );
     } else {
-      await DisplayInfoMessage(`All ${fixesCount} link(s) resolved`);
+      await DisplayInfoMessage(wxFormat(_('All %u link(s) resolved'), fixesCount));
     }
   }
 
@@ -448,7 +457,12 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
           if (!(e instanceof IO_ERROR)) throw e;
 
           DisplayErrorMessage(
-            `Error loading symbol ${id.GetLibItemName()} from library ${id.GetLibNickname()}.\n\n${e.What()}`,
+            wxFormat(
+              _('Error loading symbol %s from library %s.\n\n%s'),
+              id.GetLibItemName(),
+              id.GetLibNickname(),
+              e.What(),
+            ),
           );
         }
 

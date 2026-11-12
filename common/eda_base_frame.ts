@@ -32,6 +32,7 @@ import type { wxUpdateUIEvent } from '@ziroeda/wx/wx_event.js';
 import type { ACTION_MENU } from './tool/action_menu.js';
 import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from './settings/app_settings.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const DEFAULT_MAX_UNDO_ITEMS = 0;
 export const ABS_MAX_UNDO_ITEMS = 65536;
@@ -239,13 +240,13 @@ export abstract class EDA_BASE_FRAME
             menuTitleLabel = menuTitleLabel.replaceAll('&', '&&');
             menuItemLabel = menuItemLabel.replaceAll('&', '&&');
 
-            return `Run: ${menuTitleLabel} > ${menuItemLabel}`;
+            return wxFormat(_('Run: %s > %s'), menuTitleLabel, menuItemLabel);
           }
         }
       }
     }
 
-    return `Run: ${aAction.GetFriendlyName()}`;
+    return wxFormat(_('Run: %s'), aAction.GetFriendlyName());
   }
 
   /**
@@ -536,11 +537,12 @@ export abstract class EDA_BASE_FRAME
     // `fn.IsDir()`: the name has no file part (wxFileName's notion, not the file system's).
     const isDir = aFileName.endsWith('/');
 
-    if (isDir && !wxIsDirWritable(dir)) msg = `Insufficient permissions to folder '${dir}'.`;
+    if (isDir && !wxIsDirWritable(dir))
+      msg = wxFormat(_("Insufficient permissions to folder '%s'."), dir);
     else if (!wxFileExists(aFileName) && !wxIsDirWritable(dir))
-      msg = `Insufficient permissions to save file '${aFileName}'.`;
+      msg = wxFormat(_("Insufficient permissions to save file '%s'."), aFileName);
     else if (wxFileExists(aFileName) && !wxIsDirWritable(dir))
-      msg = `Insufficient permissions to save file '${aFileName}'.`;
+      msg = wxFormat(_("Insufficient permissions to save file '%s'."), aFileName);
 
     if (msg !== '') {
       if (aVerbose) DisplayErrorMessage(msg);

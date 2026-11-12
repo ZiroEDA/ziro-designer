@@ -1,4 +1,5 @@
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -290,18 +291,20 @@ export class DSNLEXER {
   /** `Expecting( int aTok )` / `Expecting( const char* text )`. */
   Expecting(what: Tok): never {
     if (typeof what === 'string' && !/^[a-z_0-9]+$/.test(what))
-      this.throwError(`Expecting ${what}. Got '${DSNLEXER.GetTokenString(this.curTok)}'`);
-    this.throwError(`Expecting '${DSNLEXER.GetTokenString(what)}'`);
+      this.throwError(
+        wxFormat(_("Expecting %s. Got '%s'"), what, DSNLEXER.GetTokenString(this.curTok)),
+      );
+    this.throwError(wxFormat(_("Expecting '%s'"), DSNLEXER.GetTokenString(what)));
   }
 
   /** `Unexpected( int aTok )` / `Unexpected( const char* text )`. */
   Unexpected(what: Tok = this.curTok): never {
-    this.throwError(`Unexpected '${DSNLEXER.GetTokenString(what)}'`);
+    this.throwError(wxFormat(_("Unexpected '%s'"), DSNLEXER.GetTokenString(what)));
   }
 
   /** `Duplicate( int aTok )`. */
   Duplicate(what: Tok): never {
-    this.throwError(`${DSNLEXER.GetTokenString(what)} is a duplicate`);
+    this.throwError(wxFormat(_('%s is a duplicate'), DSNLEXER.GetTokenString(what)));
   }
 
   NeedLEFT(): void {
@@ -330,7 +333,8 @@ export class DSNLEXER {
 
   NeedNUMBER(expectation: string): Tok {
     const tok = this.NextTok();
-    if (!DSNLEXER.IsNumber(tok)) this.throwError(`need a number for '${expectation}'`);
+    if (!DSNLEXER.IsNumber(tok))
+      this.throwError(wxFormat(_("need a number for '%s'"), expectation));
     return tok;
   }
 

@@ -43,6 +43,8 @@ import { refId } from './tools/hittest.js';
 import { str } from '@ziroeda/sexpr';
 import type { SList } from '@ziroeda/sexpr';
 import { Reporter, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common/reporter.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** ANNOTATE_ORDER_T. */
 export type AnnotateOrder = 'x' | 'y' | 'unsorted';
@@ -468,7 +470,7 @@ export function checkAnnotation(
       reporter.report(
         e.unit > 0 && e.units > 1
           ? `Item not annotated: ${e.prefix}${tmp} (unit ${e.unit})`
-          : `Item not annotated: ${e.prefix}${tmp}`,
+          : wxFormat(_('Item not annotated: %s%s'), e.prefix, tmp),
         RPT_SEVERITY_ERROR,
       );
       break;
@@ -1265,7 +1267,7 @@ export class SCH_REFERENCE_LIST {
         const msg =
           item.m_unit > 0 && item.m_unit < 0x7fffffff && item.GetLibPart()!.GetUnitCount() > 1
             ? `Item not annotated: ${item.GetRef()}${tmp} (unit ${item.m_unit})`
-            : `Item not annotated: ${item.GetRef()}${tmp}`;
+            : wxFormat(_('Item not annotated: %s%s'), item.GetRef(), tmp);
 
         aHandler(ERCE_T.ERCE_UNANNOTATED, msg, item, null);
         error++;
@@ -1304,7 +1306,7 @@ export class SCH_REFERENCE_LIST {
 
         aHandler(
           ERCE_T.ERCE_DUPLICATE_REFERENCE,
-          `Duplicate items ${first.GetRef()}${tmp}${unit}\n`,
+          wxFormat(_('Duplicate items %s%s%s\n'), first.GetRef(), tmp, unit),
           first,
           second,
         );
@@ -1317,7 +1319,15 @@ export class SCH_REFERENCE_LIST {
       if (first.GetLibPart()!.GetUnitCount() !== second.GetLibPart()!.GetUnitCount()) {
         const tmp = first.m_numRef >= 0 ? first.m_numRefStr : '?';
         const tmp2 = second.m_numRef >= 0 ? second.m_numRefStr : '?';
-        const msg = `Differing unit counts for item ${first.GetRef()}${tmp}${first.GetSymbol().SubReference(first.GetUnit())} and ${second.GetRef()}${tmp2}${first.GetSymbol().SubReference(second.GetUnit())}\n`;
+        const msg = wxFormat(
+          _('Differing unit counts for item %s%s%s and %s%s%s\n'),
+          first.GetRef(),
+          tmp,
+          first.GetSymbol().SubReference(first.GetUnit()),
+          second.GetRef(),
+          tmp2,
+          first.GetSymbol().SubReference(second.GetUnit()),
+        );
 
         aHandler(ERCE_T.ERCE_DUPLICATE_REFERENCE, msg, first, second);
         error++;

@@ -22,6 +22,8 @@
  */
 
 import { scaleForZoomFactor, zoomFactorForScale } from '../widgets/kistatusbar_format.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** Which row of `DefaultZoomList()`'s switch a frame lands on. */
 export type ZoomApp = 'eeschema' | 'symbol_editor' | 'pl_editor' | 'gerbview' | 'pcbnew';
@@ -90,7 +92,7 @@ export function nextZoomPreset(list: readonly number[], zoom: number, zoomIn: bo
  * dragging still marks the preset it is nearest to.
  */
 export function zoomPresetLabel(factor: number): string {
-  return `Zoom: ${factor.toFixed(2)}`;
+  return wxFormat(_('Zoom: %.2f'), factor.toFixed(2));
 }
 
 /** True when `factor` is the row `ZOOM_MENU` would tick at the current zoom.
@@ -118,7 +120,7 @@ export function isZoomPresetChecked(factor: number, zoom: number): boolean {
 export const ZOOM_AUTO_LABEL = 'Zoom Auto';
 
 export function zoomSelectLabel(factor: number): string {
-  return `Zoom ${factor.toFixed(2)}`;
+  return wxFormat(_('Zoom %.2f'), factor.toFixed(2));
 }
 
 /**

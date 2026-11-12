@@ -42,6 +42,8 @@ import {
   setSymbolEditorSettingsProvider,
   setUpdateSymbolEditorSettingsProvider,
 } from './symbol_editor/symbol_editor_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `kiface( "eeschema", KIWAY::FACE_SCH )`. [data] */
 export const EESCHEMA_KIFACE_NAME = 'eeschema';
@@ -222,7 +224,10 @@ export function SaveFileAs(
     } else if (name === aNewProjectName) {
       if (aErrors.value !== '') aErrors.value += '\n';
 
-      aErrors.value += `Cannot copy file '${dest()}' as it will be overwritten by the new root sheet file.`;
+      aErrors.value += wxFormat(
+        _("Cannot copy file '%s' as it will be overwritten by the new root sheet file."),
+        dest(),
+      );
       return null;
     }
 

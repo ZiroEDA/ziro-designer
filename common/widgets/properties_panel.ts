@@ -48,6 +48,7 @@ import { PROPERTY_MANAGER } from '../properties/property_mgr.js';
 import type { UNITS_PROVIDER } from '../units_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What the panel asks its `EDA_BASE_FRAME* m_frame`. */
 export interface PROPERTIES_PANEL_FRAME {
@@ -257,7 +258,7 @@ export abstract class PROPERTIES_PANEL {
       } else if (aSelection.length === 1) {
         this.m_caption = aSelection[0]!.GetFriendlyName();
       } else {
-        this.m_caption = `${aSelection.length} objects selected`;
+        this.m_caption = wxFormat(_('%d objects selected'), aSelection.length);
       }
 
       // Get all the selected types (a std::set; the first is the lowest).

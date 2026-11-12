@@ -17,6 +17,7 @@ import {
 import { GetRefDesPrefix } from './refdes_utils.js';
 import { FIELD_T } from './template_fieldnames.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // `wxTextValidator` and its filter styles are wx's (external/wx/valtext.ts).
 export { wxFILTER_EMPTY, wxFILTER_EXCLUDE_CHAR_LIST, wxTextValidator };
@@ -145,25 +146,25 @@ export function GetFieldValidationErrorMessage(aFieldId: FIELD_T, aValue: string
 
       switch (aFieldId) {
         case FIELD_T.REFERENCE:
-          msg = `The reference designator cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The reference designator cannot contain %s character(s).'), badChars);
           break;
         case FIELD_T.VALUE:
-          msg = `The value field cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The value field cannot contain %s character(s).'), badChars);
           break;
         case FIELD_T.FOOTPRINT:
-          msg = `The footprint field cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The footprint field cannot contain %s character(s).'), badChars);
           break;
         case FIELD_T.DATASHEET:
-          msg = `The datasheet field cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The datasheet field cannot contain %s character(s).'), badChars);
           break;
         case FIELD_T.SHEET_NAME:
-          msg = `The sheet name cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The sheet name cannot contain %s character(s).'), badChars);
           break;
         case FIELD_T.SHEET_FILENAME:
-          msg = `The sheet filename cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The sheet filename cannot contain %s character(s).'), badChars);
           break;
         default:
-          msg = `The field cannot contain ${badChars} character(s).`;
+          msg = wxFormat(_('The field cannot contain %s character(s).'), badChars);
           break;
       }
     }

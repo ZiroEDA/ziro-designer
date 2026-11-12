@@ -40,6 +40,7 @@ import {
   DIALOG_WIRE_BUS_PROPERTIES_BASE,
 } from './dialog_wire_bus_properties_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const sameColor = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -236,7 +237,9 @@ export class DIALOG_WIRE_BUS_PROPERTIES {
       }
     }
 
-    commit.Push(`Edit ${this.m_items.length === 1 ? _('Wire/Bus') : _('Wires/Buses')}`);
+    commit.Push(
+      wxFormat(_('Edit %s'), this.m_items.length === 1 ? _('Wire/Bus') : _('Wires/Buses')),
+    );
     return true;
   }
 }

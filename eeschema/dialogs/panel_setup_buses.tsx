@@ -30,6 +30,7 @@ import {
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { BusAlias } from '../schematic_settings.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -227,7 +228,11 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
           if (ii === row) continue;
 
           if (name === aliasesGrid.GetCellValue(ii, 0)) {
-            error.current = { msg: `Alias name '${name}' already in use.`, grid: aliasesGrid, row };
+            error.current = {
+              msg: wxFormat(wxGetTranslation("Alias name '%s' already in use."), name),
+              grid: aliasesGrid,
+              row,
+            };
             e.Veto();
             return;
           }
@@ -330,7 +335,7 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
       onDeleteAlias={onDeleteAlias}
       m_source={source}
       membersPage={membersPage}
-      m_membersLabel={`Members of '${lastAliasName.current}'`}
+      m_membersLabel={wxFormat(wxGetTranslation("Members of '%s'"), lastAliasName.current)}
       m_membersGrid={
         <WxGridView
           grid={membersGrid}

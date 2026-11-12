@@ -60,6 +60,7 @@ import type { SCH_SHEET } from './sch_sheet.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `SCH_EDIT_FRAME::saveSchematicFile`'s success message
@@ -78,7 +79,7 @@ import { _HKI } from '@ziroeda/include/i18n_utility.js';
  * `saveCurrSheetCopyAs` for why that is mirrored rather than corrected.
  */
 export function savedFileMessage(filename: string): string {
-  return `File '${filename}' saved.`;
+  return wxFormat(_("File '%s' saved."), filename);
 }
 
 /**
@@ -112,7 +113,7 @@ export const LOAD_REPAIRED_MESSAGE =
  * rather than the sheet you happen to be looking at.
  */
 export function revertPromptMessage(rootFileName: string): string {
-  return `Revert '${rootFileName}' (and all sub-sheets) to last version saved?`;
+  return wxFormat(_("Revert '%s' (and all sub-sheets) to last version saved?"), rootFileName);
 }
 
 /**
@@ -213,7 +214,12 @@ export function PrepareSaveAsFiles(
       const destDir = PosixPath.dirname(dest);
 
       if (!wxDirExists(destDir) && !wxMkdir(destDir)) {
-        aErrorMsg.value = `Folder '${destDir}' could not be created.\n\nMake sure you have write permissions and try again.`;
+        aErrorMsg.value = wxFormat(
+          _(
+            "Folder '%s' could not be created.\n\nMake sure you have write permissions and try again.",
+          ),
+          destDir,
+        );
         return false;
       }
 
@@ -280,7 +286,11 @@ export class SCH_FILES_IO_MIXIN {
       if (!success) throw new Error('no writable mount covers the path');
     } catch (ioe) {
       this.DisplayError(
-        `Error saving schematic file '${schematicFileName}'.\n${ioe instanceof Error ? ioe.message : String(ioe)}`,
+        wxFormat(
+          _("Error saving schematic file '%s'.\n%s"),
+          schematicFileName,
+          ioe instanceof Error ? ioe.message : String(ioe),
+        ),
       );
 
       success = false;
@@ -346,7 +356,12 @@ export class SCH_FILES_IO_MIXIN {
       const newDir = PosixPath.dirname(newFileName);
 
       if ((!wxDirExists(newDir) && !wxMkdir(newDir)) || !wxIsDirWritable(newDir)) {
-        msg = `Folder '${newDir}' could not be created.\n\nMake sure you have write permissions and try again.`;
+        msg = wxFormat(
+          _(
+            "Folder '%s' could not be created.\n\nMake sure you have write permissions and try again.",
+          ),
+          newDir,
+        );
 
         await this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
           message: msg,
@@ -437,7 +452,7 @@ export class SCH_FILES_IO_MIXIN {
       for (const lockedFile of lockedFiles) msg = msg === '' ? lockedFile : `${msg}\n${lockedFile}`;
 
       await this.ShowModalDialog('wxRichMessageDialog', [], {
-        message: `Failed to save ${this.Schematic().Root().GetFileName()}.`,
+        message: wxFormat(_('Failed to save %s.'), this.Schematic().Root().GetFileName()),
         caption: _('Locked File Warning'),
         style: wxOK | wxICON_WARNING | wxCENTER,
         extended: `You do not have write permissions to:\n\n${msg}`,

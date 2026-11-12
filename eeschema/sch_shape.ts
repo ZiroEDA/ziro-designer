@@ -47,6 +47,8 @@ import {
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -449,21 +451,23 @@ export class SCH_SHAPE extends SCH_ITEM {
 
     switch (this.GetShape()) {
       case SHAPE_T.ARC:
-        return `Arc, radius ${fmt(this.GetRadius())}`;
+        return wxFormat(_('Arc, radius %s'), fmt(this.GetRadius()));
 
       case SHAPE_T.CIRCLE:
-        return `Circle, radius ${fmt(this.GetRadius())}`;
+        return wxFormat(_('Circle, radius %s'), fmt(this.GetRadius()));
 
       case SHAPE_T.RECTANGLE:
-        return `Rectangle, width ${fmt(Math.abs(this.m_start.x - this.m_end.x))} height ${fmt(
-          Math.abs(this.m_start.y - this.m_end.y),
-        )}`;
+        return wxFormat(
+          _('Rectangle, width %s height %s'),
+          fmt(Math.abs(this.m_start.x - this.m_end.x)),
+          fmt(Math.abs(this.m_start.y - this.m_end.y)),
+        );
 
       case SHAPE_T.POLY:
-        return `Polyline, ${this.GetPolyShape().Outline(0).GetPointCount()} points`;
+        return wxFormat(_('Polyline, %d points'), this.GetPolyShape().Outline(0).GetPointCount());
 
       case SHAPE_T.BEZIER:
-        return `Bezier Curve, ${this.m_bezierPoints.length} points`;
+        return wxFormat(_('Bezier Curve, %d points'), this.m_bezierPoints.length);
 
       default:
         return '';

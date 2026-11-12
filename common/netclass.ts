@@ -10,6 +10,8 @@
 import { type Color4d, COLOR4D_UNSPECIFIED } from './gal/color4d.js';
 import { pcbIUScale, schIUScale } from './eda_units.js';
 import { wildCompareString } from './string_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // Initial values for netclass initialization
 // track to track and track to pads clearance.
@@ -228,9 +230,18 @@ export class NETCLASS {
     let name = '';
 
     if (this.m_constituents.length === 2) {
-      name = `${this.m_constituents[0]!.GetName()} and ${this.m_constituents[1]!.GetName()}`;
+      name = wxFormat(
+        _('%s and %s'),
+        this.m_constituents[0]!.GetName(),
+        this.m_constituents[1]!.GetName(),
+      );
     } else if (this.m_constituents.length === 3) {
-      name = `${this.m_constituents[0]!.GetName()}, ${this.m_constituents[1]!.GetName()} and ${this.m_constituents[2]!.GetName()}`;
+      name = wxFormat(
+        _('%s, %s and %s'),
+        this.m_constituents[0]!.GetName(),
+        this.m_constituents[1]!.GetName(),
+        this.m_constituents[2]!.GetName(),
+      );
     } else if (this.m_constituents.length > 3) {
       name = `${this.m_constituents[0]!.GetName()}, ${this.m_constituents[1]!.GetName()} and ${this.m_constituents.length - 2} more`;
     }

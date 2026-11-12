@@ -57,7 +57,7 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { wxCmp, wxCmpNoCase, wxLess } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxCmpNoCase, wxFormat, wxLess } from '@ziroeda/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
@@ -1068,8 +1068,8 @@ export class SCH_FIELD extends SCH_ITEM {
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
     const content = aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText());
 
-    if (content === '') return `Field ${unescapeString(this.GetName())} (empty)`;
-    else return `Field ${unescapeString(this.GetName())} '${content}'`;
+    if (content === '') return wxFormat(_('Field %s (empty)'), unescapeString(this.GetName()));
+    else return wxFormat(_("Field %s '%s'"), unescapeString(this.GetName()), content);
   }
 
   GetLibPosition(): VECTOR2I {

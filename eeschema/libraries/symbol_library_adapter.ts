@@ -61,6 +61,7 @@ import { Reporter } from '@ziroeda/common/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { libTreeItem, symbolProperty, type LibTreeItem } from '../lib_tree_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type { LibTreeItem } from '../lib_tree_item.js';
 /** Re-exported so callers keep one import site for symbol access. */
@@ -390,7 +391,7 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
     // stays up until the symbols are actually in the tree.
     p = requireHost()
       .trackLoad(
-        `Loading ${name}...`,
+        wxFormat(_('Loading %s...'), name),
         fetch(`${symbolsBase()}/${name}.kicad_sym`)
           .then((r) => {
             // Without this the body of a 404 or an error page reached the
@@ -654,7 +655,10 @@ export function preloadLibraryItems(library: string): Promise<LibTreeItem[]> {
   if (!p) {
     const h = requireHost();
     p = h
-      .trackLoad(`Loading ${library}...`, h.loadLibraryItemsPooled(library, libraryUri(library)))
+      .trackLoad(
+        wxFormat(_('Loading %s...'), library),
+        h.loadLibraryItemsPooled(library, libraryUri(library)),
+      )
       .then((items) => {
         loadedLibraries.set(library, itemsByName(items));
         return items;
@@ -800,9 +804,15 @@ export class SYMBOL_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
       if (wxFileExists(this.m_manager!.GetFullURI(aRow, true)))
         return { ok: false, error: new LIBRARY_TABLE_OK() };
 
-      return { ok: false, error: new LIBRARY_ERROR(`Nested table '${aRow.URI()}' not found.`) };
+      return {
+        ok: false,
+        error: new LIBRARY_ERROR(wxFormat(_("Nested table '%s' not found."), aRow.URI())),
+      };
     } else if (type === SCH_FILE_T.SCH_FILE_UNKNOWN) {
-      return { ok: false, error: new LIBRARY_ERROR(`Unknown library type ${aRow.Type()} `) };
+      return {
+        ok: false,
+        error: new LIBRARY_ERROR(wxFormat(_('Unknown library type %s '), aRow.Type())),
+      };
     }
 
     const plugin = SCH_IO_MGR.FindPlugin(type);

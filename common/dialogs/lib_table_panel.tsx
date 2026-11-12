@@ -84,6 +84,7 @@ import type { WX_GRID } from '../widgets/wx_grid.js';
 import { wxAuiNotebook } from '@ziroeda/wx/aui_notebook.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `m_pluginChoices`: the formats this build reads (see the file comment). */
 const PLUGIN_CHOICES = ['KiCad'];
@@ -205,7 +206,7 @@ class WEB_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
 
       return {
         ok: false,
-        error: new LIBRARY_ERROR(`Nested table '${aRow.URI()}' not found.`),
+        error: new LIBRARY_ERROR(wxFormat(_("Nested table '%s' not found."), aRow.URI())),
       };
     }
 

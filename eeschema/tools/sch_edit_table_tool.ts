@@ -26,6 +26,7 @@ import type { SCH_TABLE } from '../sch_table.js';
 import { SCH_TABLECELL } from '../sch_tablecell.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EDIT_TABLE_TOOL_BASE, see libs/core/mixins.ts)
 export class SCH_EDIT_TABLE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
@@ -182,7 +183,7 @@ export class SCH_EDIT_TABLE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (!wxWriteFileSync(filePath, new TextEncoder().encode(out))) {
       yield* this.RunMainStackModal(() =>
         this.m_frame!.ShowModalDialog('wxMessageBox', [], {
-          message: `Failed to open file:\n${filePath}`,
+          message: wxFormat(_('Failed to open file:\n%s'), filePath),
           caption: _('Export Error'),
           style: wxOK | wxICON_ERROR,
         }),

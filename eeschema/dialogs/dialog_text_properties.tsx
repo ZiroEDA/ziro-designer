@@ -42,6 +42,7 @@ import { DIALOG_TEXT_PROPERTIES_BASE, type ICON_BUTTON } from './dialog_text_pro
 import { lineStyleOfToken, lineStyleToken } from './dialog_wire_bus_properties.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';
@@ -281,7 +282,7 @@ export class DIALOG_TEXT_PROPERTIES {
 
       this.m_hyperlinkChoices.push({
         text: `#${sheetPageNum}`,
-        menuText: `Page ${sheetPageNum} (${sheetName})`,
+        menuText: wxFormat(_('Page %s (%s)'), sheetPageNum, sheetName),
       });
     }
 

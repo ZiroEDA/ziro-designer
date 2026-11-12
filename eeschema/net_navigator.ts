@@ -33,6 +33,7 @@ import { SCH_ACTIONS } from './tools/sch_actions.js';
 import { updateEeschemaSettings } from './eeschema_settings.js';
 import { wxID_HIGHEST, wxMenu } from '@ziroeda/wx/menu.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `NET_NAVIGATOR_ITEM_DATA` (sch_edit_frame.h:91), here beside the frame methods that make it: a net navigator row's sheet and item. */
 export class NET_NAVIGATOR_ITEM_DATA {
@@ -85,7 +86,11 @@ export function GetNetNavigatorItemText(
 
       if (!symbol) return '';
 
-      let retv = `Symbol '${symbol.GetRef(aSheetPath, true)}' pin '${unescapeString(pin.GetNumber())}'`;
+      let retv = wxFormat(
+        _("Symbol '%s' pin '%s'"),
+        symbol.GetRef(aSheetPath, true),
+        unescapeString(pin.GetNumber()),
+      );
       const pinName = unescapeString(pin.GetShownName());
 
       if (pinName !== '') retv += ` (${pinName})`;
@@ -97,7 +102,9 @@ export function GetNetNavigatorItemText(
       const pin = aItem as SCH_SHEET_PIN;
       const sheet = pin.GetParent();
 
-      return sheet ? `Sheet '${sheet.GetName()}' pin '${unescapeString(pin.GetText())}'` : '';
+      return sheet
+        ? wxFormat(_("Sheet '%s' pin '%s'"), sheet.GetName(), unescapeString(pin.GetText()))
+        : '';
     }
 
     case KICAD_T.SCH_LABEL_T:
@@ -119,12 +126,16 @@ export function GetNetNavigatorItemText(
 
     case KICAD_T.SCH_JUNCTION_T: {
       const junction = aItem as SCH_JUNCTION;
-      return `Junction at (${at(junction.GetPosition().x)}, ${at(junction.GetPosition().y)})`;
+      return wxFormat(
+        _('Junction at (%s, %s)'),
+        at(junction.GetPosition().x),
+        at(junction.GetPosition().y),
+      );
     }
 
     case KICAD_T.SCH_NO_CONNECT_T: {
       const nc = aItem as SCH_NO_CONNECT;
-      return `No-Connect at (${at(nc.GetPosition().x)}, ${at(nc.GetPosition().y)})`;
+      return wxFormat(_('No-Connect at (%s, %s)'), at(nc.GetPosition().x), at(nc.GetPosition().y));
     }
 
     case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
@@ -139,7 +150,7 @@ export function GetNetNavigatorItemText(
     }
 
     default:
-      return `Unhandled item type ${aItem.Type()}`;
+      return wxFormat(_('Unhandled item type %d'), aItem.Type());
   }
 }
 

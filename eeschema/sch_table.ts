@@ -41,6 +41,7 @@ import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -110,7 +111,7 @@ export class SCH_TABLE extends SCH_ITEM {
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_table.cpp). */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM(_('Table'), `${this.m_colCount} Columns`));
+    aList.push(new MSG_PANEL_ITEM(_('Table'), wxFormat(_('%d Columns'), this.m_colCount)));
 
     super.GetMsgPanelInfo(aFrame, aList);
   }
@@ -490,7 +491,7 @@ export class SCH_TABLE extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return `${this.m_colCount} Column Table`;
+    return wxFormat(_('%d Column Table'), this.m_colCount);
   }
 
   override ViewGetLayers(): number[] {

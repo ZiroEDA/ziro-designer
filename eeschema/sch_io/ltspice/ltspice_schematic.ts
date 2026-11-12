@@ -26,6 +26,7 @@ import { SCH_SHEET_PATH } from '../../sch_sheet_path.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SCH_IO_LTSPICE_PARSER } from './sch_io_ltspice_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const INT_MAX = 2147483647;
 
@@ -120,7 +121,7 @@ function mapAt(aMap: Map<string, string>, aKey: string): string {
 export function SafeReadFile(aReadFile: IO_FILE_READER, aFilePath: string): string {
   const data = aFilePath === '' ? null : aReadFile(aFilePath);
 
-  if (!data) throw new IO_ERROR(`File '${aFilePath}' does not exist.`);
+  if (!data) throw new IO_ERROR(wxFormat(_("File '%s' does not exist."), aFilePath));
 
   const utf16le = data.length < 2 || data[1] === 0;
   let contents = '';
@@ -140,7 +141,7 @@ export function SafeReadFile(aReadFile: IO_FILE_READER, aFilePath: string): stri
     contents = decodeConvAuto(data);
   }
 
-  if (contents === '') throw new IO_ERROR(`Unable to read file '${aFilePath}'.`);
+  if (contents === '') throw new IO_ERROR(wxFormat(_("Unable to read file '%s'."), aFilePath));
 
   return contents.replaceAll('\r\r\n', '\n');
 }
@@ -700,7 +701,11 @@ export class LTSPICE_SCHEMATIC {
       const logToMap = (aMapToLogTo: Map<string, string>, aKey: string): void => {
         if (aMapToLogTo.has(aKey)) {
           this.m_reporter?.Report(
-            `File at '${fullPath}' was ignored. Using previously found file at '${aMapToLogTo.get(aKey)}' instead.`,
+            wxFormat(
+              _("File at '%s' was ignored. Using previously found file at '%s' instead."),
+              fullPath,
+              aMapToLogTo.get(aKey)!,
+            ),
           );
         } else {
           aMapToLogTo.set(aKey, fullPath);
@@ -800,7 +805,10 @@ export class LTSPICE_SCHEMATIC {
   private static integerCheck(aToken: string, aLineNumber: number, aFileName: string): number {
     const r = wxToLong(aToken);
 
-    if (!r.ok) throw new IO_ERROR(`Expecting integer at line ${aLineNumber} in file ${aFileName}`);
+    if (!r.ok)
+      throw new IO_ERROR(
+        wxFormat(_('Expecting integer at line %d in file %s'), aLineNumber, aFileName),
+      );
 
     return toInt(r.value);
   }
@@ -825,9 +833,13 @@ export class LTSPICE_SCHEMATIC {
     aFileName: string,
   ): void {
     if (aActualSize < aExpectedMin) {
-      throw new IO_ERROR(`Expected data missing on line ${aLineNumber} in file ${aFileName}`);
+      throw new IO_ERROR(
+        wxFormat(_('Expected data missing on line %d in file %s'), aLineNumber, aFileName),
+      );
     } else if (aActualSize > aExpectedMax) {
-      throw new IO_ERROR(`Extra data found on line ${aLineNumber} in file ${aFileName}`);
+      throw new IO_ERROR(
+        wxFormat(_('Extra data found on line %d in file %s'), aLineNumber, aFileName),
+      );
     }
   }
 
@@ -964,7 +976,8 @@ export class LTSPICE_SCHEMATIC {
       const asyFiles = this.fileCache('asyFiles');
       const key = resolveAsyMapKey(asyFiles, aAscFileName);
 
-      if (!asyFiles.has(key)) throw new IO_ERROR(`Symbol '${aAscFileName}.asy' not found`);
+      if (!asyFiles.has(key))
+        throw new IO_ERROR(wxFormat(_("Symbol '%s.asy' not found"), aAscFileName));
 
       return this.SymbolBuilder(aAscFileName, asyFiles.get(key)!, aContentOrAsc);
     }

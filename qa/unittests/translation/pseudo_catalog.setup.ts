@@ -34,6 +34,13 @@ export const KICAD_TRANSLATES_INTO_OUTPUT: ReadonlyMap<string, string> = new Map
   // pcb_dimension.cpp:1369: a new leader's override text is `_( "Leader" )`, and the Eagle
   // importer makes one per leader, so the board file holds it in the user's language.
   ['Leader', "a leader dimension's text"],
+  // sch_io_altium.cpp:4271, sch_easyedapro_parser.cpp:699: an imported power symbol's
+  // description, `wxString::Format( _( "..." ), name )`, written into the .kicad_sch.
+  ["Power symbol creates a global label with name '%s'", "an imported power symbol's description"],
+  // PDF_plotter.cpp:841-848, :1836: a page's outline name and the link menu that shows it.
+  ['Page %s', "a PDF page's name"],
+  ['%s (Page %s)', "a PDF page's name"],
+  ['Show Page %s', "a PDF link's menu"],
 ]);
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));

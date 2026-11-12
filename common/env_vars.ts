@@ -10,6 +10,7 @@ import { GetMajorMinorPatchTuple } from './build_version.js';
 import type { ENV_VAR_MAP } from './settings/environment.js';
 import { wxGetEnv } from '@ziroeda/wx/utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export namespace ENV_VAR {
   /**
@@ -150,7 +151,7 @@ function initialiseEnvVarHelp(aMap: Map<string, string>): void {
   );
 
   // Deprecated vars
-  const DEP = (aVar: string): string => `Deprecated version of ${aVar}.`;
+  const DEP = (aVar: string): string => wxFormat(_('Deprecated version of %s.'), aVar);
 
   aMap.set('KICAD_PTEMPLATES', DEP(v('TEMPLATE_DIR')));
   aMap.set('KISYS3DMOD', DEP(v('3DMODEL_DIR')));

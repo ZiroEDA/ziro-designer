@@ -94,6 +94,7 @@ import {
   type SymbolEditorSettings,
 } from './symbol_editor/symbol_editor_settings.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `LIB_TREE_MODEL_ADAPTER::GetPinningSymbol()`, the one common/ holds. */
 export { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
@@ -150,7 +151,7 @@ export async function SchGetLibSymbol<S>(
     }
   } catch (ioe) {
     aShowError?.(
-      `Error loading symbol ${itemName} from library '${nickname}'.`,
+      wxFormat(_("Error loading symbol %s from library '%s'."), itemName, nickname),
       ioe instanceof Error ? ioe.message : String(ioe),
     );
   }
@@ -255,7 +256,9 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
     };
     const refuse = (aPath: string): boolean => {
       const leaf = aPath.slice(aPath.lastIndexOf('/') + 1);
-      DisplayErrorMessage(`Library '${leaf.replace(/\.[^.]*$/, '')}' already exists.`);
+      DisplayErrorMessage(
+        wxFormat(_("Library '%s' already exists."), leaf.replace(/\.[^.]*$/, '')),
+      );
       return false;
     };
 
@@ -450,12 +453,12 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
           const adapter = SymbolLibAdapter(this.Prj());
 
           if (adapter.HasLibrary(libraryName, false)) {
-            DisplayErrorMessage(`Library '${libraryName}' already exists.`);
+            DisplayErrorMessage(wxFormat(_("Library '%s' already exists."), libraryName));
             break;
           }
 
           if (!mgr.CreateLibrary(fn.value, scope))
-            DisplayErrorMessage(`Could not add library '${libraryName}'.`);
+            DisplayErrorMessage(wxFormat(_("Could not add library '%s'."), libraryName));
 
           break;
         }

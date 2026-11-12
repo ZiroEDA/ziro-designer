@@ -133,6 +133,7 @@ import {
   type SYMBOL_ID,
 } from './cadstar_sch_archive_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const PartNameFieldName = 'Part Name';
 export const PartNumberFieldName = 'Part Number';
@@ -354,7 +355,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
 
     if (this.Schematic.VariantHierarchy.Variants.size > 0) {
       this.report(
-        `The CADSTAR design contains variants which has no KiCad equivalent. Only the master variant ('${this.Schematic.VariantHierarchy.Variants.at('V0').Name}') was loaded.`,
+        wxFormat(
+          _(
+            "The CADSTAR design contains variants which has no KiCad equivalent. Only the master variant ('%s') was loaded.",
+          ),
+          this.Schematic.VariantHierarchy.Variants.at('V0').Name,
+        ),
         RPT_SEVERITY_WARNING,
       );
     }
@@ -608,7 +614,14 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
 
         if (symbolID === '') {
           this.report(
-            `Part definition '${part.Name}' references symbol '${gate.Name}' (alternate '${gate.Alternate}') which could not be found in the symbol library. The part has not been loaded into the KiCad library.`,
+            wxFormat(
+              _(
+                "Part definition '%s' references symbol '%s' (alternate '%s') which could not be found in the symbol library. The part has not been loaded into the KiCad library.",
+              ),
+              part.Name,
+              gate.Name,
+              gate.Alternate,
+            ),
             RPT_SEVERITY_WARNING,
           );
 
@@ -626,7 +639,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
       } else {
         if (part.Definition.GateSymbols.size === 0) {
           this.report(
-            `Part definition '${part.Name}' has an incomplete definition (no symbol definitions are associated with it). The part has not been loaded into the KiCad library.`,
+            wxFormat(
+              _(
+                "Part definition '%s' has an incomplete definition (no symbol definitions are associated with it). The part has not been loaded into the KiCad library.",
+              ),
+              part.Name,
+            ),
             RPT_SEVERITY_WARNING,
           );
         }
@@ -652,7 +670,13 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
       if (sym.IsComponent) {
         if (!this.m_partMap.has(sym.PartRef.RefID)) {
           this.report(
-            `Symbol '${sym.ComponentRef.Designator}' references part '${sym.PartRef.RefID}' which could not be found in the library. The symbol was not loaded`,
+            wxFormat(
+              _(
+                "Symbol '%s' references part '%s' which could not be found in the library. The symbol was not loaded",
+              ),
+              sym.ComponentRef.Designator,
+              sym.PartRef.RefID,
+            ),
             RPT_SEVERITY_ERROR,
           );
 
@@ -740,7 +764,13 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
       } else if (sym.IsSymbolVariant) {
         if (!this.Library.SymbolDefinitions.has(sym.SymdefID)) {
           throw new IO_ERROR(
-            `Symbol ID '${sym.ID}' references library symbol '${sym.PartRef.RefID}' which could not be found in the library. Did you export all items of the design?`,
+            wxFormat(
+              _(
+                "Symbol ID '%s' references library symbol '%s' which could not be found in the library. Did you export all items of the design?",
+              ),
+              sym.ID,
+              sym.PartRef.RefID,
+            ),
           );
         }
 
@@ -872,7 +902,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
         }
       } else {
         this.report(
-          `Symbol ID '${sym.ID}' is of an unknown type. It is neither a symbol or a net power / symbol. The symbol was not loaded.`,
+          wxFormat(
+            _(
+              "Symbol ID '%s' is of an unknown type. It is neither a symbol or a net power / symbol. The symbol was not loaded.",
+            ),
+            sym.ID,
+          ),
           RPT_SEVERITY_ERROR,
         );
       }
@@ -885,7 +920,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
         else symbolName += sym.IsComponent ? gateID : sym.GateID;
 
         this.report(
-          `Symbol '${symbolName}' is scaled in the original CADSTAR schematic but this is not supported in KiCad. When the symbol is reloaded from the library, it will revert to the original 1:1 scale.`,
+          wxFormat(
+            _(
+              "Symbol '%s' is scaled in the original CADSTAR schematic but this is not supported in KiCad. When the symbol is reloaded from the library, it will revert to the original 1:1 scale.",
+            ),
+            symbolName,
+          ),
           RPT_SEVERITY_ERROR,
         );
       }
@@ -1299,7 +1339,13 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
     for (const [, docSym] of this.Schematic.DocumentationSymbols.entries()) {
       if (!this.Library.SymbolDefinitions.has(docSym.SymdefID)) {
         this.report(
-          `Documentation Symbol '${docSym.ID}' refers to symbol definition ID '${docSym.SymdefID}' which does not exist in the library. The symbol was not loaded.`,
+          wxFormat(
+            _(
+              "Documentation Symbol '%s' refers to symbol definition ID '%s' which does not exist in the library. The symbol was not loaded.",
+            ),
+            docSym.ID,
+            docSym.SymdefID,
+          ),
           RPT_SEVERITY_ERROR,
         );
         continue;
@@ -2013,7 +2059,13 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
   private getLocationOfNetElement(aNet: NET_SCH, aNetElementID: NETELEMENT_ID): POINT {
     const logUnknownNetElementError = (): POINT => {
       this.report(
-        `Net ${this.getNetName(aNet)} references unknown net element ${aNetElementID}. The net was not properly loaded and may require manual fixing.`,
+        wxFormat(
+          _(
+            'Net %s references unknown net element %s. The net was not properly loaded and may require manual fixing.',
+          ),
+          this.getNetName(aNet),
+          aNetElementID,
+        ),
         RPT_SEVERITY_ERROR,
       );
 
@@ -2268,7 +2320,14 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
         if (block.AssocLayerID === 'NO_LINK') {
           if (block.Figures.size > 0) {
             this.report(
-              `The block ID ${block.ID} (Block name: '${block.Name}') is drawn on sheet '${this.Sheets.SheetNames.at(aCadstarSheetID)}' but is not linked to another sheet in the design. KiCad requires all sheet symbols to be associated to a sheet, so the block was not loaded.`,
+              wxFormat(
+                _(
+                  "The block ID %s (Block name: '%s') is drawn on sheet '%s' but is not linked to another sheet in the design. KiCad requires all sheet symbols to be associated to a sheet, so the block was not loaded.",
+                ),
+                block.ID,
+                block.Name,
+                this.Sheets.SheetNames.at(aCadstarSheetID),
+              ),
               RPT_SEVERITY_ERROR,
             );
           }
@@ -2285,7 +2344,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
           blockExtents = this.getFigureExtentsKiCad(block.Figures.values()[0]!);
         } else {
           throw new IO_ERROR(
-            `The CADSTAR schematic might be corrupt: Block ${block.ID} references a child sheet but has no Figure defined.`,
+            wxFormat(
+              _(
+                'The CADSTAR schematic might be corrupt: Block %s references a child sheet but has no Figure defined.',
+              ),
+              block.ID,
+            ),
           );
         }
 

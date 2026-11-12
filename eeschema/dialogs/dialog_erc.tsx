@@ -46,6 +46,7 @@ import { SCH_INSPECTION_TOOL } from '../tools/sch_inspection_tool.js';
 import { DIALOG_ERC_BASE } from './dialog_erc_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What wx gives the dialog that a page has to be handed: its sub-dialogs, file and window. */
 export interface DIALOG_ERC_WINDOW {
@@ -522,7 +523,9 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     this.testErc();
 
     if (itemsNotAnnotated)
-      this.m_messages.unshift(`${itemsNotAnnotated} symbol(s) require annotation.<br><br>`);
+      this.m_messages.unshift(
+        wxFormat(_('%d symbol(s) require annotation.<br><br>'), itemsNotAnnotated),
+      );
 
     if (this.m_cancelled) this.m_messages.push(_('-------- ERC cancelled by user.<br><br>'));
     else this.m_messages.push(_('Done.<br><br>'));
@@ -707,7 +710,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     if (marker?.IsExcluded()) {
       rows.push({
         label: _('Remove exclusion for this violation'),
-        help: `It will be placed back in the ${listName} list`,
+        help: wxFormat(_('It will be placed back in the %s list'), listName),
         action: () => {
           this.m_markerProvider.SetMarkerExcluded(marker, false);
           this.m_parent.GetCanvas()?.GetView()?.Update(marker);
@@ -737,12 +740,12 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     } else {
       rows.push({
         label: _('Exclude this violation'),
-        help: `It will be excluded from the ${listName} list`,
+        help: wxFormat(_('It will be excluded from the %s list'), listName),
         action: () => exclude(false),
       });
       rows.push({
         label: _('Exclude with comment...'),
-        help: `It will be excluded from the ${listName} list`,
+        help: wxFormat(_('It will be excluded from the %s list'), listName),
         action: () => exclude(true),
       });
     }
@@ -779,20 +782,26 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
       // Pin to pin severities edited through pin conflict map
     } else if (settings.GetSeverity(code) === RPT_SEVERITY_WARNING) {
       rows.push({
-        label: `Change severity to Error for all '${rcItem.GetErrorText(true)}' violations`,
+        label: wxFormat(
+          _("Change severity to Error for all '%s' violations"),
+          rcItem.GetErrorText(true),
+        ),
         help: _('Violation severities can also be edited in Schematic Setup'),
         action: () => setSeverity(RPT_SEVERITY_ERROR),
       });
     } else {
       rows.push({
-        label: `Change severity to Warning for all '${rcItem.GetErrorText(true)}' violations`,
+        label: wxFormat(
+          _("Change severity to Warning for all '%s' violations"),
+          rcItem.GetErrorText(true),
+        ),
         help: _('Violation severities can also be edited in Schematic Setup'),
         action: () => setSeverity(RPT_SEVERITY_WARNING),
       });
     }
 
     rows.push({
-      label: `Ignore all '${rcItem.GetErrorText(true)}' violations`,
+      label: wxFormat(_("Ignore all '%s' violations"), rcItem.GetErrorText(true)),
       help: _('Violations will not be checked or reported'),
       action: () => {
         settings.SetSeverity(code, RPT_SEVERITY_IGNORE);
@@ -1006,7 +1015,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
     if (path === null) return;
 
-    this.m_messages.push(`Report file '${path}' created.`);
+    this.m_messages.push(wxFormat(_("Report file '%s' created."), path));
     this.notify();
   }
 }

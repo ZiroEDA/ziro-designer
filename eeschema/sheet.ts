@@ -32,6 +32,7 @@ import { SCH_SHEET_LIST, type SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_CLEANUP_FLAGS } from './schematic.js';
 import type { Schematic } from './types.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `SCH_EDIT_FRAME::InitSheet`'s new screen for a freshly drawn sheet:
@@ -176,10 +177,10 @@ export class SCH_SHEET_MIXIN {
         if (answer === wxID_CANCEL) return false;
       }
     } catch (ioe) {
-      msg = `Error loading schematic '${fullFilename}'.`;
+      msg = wxFormat(_("Error loading schematic '%s'."), fullFilename);
       DisplayErrorMessage(msg, ioe instanceof Error ? ioe.message : String(ioe));
 
-      msg = `Failed to load '${fullFilename}'.`;
+      msg = wxFormat(_("Failed to load '%s'."), fullFilename);
       this.SetMsgPanel('', msg);
 
       return false;
@@ -342,7 +343,7 @@ export class SCH_SHEET_MIXIN {
             )
               return false;
           } else if (!table.IsOk()) {
-            msg = `Error loading the symbol library table '${symLibTableFn}'.`;
+            msg = wxFormat(_("Error loading the symbol library table '%s'."), symLibTableFn);
             DisplayErrorMessage(msg, table.ErrorDescription());
             return false;
           }
@@ -634,7 +635,11 @@ export class SCH_SHEET_MIXIN {
 
         if (!wxCopyFile(aSourceSheetFilename, newAbsoluteFilename)) {
           this.DisplayError(
-            `Failed to copy schematic file '${aSourceSheetFilename}' to destination '${newAbsoluteFilename}'.`,
+            wxFormat(
+              _("Failed to copy schematic file '%s' to destination '%s'."),
+              aSourceSheetFilename,
+              newAbsoluteFilename,
+            ),
           );
           return false;
         }
@@ -657,8 +662,12 @@ export class SCH_SHEET_MIXIN {
 
           if (
             !(await this.IsOKAsync(
-              `Change '${newAbsoluteFilename}' link from '${aSheet.GetFileName()}' to '${shortName}'?` +
-                '\n\nThis action cannot be undone.',
+              wxFormat(
+                _("Change '%s' link from '%s' to '%s'?"),
+                newAbsoluteFilename,
+                aSheet.GetFileName(),
+                shortName,
+              ) + '\n\nThis action cannot be undone.',
             ))
           )
             return false;
@@ -669,8 +678,11 @@ export class SCH_SHEET_MIXIN {
           if (
             aSheet.GetScreenCount() > 1 &&
             !(await this.IsOKAsync(
-              `Create new file '${shortName}' with contents of '${aSheet.GetFileName()}'?` +
-                '\n\nThis action cannot be undone.',
+              wxFormat(
+                _("Create new file '%s' with contents of '%s'?"),
+                shortName,
+                aSheet.GetFileName(),
+              ) + '\n\nThis action cannot be undone.',
             ))
           )
             return false;
@@ -689,14 +701,14 @@ export class SCH_SHEET_MIXIN {
           const text = pi.SaveSchematicFile(aSheet, schematic);
 
           if (!wxWriteFileSync(newAbsoluteFilename, new TextEncoder().encode(text)))
-            throw new Error(`Cannot open file '${newAbsoluteFilename}'.`);
+            throw new Error(wxFormat(_("Cannot open file '%s'."), newAbsoluteFilename));
         } catch (ioe) {
           DisplayErrorMessage(
-            `Error occurred saving schematic file '${newAbsoluteFilename}'.`,
+            wxFormat(_("Error occurred saving schematic file '%s'."), newAbsoluteFilename),
             ioe instanceof Error ? ioe.message : String(ioe),
           );
 
-          this.SetMsgPanel('', `Failed to save schematic '${newAbsoluteFilename}'`);
+          this.SetMsgPanel('', wxFormat(_("Failed to save schematic '%s'"), newAbsoluteFilename));
           return false;
         }
 

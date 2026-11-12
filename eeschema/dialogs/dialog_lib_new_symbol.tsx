@@ -33,6 +33,7 @@ import {
   type NEW_SYMBOL_CONTROL,
 } from './dialog_lib_new_symbol_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `getDerivativeName( aParentName )`. */
 function getDerivativeName(aParentName: string): string {
@@ -160,7 +161,10 @@ export class DIALOG_LIB_NEW_SYMBOL {
     const parent = symbolFilterValue(this.m_state.m_comboInheritanceSelect);
 
     if (parent !== '')
-      this.m_state.infoBarMessage = `Deriving from symbol '${unescapeString(parent)}'.`;
+      this.m_state.infoBarMessage = wxFormat(
+        _("Deriving from symbol '%s'."),
+        unescapeString(parent),
+      );
     else this.m_state.infoBarMessage = null;
 
     if (this.m_state.m_textName === '' || this.m_nameIsDefaulted) {

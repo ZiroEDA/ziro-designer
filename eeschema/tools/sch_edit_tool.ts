@@ -116,6 +116,7 @@ import {
 } from './sch_tool_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `SYMBOL_PROPS_RETVALUE` (dialogs/dialog_symbol_properties.h): why the dialog closed. */
 export enum SYMBOL_PROPS_RETVALUE {
@@ -190,7 +191,10 @@ class SYMBOL_UNIT_MENU extends ACTION_MENU {
       this.AppendSeparator();
 
       for (const unitNumber of [...missingUnits].sort((a, b) => a - b)) {
-        const placeText = `Place unit ${symbol.GetUnitDisplayName(unitNumber, false)}`;
+        const placeText = wxFormat(
+          _('Place unit %s'),
+          symbol.GetUnitDisplayName(unitNumber, false),
+        );
         this.Append(ID.ID_POPUP_SCH_PLACE_UNIT1 + unitNumber - 1, placeText);
       }
     }
@@ -2009,9 +2013,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     // Use title caps for mandatory fields.  "Edit Sheet name Field" looks dorky.
     if (aField.IsMandatory()) {
       const fieldName = GetDefaultFieldName(aField.GetId(), true /* DO_TRANSLATE */);
-      caption = `Edit ${TitleCaps(fieldName)} Field`;
+      caption = wxFormat(_('Edit %s Field'), TitleCaps(fieldName));
     } else {
-      caption = `Edit '${aField.GetName()}' Field`;
+      caption = wxFormat(_("Edit '%s' Field"), aField.GetName());
     }
 
     // DIALOG_FIELD_PROPERTIES dlg( m_frame, caption, aField ): the footprint field dialog can
@@ -2938,7 +2942,10 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const sheetPath = instance.PathHumanReadable(false);
     const pageNumber = instance.GetPageNumber();
 
-    const msg = `Enter page number for sheet path${sheetPath.length > 20 ? `\n${sheetPath}` : ` ${sheetPath}`}`;
+    const msg = wxFormat(
+      _('Enter page number for sheet path%s'),
+      sheetPath.length > 20 ? `\n${sheetPath}` : ` ${sheetPath}`,
+    );
 
     // dlg.SetTextValidator( wxFILTER_ALPHANUMERIC ): no white space.
     const value = yield* this.RunMainStackModal(() =>

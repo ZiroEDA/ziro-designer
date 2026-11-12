@@ -19,6 +19,8 @@ import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { findSpiceModel, simModelTypeIssue } from './sim_model.js';
 import { SIM_LIBRARY_FIELD, SIM_NAME_FIELD } from './sim_model_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class SIM_LIB_MGR {
   private readonly m_project: PROJECT | null;
@@ -50,7 +52,7 @@ export class SIM_LIB_MGR {
 
     if (wxFileExists(projectFn)) return projectFn;
 
-    aReporter.Report(`Simulation model library not found at '${projectFn}'`);
+    aReporter.Report(wxFormat(_("Simulation model library not found at '%s'"), projectFn));
 
     return aLibraryPath;
   }
@@ -105,13 +107,19 @@ export class SIM_LIB_MGR {
     const data = wxFileExists(path) ? wxReadFileSync(path) : null;
 
     // SafeReadFile (richio.cpp:59)
-    if (!data) aReporter.Report(`File '${path}' does not exist.`);
+    if (!data) aReporter.Report(wxFormat(_("File '%s' does not exist."), path));
 
     if (aBaseModelName === '') {
-      aReporter.Report(`Error loading simulation model: no '${SIM_NAME_FIELD}' field`);
+      aReporter.Report(
+        wxFormat(_("Error loading simulation model: no '%s' field"), SIM_NAME_FIELD),
+      );
     } else if (!findSpiceModel(data ? new TextDecoder().decode(data) : '', aBaseModelName)) {
       aReporter.Report(
-        `Error loading simulation model: could not find base model '${aBaseModelName}' in library '${path}'`,
+        wxFormat(
+          _("Error loading simulation model: could not find base model '%s' in library '%s'"),
+          aBaseModelName,
+          path,
+        ),
       );
     }
   }

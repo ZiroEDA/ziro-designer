@@ -11,6 +11,7 @@
 import type { JSX, ReactNode } from 'react';
 import { DIALOG_PRINT_GENERIC_BASE } from './dialog_print_generic_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** dialog_print_generic.cpp:34-35. */
 export const MIN_SCALE = 0.01;
@@ -57,7 +58,10 @@ export function getScaleValue(
     return {
       scale,
       reset: setScaleValue(scale),
-      info: `Warning: custom scale is too large.\nIt will be clamped to ${scale.toFixed(6)}.`,
+      info: wxFormat(
+        _('Warning: custom scale is too large.\nIt will be clamped to %f.'),
+        scale.toFixed(6),
+      ),
     };
   }
   if (scale < MIN_SCALE) {
@@ -65,7 +69,10 @@ export function getScaleValue(
     return {
       scale,
       reset: setScaleValue(scale),
-      info: `Warning: custom scale is too small.\nIt will be clamped to ${scale.toFixed(6)}.`,
+      info: wxFormat(
+        _('Warning: custom scale is too small.\nIt will be clamped to %f.'),
+        scale.toFixed(6),
+      ),
     };
   }
   return { scale };

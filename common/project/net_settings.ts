@@ -154,9 +154,9 @@ export interface EffectiveNetClass {
 export function netClassHumanReadableName(eff: EffectiveNetClass): string {
   const c = eff.constituents;
   if (c.length <= 1) return eff.name;
-  if (c.length === 2) return `${c[0]} and ${c[1]}`;
-  if (c.length === 3) return `${c[0]}, ${c[1]} and ${c[2]}`;
-  return `${c[0]}, ${c[1]} and ${c.length - 2} more`;
+  if (c.length === 2) return wxFormat(_('%s and %s'), c[0]!, c[1]!);
+  if (c.length === 3) return wxFormat(_('%s, %s and %s'), c[0]!, c[1]!, c[2]!);
+  return wxFormat(_('%s, %s and %d more'), c[0]!, c[1]!, c.length - 2);
 }
 
 /**
@@ -309,6 +309,7 @@ import { CombinedMatcherContext, EdaCombinedMatcher } from '../eda_pattern_match
 import { NETCLASS } from '../netclass.js';
 import type { OutStr } from '../font/font.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
 

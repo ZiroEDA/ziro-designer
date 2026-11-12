@@ -33,6 +33,7 @@ import { wxGridSelectionModes } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { useStringGrid } from '../widgets/wx_grid.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** INITIAL_HELP (dialog_plugin_options.cpp:35-37). */
 export const INITIAL_HELP =
@@ -124,7 +125,7 @@ export function DIALOG_PLUGIN_OPTIONS({
 
   return (
     <DialogShim
-      title={`Options for Library '${nickname}'`}
+      title={wxFormat(wxGetTranslation("Options for Library '%s'"), nickname)}
       onClose={() => onResult(null)}
       className="ze-pluginopts"
     >

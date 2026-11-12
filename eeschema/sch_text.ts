@@ -34,7 +34,7 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { wxCmpNoCase, wxLess } from '@ziroeda/wx/wxstring.js';
+import { wxCmpNoCase, wxFormat, wxLess } from '@ziroeda/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
@@ -664,7 +664,10 @@ export class SCH_TEXT extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Graphic Text '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Graphic Text '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override GetPosition(): VECTOR2I {

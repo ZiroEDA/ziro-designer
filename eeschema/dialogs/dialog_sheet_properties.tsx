@@ -60,6 +60,7 @@ import { AUTOPLACE_ALGO } from '../sch_item.js';
 import { SCH_SHEET } from '../sch_sheet.js';
 import { SCH_SHEET_LIST, SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** WX_GRID column widths from the base class, by position, for the eight shown columns. */
 const GRID_COLUMNS = [
@@ -492,7 +493,7 @@ export class DIALOG_SHEET_PROPERTIES {
           SHEET_MANDATORY_FIELDS,
         )
       ) {
-        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        DisplayErrorMessage(wxFormat(_("Field name '%s' already in use."), newName));
         aEvent.Veto();
         break;
       }
@@ -524,7 +525,7 @@ export class DIALOG_SHEET_PROPERTIES {
       (row) => {
         if (row < this.m_fields.GetMandatoryRowCount()) {
           DisplayErrorMessage(
-            `The first ${this.m_fields.GetMandatoryRowCount()} fields are mandatory.`,
+            wxFormat(_('The first %d fields are mandatory.'), this.m_fields.GetMandatoryRowCount()),
           );
           return false;
         }

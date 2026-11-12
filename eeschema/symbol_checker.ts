@@ -31,6 +31,7 @@ import { ELECTRICAL_PINTYPE } from '@ziroeda/common/pin_type.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `A + n - 1` (a unit index is 1-based; a letter is 0-based off 'A'). */
 function unitLetter(aUnit: number): string {
@@ -245,7 +246,13 @@ export function CheckLibSymbol(
       } else {
         msg =
           aSymbol.GetUnitCount() <= 1
-            ? `Info: <b>Hidden power pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>.`
+            ? wxFormat(
+                _('Info: <b>Hidden power pin %s</b> %s at location <b>(%s, %s)</b>.'),
+                pin.GetNumber(),
+                pinName,
+                x,
+                y,
+              )
             : `Info: <b>Hidden power pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
               ` in unit ${unitLetter(pin.GetUnit())}.`;
       }
@@ -274,7 +281,13 @@ export function CheckLibSymbol(
       } else {
         msg =
           aSymbol.GetUnitCount() <= 1
-            ? `<b>Off grid pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>.`
+            ? wxFormat(
+                _('<b>Off grid pin %s</b> %s at location <b>(%s, %s)</b>.'),
+                pin.GetNumber(),
+                pinName,
+                x,
+                y,
+              )
             : `<b>Off grid pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
               ` in unit ${unitLetter(pin.GetUnit())}.`;
       }

@@ -54,6 +54,8 @@ import {
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COLOR4D::UNSPECIFIED`, the fully transparent black the importer treats as "no colour". */
 export const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
@@ -1030,7 +1032,9 @@ export class GRAPHICS_IMPORTER_BUFFER extends GRAPHICS_IMPORTER {
     if (size.x * iuFactor > INT_MAX || size.y * iuFactor > INT_MAX) {
       const scale_factor = INT_MAX / (iuFactor + 100);
       const max_scale = Math.max(scale_factor / size.x, scale_factor / size.y);
-      aImporter.ReportMsg(`Imported graphic is too large. Maximum scale is ${fmtF(max_scale)}`);
+      aImporter.ReportMsg(
+        wxFormat(_('Imported graphic is too large. Maximum scale is %f'), fmtF(max_scale)),
+      );
       return;
     } else if (aImporter.GetImportOffsetMM().x === 0 && aImporter.GetImportOffsetMM().y === 0) {
       if (

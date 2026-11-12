@@ -24,6 +24,7 @@ import { LIBRARY_TABLE_SCOPE, LIBRARY_TABLE_TYPE } from '../libraries/library_ta
 import { KiCadDesignBlockLibPathExtension } from '../wildcards_and_files_ext.js';
 import { wxDirExists, wxFileExists } from '@ziroeda/wx/filefn.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The modals the pane raises, each answered by the window. */
 export interface DESIGN_BLOCK_PANE_DIALOGS {
@@ -143,7 +144,11 @@ export class DESIGN_BLOCK_PANE {
 
       if (aShowErrorMsg) {
         this.m_dialogs.DisplayError(
-          `Error loading design block ${aLibId.GetLibItemName()} from library '${aLibId.GetLibNickname()}'.`,
+          wxFormat(
+            _("Error loading design block %s from library '%s'."),
+            aLibId.GetLibItemName(),
+            aLibId.GetLibNickname(),
+          ),
           e.message,
         );
       }
@@ -189,11 +194,15 @@ export class DESIGN_BLOCK_PANE {
 
       if (exists) {
         if (!writable) {
-          this.m_frame.ShowInfoBarError(`Library ${libPath} is read only.`);
+          this.m_frame.ShowInfoBarError(wxFormat(_('Library %s is read only.'), libPath));
           return '';
         }
 
-        if (!(await this.m_dialogs.ConfirmOverwriteLibrary(`Library ${libPath} already exists.`)))
+        if (
+          !(await this.m_dialogs.ConfirmOverwriteLibrary(
+            wxFormat(_('Library %s already exists.'), libPath),
+          ))
+        )
           return '';
 
         pi.DeleteLibrary(libPath);
@@ -281,18 +290,23 @@ export class DESIGN_BLOCK_PANE {
     }
 
     if (!this.m_frame.DesignBlockLibs().IsDesignBlockLibWritable(aLibName)) {
-      this.m_frame.ShowInfoBarError(`Library '${aLibName}' is read only.`);
+      this.m_frame.ShowInfoBarError(wxFormat(_("Library '%s' is read only."), aLibName));
       return false;
     }
 
     // Confirmation
-    const msg = `Delete design block library '${aLibName}' from disk? This will delete all design blocks within the library.`;
+    const msg = wxFormat(
+      _(
+        "Delete design block library '%s' from disk? This will delete all design blocks within the library.",
+      ),
+      aLibName,
+    );
 
     if (aConfirm && !(await this.m_dialogs.IsOK(msg))) return false;
 
     if (!this.m_frame.DesignBlockLibs().DeleteLibrary(aLibName)) return false;
 
-    this.m_frame.SetStatusText(`Design block library '${aLibName}' deleted`);
+    this.m_frame.SetStatusText(wxFormat(_("Design block library '%s' deleted"), aLibName));
     this.RefreshLibs();
 
     return true;
@@ -306,12 +320,12 @@ export class DESIGN_BLOCK_PANE {
     const dbname = aLibId.GetLibItemName();
 
     if (!this.m_frame.DesignBlockLibs().IsDesignBlockLibWritable(libname)) {
-      this.m_frame.ShowInfoBarError(`Library '${libname}' is read only.`);
+      this.m_frame.ShowInfoBarError(wxFormat(_("Library '%s' is read only."), libname));
       return false;
     }
 
     // Confirmation
-    const msg = `Delete design block '${dbname}' in library '${libname}' from disk?`;
+    const msg = wxFormat(_("Delete design block '%s' in library '%s' from disk?"), dbname, libname);
 
     if (aConfirm && !(await this.m_dialogs.IsOK(msg))) return false;
 
@@ -324,7 +338,9 @@ export class DESIGN_BLOCK_PANE {
       return false;
     }
 
-    this.m_frame.SetStatusText(`Design block '${dbname}' deleted from library '${libname}'`);
+    this.m_frame.SetStatusText(
+      wxFormat(_("Design block '%s' deleted from library '%s'"), dbname, libname),
+    );
     this.RefreshLibs();
 
     return true;
@@ -338,7 +354,7 @@ export class DESIGN_BLOCK_PANE {
     const libs = this.m_frame.DesignBlockLibs();
 
     if (!libs.IsDesignBlockLibWritable(libname)) {
-      this.m_frame.ShowInfoBarError(`Library '${libname}' is read only.`);
+      this.m_frame.ShowInfoBarError(wxFormat(_("Library '%s' is read only."), libname));
       return false;
     }
 
@@ -379,7 +395,7 @@ export class DESIGN_BLOCK_PANE {
   /** `checkOverwrite` (:423-433). */
   protected checkOverwrite(aLibname: string, aNewName: string): Promise<boolean> {
     return this.m_dialogs.OKOrCancel(
-      `Design block '${aNewName}' already exists in library '${aLibname}'.`,
+      wxFormat(_("Design block '%s' already exists in library '%s'."), aNewName, aLibname),
       _('Overwrite existing design block?'),
       _('Overwrite'),
     );

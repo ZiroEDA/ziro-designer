@@ -26,6 +26,8 @@ import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
 } from './sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The shape `legacySchLibs` needs from a project's file list — a structural
  *  subset of `PickedFile` (`designer/.../SchematicEditor.tsx`), so this stays
@@ -59,7 +61,7 @@ export function legacySchLibs(
   try {
     return new Map(readLegacySymbolLibrary(file.text).map((sym) => [sym.libId, sym]));
   } catch (e) {
-    console.warn(`Symbol library '${file.name}' failed to load.`, e);
+    console.warn(wxFormat(_("Symbol library '%s' failed to load."), file.name), e);
     return new Map();
   }
 }

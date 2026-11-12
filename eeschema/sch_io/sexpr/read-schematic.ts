@@ -58,6 +58,8 @@ import type {
   TitleBlock,
   Vec2,
 } from '../../types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `SCH_IO_KICAD_SEXPR_PARSER::parseMaybeAbsentBool( aDefaultValue )`
@@ -609,7 +611,7 @@ function resolveExtends(symbols: LibSymbol[], reporter?: Reporter): LibSymbol[] 
     if (!parent) {
       const nickname = s.libId.includes(':') ? s.libId.slice(0, s.libId.indexOf(':')) : '';
       reporter?.report(
-        `No parent for extended symbol ${s.libId} found in library '${nickname}'`,
+        wxFormat(_("No parent for extended symbol %s found in library '%s'"), s.libId, nickname),
         RPT_SEVERITY_ERROR,
       );
       continue;

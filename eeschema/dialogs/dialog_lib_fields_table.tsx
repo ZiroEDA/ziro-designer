@@ -67,6 +67,7 @@ import {
 } from '../symbol_editor/symbol_editor_settings.js';
 import { DIALOG_LIB_FIELDS_TABLE_BASE } from './dialog_lib_fields_table_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COLUMN_MARGIN` (not __WXMAC__). [data] */
 const COLUMN_MARGIN = 15;
@@ -494,8 +495,8 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
     if (aSymbolNames.length === 0) {
       if (this.m_scope === SCOPE.SCOPE_RELATED_SYMBOLS)
-        this.m_window.messageBox(`No related symbols found in library '${libName}'.`);
-      else this.m_window.messageBox(`No symbols found in library '${libName}'.`);
+        this.m_window.messageBox(wxFormat(_("No related symbols found in library '%s'."), libName));
+      else this.m_window.messageBox(wxFormat(_("No symbols found in library '%s'."), libName));
 
       return;
     }
@@ -587,7 +588,7 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
     for (let i = 0; i < this.m_dataModel.GetNumberCols(); ++i) {
       if (FieldNamesAreDuplicates(fieldName, this.m_dataModel.GetColFieldName(i))) {
-        DisplayErrorMessage(`Field name '${fieldName}' already in use.`);
+        DisplayErrorMessage(wxFormat(_("Field name '%s' already in use."), fieldName));
         return;
       }
     }
@@ -610,7 +611,10 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
     for (const row of rows) {
       const confirmed = await IsOK(
-        `Are you sure you want to remove the field '${this.m_viewControlsDataModel.GetValue(row, DISPLAY_NAME_COLUMN)}'?`,
+        wxFormat(
+          _("Are you sure you want to remove the field '%s'?"),
+          this.m_viewControlsDataModel.GetValue(row, DISPLAY_NAME_COLUMN),
+        ),
       );
 
       if (!confirmed) return;
@@ -652,7 +656,7 @@ export class DIALOG_LIB_FIELDS_TABLE {
     if (newFieldName === fieldName) return;
 
     if (this.m_dataModel.GetFieldNameCol(newFieldName) !== -1) {
-      DisplayErrorMessage(`Field name '${newFieldName}' already exists.`);
+      DisplayErrorMessage(wxFormat(_("Field name '%s' already exists."), newFieldName));
       return;
     }
 
@@ -686,7 +690,7 @@ export class DIALOG_LIB_FIELDS_TABLE {
     const targetSymbol = this.m_parent.GetTargetLibId().GetLibItemName();
     const symbolNames: string[] = [];
 
-    this.m_title = `Symbol Fields Table ('${targetLib}' Library)`;
+    this.m_title = wxFormat(_("Symbol Fields Table ('%s' Library)"), targetLib);
 
     this.m_scope = aScope;
 

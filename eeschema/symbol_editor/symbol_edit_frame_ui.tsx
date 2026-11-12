@@ -185,6 +185,7 @@ import {
 } from './toolbars_symbol_editor.js';
 import '@ziroeda/common/widgets/shell.css';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface SymbolEditorFile {
   name: string;
@@ -907,7 +908,7 @@ export function SymbolEditor({
         await ensureSymbolFile(aLib, aName);
       } catch (e) {
         DisplayErrorMessage(
-          `Error loading symbol ${aName} from library '${aLib}'.`,
+          wxFormat(wxGetTranslation("Error loading symbol %s from library '%s'."), aName, aLib),
           e instanceof Error ? e.message : String(e),
         );
         return;
@@ -943,7 +944,12 @@ export function SymbolEditor({
         }
 
         if (wxFileExists(path)) {
-          DisplayErrorMessage(`Library '${file.name.replace(/\.[^.]*$/, '')}' already exists.`);
+          DisplayErrorMessage(
+            wxFormat(
+              wxGetTranslation("Library '%s' already exists."),
+              file.name.replace(/\.[^.]*$/, ''),
+            ),
+          );
           continue;
         }
 

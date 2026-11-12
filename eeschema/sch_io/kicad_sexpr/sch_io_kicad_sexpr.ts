@@ -107,6 +107,8 @@ import {
 import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from './sch_io_kicad_sexpr_lib_cache.js';
 import { type LIB_SYMBOL_MAP, SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A file's text by absolute path, or null when there is no such file. */
 export type SCH_FILE_READER = (aAbsolutePath: string) => string | null;
@@ -324,7 +326,12 @@ export class SCH_IO_KICAD_SEXPR {
         if (ancestorSheetPath.LastScreen()!.GetFileName() === fileName) {
           if (this.m_error !== '') this.m_error += '\n';
 
-          this.m_error += `Could not load sheet '${fileName}' because it already appears as a direct ancestor in the schematic hierarchy.`;
+          this.m_error += wxFormat(
+            _(
+              "Could not load sheet '%s' because it already appears as a direct ancestor in the schematic hierarchy.",
+            ),
+            fileName,
+          );
 
           fileName = '';
           break;
@@ -399,7 +406,7 @@ export class SCH_IO_KICAD_SEXPR {
   protected loadFile(aFileName: string, aSheet: SCH_SHEET): boolean {
     const text = this.m_readFile(aFileName);
 
-    if (text === null) throw new Error(`Failed to open file '${aFileName}'.`);
+    if (text === null) throw new Error(wxFormat(_("Failed to open file '%s'."), aFileName));
 
     const parser = new SCH_IO_KICAD_SEXPR_PARSER(
       text,
@@ -1664,7 +1671,7 @@ export class SCH_IO_KICAD_SEXPR {
     this.cacheLib(aLibraryPath, aProperties);
 
     if (!this.isBuffering(aProperties) && !this.m_cache!.isLibraryPathValid())
-      throw new IO_ERROR(`Library '${aLibraryPath}' not found.`);
+      throw new IO_ERROR(wxFormat(_("Library '%s' not found."), aLibraryPath));
 
     return [...this.m_cache!.GetSymbolMap()].filter(
       ([, symbol]) => !powerSymbolsOnly || symbol.IsPower(),
@@ -1723,11 +1730,12 @@ export class SCH_IO_KICAD_SEXPR {
 
     if (!isDir) {
       if (wxFileExists(aLibraryPath))
-        throw new IO_ERROR(`Symbol library file '${aLibraryPath}' already exists.`);
+        throw new IO_ERROR(wxFormat(_("Symbol library file '%s' already exists."), aLibraryPath));
     } else {
       const path = aLibraryPath.replace(/\/+$/, '');
 
-      if (wxDirExists(path)) throw new IO_ERROR(`Symbol library path '${path}' already exists.`);
+      if (wxDirExists(path))
+        throw new IO_ERROR(wxFormat(_("Symbol library path '%s' already exists."), path));
     }
 
     this.m_cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(aLibraryPath);
@@ -1745,14 +1753,16 @@ export class SCH_IO_KICAD_SEXPR {
 
     if (!isDir) {
       if (!wxRemoveFile(aLibraryPath))
-        throw new IO_ERROR(`Symbol library file '${aLibraryPath}' cannot be deleted.`);
+        throw new IO_ERROR(
+          wxFormat(_("Symbol library file '%s' cannot be deleted."), aLibraryPath),
+        );
     } else {
       // This may be overly agressive.  Perhaps in the future we should remove all of the
       // *.kicad_sym files and only delete the folder if it's empty.
       const path = aLibraryPath.replace(/\/+$/, '');
 
       if (!wxRemoveDirTree(path))
-        throw new IO_ERROR(`Symbol library folder '${path}' cannot be deleted.`);
+        throw new IO_ERROR(wxFormat(_("Symbol library folder '%s' cannot be deleted."), path));
     }
 
     if (this.m_cache?.IsFile(aLibraryPath)) this.m_cache = null;

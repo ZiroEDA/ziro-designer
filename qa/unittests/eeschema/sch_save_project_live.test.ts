@@ -16,6 +16,8 @@ import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
 const ORACLE = resolve(__dirname, '../../data/eeschema/netlist_oracle/complex_hierarchy');
@@ -157,7 +159,10 @@ describe('saving the schematic', () => {
 
     expect(saved).toBe(false);
     expect(errors).toEqual([
-      "Insufficient permissions to save file '/complex_hierarchy/complex_hierarchy.kicad_sch'.",
+      wxFormat(
+        _("Insufficient permissions to save file '%s'."),
+        '/complex_hierarchy/complex_hierarchy.kicad_sch',
+      ),
     ]);
   });
 

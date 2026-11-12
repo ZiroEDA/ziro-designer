@@ -51,6 +51,7 @@ import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { SYMBOL_ORIENTATION_T } from '../symbol.js';
 import { SYMBOL_PROPS_RETVALUE } from '../tools/sch_edit_tool.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The pin table's columns (dialog_symbol_properties.cpp:58). */
 export enum PIN_TABLE_COL_ORDER {
@@ -685,7 +686,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
           this.m_fieldsGrid.GetCellValue(i, FIELDS_DATA_COL_ORDER.FDC_NAME),
         )
       ) {
-        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        DisplayErrorMessage(wxFormat(_("Field name '%s' already in use."), newName));
         aEvent.Veto();
       }
     }
@@ -723,7 +724,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
       (row) => {
         if (row < this.m_fields.GetMandatoryRowCount()) {
           DisplayErrorMessage(
-            `The first ${this.m_fields.GetMandatoryRowCount()} fields are mandatory.`,
+            wxFormat(_('The first %d fields are mandatory.'), this.m_fields.GetMandatoryRowCount()),
           );
           return false;
         }

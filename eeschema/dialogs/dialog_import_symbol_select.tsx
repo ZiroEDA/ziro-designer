@@ -40,6 +40,7 @@ import { SYMBOL_PREVIEW_WIDGET, SymbolPreviewWidget } from '../widgets/symbol_pr
 import { DIALOG_IMPORT_SYMBOL_SELECT_BASE } from './dialog_import_symbol_select_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The list's columns: the toggle, then the symbol. */
 export const COL_CHECKBOX = 0;
@@ -104,7 +105,10 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
     this.m_plugin = SCH_IO_MGR.FindPlugin(aPluginType);
 
     // wxFileName fn( aFilePath ); fn.GetFullName()
-    this.m_title = `Import Symbols from ${aFilePath.slice(aFilePath.lastIndexOf('/') + 1)}`;
+    this.m_title = wxFormat(
+      _('Import Symbols from %s'),
+      aFilePath.slice(aFilePath.lastIndexOf('/') + 1),
+    );
 
     this.m_state = {
       m_searchCtrl: '',
@@ -151,14 +155,14 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
       if (!LoadError(ioe)) throw ioe;
 
       DisplayErrorMessage(
-        `Cannot read symbol library '${this.m_filePath}'.`,
+        wxFormat(_("Cannot read symbol library '%s'."), this.m_filePath),
         ioe instanceof IO_ERROR ? ioe.What() : (ioe as Error).message,
       );
       return false;
     }
 
     if (symbolNames.length === 0) {
-      DisplayErrorMessage(`Symbol library '${this.m_filePath}' is empty.`);
+      DisplayErrorMessage(wxFormat(_("Symbol library '%s' is empty."), this.m_filePath));
       return false;
     }
 
@@ -266,8 +270,8 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
 
     this.m_state.m_statusLine =
       autoCount > 0
-        ? `${manualCount} symbols selected, ${autoCount} parents auto-included`
-        : `${manualCount} symbols selected`;
+        ? wxFormat(_('%d symbols selected, %d parents auto-included'), manualCount, autoCount)
+        : wxFormat(_('%d symbols selected'), manualCount);
   }
 
   /** `updateImportButton()`: Import is enabled while there is something to import. */

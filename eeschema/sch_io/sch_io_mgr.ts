@@ -28,6 +28,8 @@ import { SCH_IO_GEDA } from './geda/sch_io_geda.js';
 import { SCH_IO_LTSPICE } from './ltspice/sch_io_ltspice.js';
 import { SCH_IO_EAGLE } from './eagle/sch_io_eagle.js';
 import type { SCH_IO as SCH_IO_BASE } from './sch_io.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `SCH_IO*`: a plugin. The s-expression plugin predates the `SCH_IO` base (sch_io/sch_io.ts)
@@ -123,7 +125,7 @@ export class SCH_IO_MGR {
       case SCH_FILE_T.SCH_NESTED_TABLE:
         return LIBRARY_TABLE_ROW.TABLE_TYPE_NAME;
       default:
-        return `Unknown SCH_FILE_T value: ${aType}`;
+        return wxFormat(_('Unknown SCH_FILE_T value: %d'), aType);
     }
   }
 

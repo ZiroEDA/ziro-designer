@@ -86,6 +86,7 @@ import {
   type PRESET_CHOICE,
 } from './dialog_symbol_fields_table_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COLUMN_MARGIN` (dialog_symbol_fields_table.cpp): the slack a column gets past its text. */
 const COLUMN_MARGIN = 15; // [data]
@@ -661,7 +662,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
     for (let i = 0; i < this.m_dataModel.GetNumberCols(); ++i) {
       if (FieldNamesAreDuplicates(fieldName, this.m_dataModel.GetColFieldName(i))) {
-        DisplayErrorMessage(`Field name '${fieldName}' already in use.`);
+        DisplayErrorMessage(wxFormat(_("Field name '%s' already in use."), fieldName));
         return;
       }
     }
@@ -685,14 +686,20 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
       for (const id of MANDATORY_FIELDS) {
         if (this.m_mandatoryFieldListIndexes.get(id) === row) {
           DisplayErrorMessage(
-            `The first ${this.m_mandatoryFieldListIndexes.size} fields are mandatory.`,
+            wxFormat(
+              _('The first %d fields are mandatory.'),
+              this.m_mandatoryFieldListIndexes.size,
+            ),
           );
           return;
         }
       }
 
       const confirmed = await IsOK(
-        `Are you sure you want to remove the field '${this.m_viewControlsDataModel.GetValue(row, DISPLAY_NAME_COLUMN)}'?`,
+        wxFormat(
+          _("Are you sure you want to remove the field '%s'?"),
+          this.m_viewControlsDataModel.GetValue(row, DISPLAY_NAME_COLUMN),
+        ),
       );
 
       if (!confirmed) return;
@@ -726,7 +733,10 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     for (const id of MANDATORY_FIELDS) {
       if (this.m_mandatoryFieldListIndexes.get(id) === row) {
         DisplayErrorMessage(
-          `The first ${this.m_mandatoryFieldListIndexes.size} fields are mandatory and names cannot be changed.`,
+          wxFormat(
+            _('The first %d fields are mandatory and names cannot be changed.'),
+            this.m_mandatoryFieldListIndexes.size,
+          ),
         );
         return;
       }
@@ -753,7 +763,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
     // New field name already exists
     if (this.m_dataModel.GetFieldNameCol(newFieldName) !== -1) {
-      DisplayErrorMessage(`Field name ${newFieldName} already exists.`);
+      DisplayErrorMessage(wxFormat(_('Field name %s already exists.'), newFieldName));
       return;
     }
 
@@ -1145,7 +1155,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
     const defaultPath = fn.replace(/[^/]*$/, '');
 
-    if (await IsOK(`Do you want to use a path relative to\n'${defaultPath}'?`)) {
+    if (await IsOK(wxFormat(_("Do you want to use a path relative to\n'%s'?"), defaultPath))) {
       if (file.startsWith(defaultPath)) {
         file = file.slice(defaultPath.length);
       } else {
@@ -1204,7 +1214,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     this.PreviewRefresh();
 
     if (!this.m_window.writeFile(path, this.m_textOutput)) {
-      DisplayErrorMessage(`Could not write BOM output '${path}'.`);
+      DisplayErrorMessage(wxFormat(_("Could not write BOM output '%s'."), path));
       return;
     }
 
@@ -1213,7 +1223,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
       this.m_parent.OnModify();
     }
 
-    void DisplayInfoMessage(`Wrote BOM output to '${path}'`);
+    void DisplayInfoMessage(wxFormat(_("Wrote BOM output to '%s'"), path));
     this.notify();
   }
 

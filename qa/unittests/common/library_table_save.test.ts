@@ -6,6 +6,8 @@
  * prettified, into its file.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import {
   LIBRARY_TABLE,
   LIBRARY_TABLE_SCOPE,
@@ -58,7 +60,9 @@ describe('LIBRARY_TABLE::Save', () => {
     t.SetReadOnly(true);
     const r = t.Save();
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.error.message).toBe("Library table '/lts/fp-lib-table' is read-only");
+    expect(!r.ok && r.error.message).toBe(
+      wxFormat(_("Library table '%s' is read-only"), '/lts/fp-lib-table'),
+    );
     expect(wxReadFileSync('/lts/fp-lib-table')).toBeNull();
   });
 

@@ -38,7 +38,7 @@ import {
   KIUI_EllipsizeMenuText,
   KIUI_EllipsizeStatusText,
 } from '@ziroeda/common/widgets/ui_common.js';
-import { wxCmpNoCase, wxLess } from '@ziroeda/wx/wxstring.js';
+import { wxCmpNoCase, wxFormat, wxLess } from '@ziroeda/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -598,7 +598,10 @@ export class SCH_TEXTBOX extends SCH_SHAPE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Text box '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}'`;
+    return wxFormat(
+      _("Text box '%s'"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+    );
   }
 
   override Clone(): SCH_TEXTBOX {

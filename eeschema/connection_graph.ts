@@ -51,6 +51,7 @@ import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCHEMATIC } from './schematic.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The key a sheet path is looked up by (`std::hash<SCH_SHEET_PATH>` / `operator==`). */
 function sheetKey(aSheet: SCH_SHEET_PATH): string {
@@ -3313,7 +3314,12 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
           if (primaryName === secondaryName) continue;
 
-          const msg = `Both ${primaryName} and ${secondaryName} are attached to the same items; ${primaryName} will be used in the netlist`;
+          const msg = wxFormat(
+            _('Both %s and %s are attached to the same items; %s will be used in the netlist'),
+            primaryName,
+            secondaryName,
+            primaryName,
+          );
 
           const ercItem = ERC_ITEM.Create(ERCE_T.ERCE_DRIVER_CONFLICT)!;
           ercItem.SetItems(aSubgraph.m_driver, driver);
@@ -3523,7 +3529,11 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
     if (conflict) {
       const netName = aSubgraph.m_driver_connection.Name();
-      const msg = `Net ${unescapeString(netName)} is graphically connected to bus ${unescapeString(bus_name)} but is not a member of that bus`;
+      const msg = wxFormat(
+        _('Net %s is graphically connected to bus %s but is not a member of that bus'),
+        unescapeString(netName),
+        unescapeString(bus_name),
+      );
       const ercItem = ERC_ITEM.Create(ERCE_T.ERCE_BUS_ENTRY_CONFLICT)!;
       ercItem.SetSheetSpecificPath(sheet);
       ercItem.SetItems(bus_entry, bus_wire);
@@ -4164,7 +4174,12 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
         for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T.SCH_HIER_LABEL_T)) {
           const label = item as SCH_HIERLABEL;
 
-          const msg = `Hierarchical label '${label.GetShownText(sheet, true)}' in root sheet cannot be connected to non-existent parent sheet`;
+          const msg = wxFormat(
+            _(
+              "Hierarchical label '%s' in root sheet cannot be connected to non-existent parent sheet",
+            ),
+            label.GetShownText(sheet, true),
+          );
           const ercItem = ERC_ITEM.Create(ERCE_T.ERCE_PIN_NOT_CONNECTED)!;
           ercItem.SetItems(item);
           ercItem.SetErrorMessage(msg);
@@ -4218,7 +4233,10 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
           for (const name of [...pins.keys()].sort()) {
             const pin = pins.get(name)!;
-            const msg = `Sheet pin ${unescapeString(name)} has no matching hierarchical label inside the sheet`;
+            const msg = wxFormat(
+              _('Sheet pin %s has no matching hierarchical label inside the sheet'),
+              unescapeString(name),
+            );
 
             const ercItem = ERC_ITEM.Create(ERCE_T.ERCE_HIERACHICAL_LABEL)!;
             ercItem.SetItems(pin);
@@ -4233,7 +4251,10 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
           for (const name of [...labels.keys()].sort()) {
             const label = labels.get(name)!;
-            const msg = `Hierarchical label ${unescapeString(name)} has no matching sheet pin in the parent sheet`;
+            const msg = wxFormat(
+              _('Hierarchical label %s has no matching sheet pin in the parent sheet'),
+              unescapeString(name),
+            );
 
             const ercItem = ERC_ITEM.Create(ERCE_T.ERCE_HIERACHICAL_LABEL)!;
             ercItem.SetItems(label);

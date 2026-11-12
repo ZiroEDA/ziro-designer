@@ -155,6 +155,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `toUTFTildaText`: every control character and space becomes '~'. */
 export function toUTFTildaText(txt: string): string {
@@ -702,7 +703,7 @@ export class SCH_SYMBOL extends SYMBOL {
 
   override GetUnitDisplayName(aUnit: number, aLabel: boolean): string {
     if (this.m_part) return this.m_part.GetUnitDisplayName(aUnit, aLabel);
-    else if (aLabel) return `Unit ${this.SubReference(aUnit)}`;
+    else if (aLabel) return wxFormat(_('Unit %s'), this.SubReference(aUnit));
     else return this.SubReference(aUnit);
   }
 
@@ -1529,7 +1530,7 @@ export class SCH_SYMBOL extends SYMBOL {
         aList.push(
           new MSG_PANEL_ITEM(
             `Description: ${this.GetField(FIELD_T.DESCRIPTION)!.GetText()}`,
-            `Keywords: ${this.m_part.GetKeyWords()}`,
+            wxFormat(_('Keywords: %s'), this.m_part.GetKeyWords()),
           ),
         );
       }
@@ -1554,7 +1555,7 @@ export class SCH_SYMBOL extends SYMBOL {
       const libNickname = this.GetLibId().GetLibNickname();
 
       if (!libNickname) msg = _('No library defined!');
-      else msg = `Symbol not found in ${libNickname}!`;
+      else msg = wxFormat(_('Symbol not found in %s!'), libNickname);
 
       aList.push(new MSG_PANEL_ITEM(_('Library'), msg));
     }
@@ -3034,7 +3035,11 @@ export class SCH_SYMBOL extends SYMBOL {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return `Symbol ${KIUI_EllipsizeMenuText(this.GetField(FIELD_T.REFERENCE)!.GetText())} [${KIUI_EllipsizeMenuText(this.GetLibId().GetLibItemName())}]`;
+    return wxFormat(
+      _('Symbol %s [%s]'),
+      KIUI_EllipsizeMenuText(this.GetField(FIELD_T.REFERENCE)!.GetText()),
+      KIUI_EllipsizeMenuText(this.GetLibId().GetLibItemName()),
+    );
   }
 
   /** `operator<`: by type, then body-and-pins area, then position, then uuid. */

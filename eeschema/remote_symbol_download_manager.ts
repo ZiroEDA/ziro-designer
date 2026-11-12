@@ -34,6 +34,7 @@ import {
   ValidateRemoteUrlSecurity,
 } from '@ziroeda/common/remote_provider_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class REMOTE_SYMBOL_FETCH_RESPONSE {
   status_code = 0;
@@ -149,7 +150,7 @@ export class REMOTE_SYMBOL_DOWNLOAD_MANAGER {
     if (!(await this.m_handler(aAsset.download_url, response, aError))) return false;
 
     if (response.status_code < 200 || response.status_code >= 300) {
-      aError.value = `Remote download failed with HTTP ${response.status_code}.`;
+      aError.value = wxFormat(_('Remote download failed with HTTP %d.'), response.status_code);
       return false;
     }
 

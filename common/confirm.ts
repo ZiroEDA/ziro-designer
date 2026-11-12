@@ -5,6 +5,7 @@ import { wxCANCEL, wxCENTER, wxICON_WARNING, wxOK, wxOK_DEFAULT } from '@ziroeda
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The "Save Changes?" question, and what each answer means. Counterpart:
@@ -69,7 +70,7 @@ export const CONFIRM_REVERT_CANCEL_LABEL = _HKI('Cancel');
  * counterpart — so it belongs here rather than in either of them.
  */
 export function confirmRevertMessage(itemName: string): string {
-  return `Revert '${itemName}' to last version saved?`;
+  return wxFormat(_("Revert '%s' to last version saved?"), itemName);
 }
 
 /**

@@ -24,6 +24,8 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_SCREENS } from './sch_screen.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCHEMATIC } from './schematic.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class SCH_FP_FIELD_RECONCILE_RESULT {
   m_relinkedToCache = 0; ///< footprint fields re-pointed at the generated cache
@@ -83,7 +85,11 @@ export class SCH_FOOTPRINT_FIELD_RECONCILER {
 
     if (this.m_reporter && result.m_relinkedToCache > 0) {
       this.m_reporter.report(
-        `Re-linked ${result.m_relinkedToCache} imported footprint assignment(s) to library '${this.m_cacheNickname}'.`,
+        wxFormat(
+          _("Re-linked %d imported footprint assignment(s) to library '%s'."),
+          result.m_relinkedToCache,
+          this.m_cacheNickname,
+        ),
         RPT_SEVERITY_INFO,
       );
     }

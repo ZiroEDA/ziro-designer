@@ -93,6 +93,7 @@ import {
 import { currentSymbolEditorSettings } from '../symbol_editor/symbol_editor_settings.js';
 import { DIALOG_LIB_EDIT_PIN_TABLE_BASE } from './dialog_lib_edit_pin_table_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COL_ORDER` (dialog_lib_edit_pin_table.h:28). */
 export enum COL_ORDER {
@@ -415,7 +416,12 @@ export class PIN_INFO_FORMATTER {
     else if (MatchTranslationOrNative(aValue, BOOL_FALSE, false)) return false;
 
     aReporter.Report(
-      `The value '${aValue}' can't be converted to boolean correctly, it has been interpreted as 'False'`,
+      wxFormat(
+        _(
+          "The value '%s' can't be converted to boolean correctly, it has been interpreted as 'False'",
+        ),
+        aValue,
+      ),
       RPT_SEVERITY_ERROR,
     );
     return false;
@@ -1027,7 +1033,10 @@ export class PIN_TABLE_IMPORT {
 
     if (unknownHeaders.length) {
       this.m_reporter.Report(
-        `Unknown columns in data: ${AccumulateDescriptions(unknownHeaders)}. These columns will be ignored.`,
+        wxFormat(
+          _('Unknown columns in data: %s. These columns will be ignored.'),
+          AccumulateDescriptions(unknownHeaders),
+        ),
         RPT_SEVERITY_ERROR,
       );
     }

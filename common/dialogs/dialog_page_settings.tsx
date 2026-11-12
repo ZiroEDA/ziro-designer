@@ -70,6 +70,7 @@ import { toCssColor } from '../gal/color4d.js';
 import { BUILTIN_DEFAULT_THEME } from '../settings/builtin_color_themes.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** pcbnew's background and sheet ink: the default theme's two layers. */
 const PCB_BACKGROUND_COLOR = toCssColor(BUILTIN_DEFAULT_THEME.LAYER_PCB_BACKGROUND);
@@ -813,7 +814,11 @@ export function DialogPageSettings({
               setWksSheet(parseDrawingSheet(file.text));
             } catch (e) {
               setError(
-                `Error loading drawing sheet '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
+                wxFormat(
+                  wxGetTranslation("Error loading drawing sheet '%s'.\n%s"),
+                  file.path,
+                  e instanceof Error ? e.message : String(e),
+                ),
               );
               return;
             }

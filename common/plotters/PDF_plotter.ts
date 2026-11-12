@@ -181,6 +181,8 @@ export interface PdfProject {
 // ===========================================================================
 
 import { fixed, formatG, shortest } from './fmt.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `OVERBAR_INFO` (plotters_pslike.h): an overbar to draw once the text is out. */
 interface OVERBAR_INFO {
@@ -1292,11 +1294,13 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
 
     this.m_pageNumbers.push(aPageNumber);
     this.m_pageName =
-      aPageName === '' ? `Page ${aPageNumber}` : `${aPageName} (Page ${aPageNumber})`;
+      aPageName === ''
+        ? wxFormat(_('Page %s'), aPageNumber)
+        : wxFormat(_('%s (Page %s)'), aPageName, aPageNumber);
     this.m_parentPageName =
       aParentPageName === ''
-        ? `Page ${aParentPageNumber}`
-        : `${aParentPageName} (Page ${aParentPageNumber})`;
+        ? wxFormat(_('Page %s'), aParentPageNumber)
+        : wxFormat(_('%s (Page %s)'), aParentPageName, aParentPageNumber);
 
     // Compute the paper size in IUs
     const paperSize = toVector2I(this.PageSettings().GetSizeMils());
@@ -2117,7 +2121,7 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
 
         for (let ii = 0; ii < this.m_pageNumbers.length; ++ii) {
           if (this.m_pageNumbers[ii] === pageNumber) {
-            js += `["${EscapeJsString(`Show Page ${pageNumber}`)}", "#${ii}"],\n`;
+            js += `["${EscapeJsString(wxFormat(_('Show Page %s'), pageNumber))}", "#${ii}"],\n`;
             break;
           }
         }
@@ -2140,7 +2144,7 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
         if (href.startsWith('file:')) href = NormalizeFileUri(href);
 
         if (href.startsWith('http:') || href.startsWith('https:') || href.startsWith('file:')) {
-          js += `["${EscapeJsString(`Open ${href}`)}", "${EscapeJsString(href)}"],\n`;
+          js += `["${EscapeJsString(wxFormat(_('Open %s'), href))}", "${EscapeJsString(href)}"],\n`;
         }
       }
     }

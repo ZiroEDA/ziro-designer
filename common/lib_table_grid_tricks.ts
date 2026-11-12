@@ -40,6 +40,7 @@ import { type wxGridEvent, wxGridTableRequest } from '@ziroeda/wx/grid.js';
 import type { wxMenu, wxMenuEvent } from '@ziroeda/wx/menu.js';
 import { type wxKeyEvent, wxMOD_CONTROL } from '@ziroeda/wx/wx_event.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const LIB_TABLE_GRID_TRICKS_ACTIVATE_SELECTED = GRIDTRICKS_FIRST_CLIENT_ID;
 const LIB_TABLE_GRID_TRICKS_DEACTIVATE_SELECTED = GRIDTRICKS_FIRST_CLIENT_ID + 1;
@@ -88,8 +89,8 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
 
       const title =
         row.Type() === 'Table'
-          ? `Error loading library table '${row.Nickname()}'`
-          : `Error loading library '${row.Nickname()}'`;
+          ? wxFormat(_("Error loading library table '%s'"), row.Nickname())
+          : wxFormat(_("Error loading library '%s'"), row.Nickname());
 
       const libraryError = adapter?.LibraryError(row.Nickname());
 
@@ -458,7 +459,12 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
         model.DeleteRows(r, 1);
       } else if (!nick || illegalCh) {
         if (!nick) msg = _('Library must have a nickname.');
-        else msg = `Illegal character '${String.fromCodePoint(illegalCh)}' in nickname '${nick}'.`;
+        else
+          msg = wxFormat(
+            _("Illegal character '%c' in nickname '%s'."),
+            String.fromCodePoint(illegalCh),
+            nick,
+          );
 
         aErrorHandler(r, COL_NICKNAME);
         // KICAD_MESSAGE_DIALOG( topLevelParent, msg, _( "Library Nickname Error" ) )
@@ -484,7 +490,7 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
         const nick2 = model.GetValue(r2, COL_NICKNAME);
 
         if (nick1 === nick2) {
-          msg = `Multiple libraries cannot share the same nickname ('${nick1}').`;
+          msg = wxFormat(_("Multiple libraries cannot share the same nickname ('%s')."), nick1);
 
           // go to the lower of the two rows, it is technically the duplicate:
           aErrorHandler(r2, 1);

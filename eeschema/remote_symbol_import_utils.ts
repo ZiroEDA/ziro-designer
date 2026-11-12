@@ -36,6 +36,7 @@ import { currentEeschemaSettings } from './eeschema_settings.js';
 import { LIB_SYMBOL } from './lib_symbol.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `LIBRARY_MANAGER` as the remote import asks it: the table of a type and
@@ -108,12 +109,12 @@ export function WriteRemoteBinaryFile(
   const targetDir = dirOf(aOutput);
 
   if (!mkdirFull(targetDir)) {
-    aError.value = `Unable to create '${targetDir}'.`;
+    aError.value = wxFormat(_("Unable to create '%s'."), targetDir);
     return false;
   }
 
   if (!wxWriteFileSync(aOutput, aPayload)) {
-    aError.value = `Unable to open '${aOutput}' for writing.`;
+    aError.value = wxFormat(_("Unable to open '%s' for writing."), aOutput);
     return false;
   }
 
@@ -146,7 +147,7 @@ export function EnsureRemoteDestinationRoot(
   const dir = wxNormalizePath(destination.endsWith('/') ? destination : `${destination}/`);
 
   if (!mkdirFull(dir)) {
-    aError.value = `Unable to create directory '${dir}'.`;
+    aError.value = wxFormat(_("Unable to create directory '%s'."), dir);
     return false;
   }
 
@@ -293,7 +294,10 @@ export function LoadRemoteSymbolFromPayload(
     if (loaded) symbol = LIB_SYMBOL.copyOf(loaded);
     else aError.value = _('Symbol payload did not include the expected symbol.');
   } catch (e) {
-    aError.value = `Unable to decode the symbol payload: ${e instanceof Error ? e.message : String(e)}`;
+    aError.value = wxFormat(
+      _('Unable to decode the symbol payload: %s'),
+      e instanceof Error ? e.message : String(e),
+    );
   }
 
   wxRemoveFile(tempPath);

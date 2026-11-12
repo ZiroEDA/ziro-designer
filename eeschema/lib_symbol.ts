@@ -54,7 +54,7 @@ import {
   FIELD_T,
   MANDATORY_FIELDS as MANDATORY_FIELD_IDS,
 } from '@ziroeda/common/template_fieldnames.js';
-import { wxCmp } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { MULTIVECTOR } from '@ziroeda/core/multivector.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -2111,7 +2111,7 @@ export class LIB_SYMBOL extends SYMBOL {
   /** Return the user-defined display name for \a aUnit for symbols with units. */
   override GetUnitDisplayName(aUnit: number, aLabel: boolean): string {
     if (this.m_unitDisplayNames.has(aUnit)) return this.m_unitDisplayNames.get(aUnit)!;
-    else if (aLabel) return `Unit ${LIB_SYMBOL.LetterSubReference(aUnit, 'A')}`;
+    else if (aLabel) return wxFormat(_('Unit %s'), LIB_SYMBOL.LetterSubReference(aUnit, 'A'));
     else return LIB_SYMBOL.LetterSubReference(aUnit, 'A');
   }
 
@@ -2350,7 +2350,13 @@ export class LIB_SYMBOL extends SYMBOL {
 
           if (tmp2) {
             retv = tmp2;
-            REPORT(`Graphic item differs: ${ITEM_DESC(a.shapes[i]!)}; ${ITEM_DESC(b.shapes[i]!)}.`);
+            REPORT(
+              wxFormat(
+                _('Graphic item differs: %s; %s.'),
+                ITEM_DESC(a.shapes[i]!),
+                ITEM_DESC(b.shapes[i]!),
+              ),
+            );
 
             if (!aReporter) return retv;
           }
@@ -2363,7 +2369,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (!bPin) {
         retv = 1;
-        REPORT(`Extra pin in schematic symbol: ${ITEM_DESC(aPin)}.`);
+        REPORT(wxFormat(_('Extra pin in schematic symbol: %s.'), ITEM_DESC(aPin)));
 
         if (!aReporter) return retv;
       } else {
@@ -2371,7 +2377,14 @@ export class LIB_SYMBOL extends SYMBOL {
 
         if (tmp) {
           retv = tmp;
-          REPORT(`Pin ${aPin.GetNumber()} differs: ${ITEM_DESC(aPin)}; ${ITEM_DESC(bPin)}`);
+          REPORT(
+            wxFormat(
+              _('Pin %s differs: %s; %s'),
+              aPin.GetNumber(),
+              ITEM_DESC(aPin),
+              ITEM_DESC(bPin),
+            ),
+          );
 
           if (!aReporter) return retv;
         }
@@ -2383,7 +2396,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (!aPin) {
         retv = 1;
-        REPORT(`Missing pin in schematic symbol: ${ITEM_DESC(bPin)}.`);
+        REPORT(wxFormat(_('Missing pin in schematic symbol: %s.'), ITEM_DESC(bPin)));
 
         if (!aReporter) return retv;
       }
@@ -2396,7 +2409,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (!bField) {
         retv = 1;
-        REPORT(`Extra field in schematic symbol: ${ITEM_DESC(aField)}.`);
+        REPORT(wxFormat(_('Extra field in schematic symbol: %s.'), ITEM_DESC(aField)));
 
         if (!aReporter) return retv;
       } else {
@@ -2424,7 +2437,12 @@ export class LIB_SYMBOL extends SYMBOL {
         if (tmp !== 0) {
           retv = tmp;
           REPORT(
-            `Field '${aField.GetName(false)}' differs: ${ITEM_DESC(aField)}; ${ITEM_DESC(bField)}.`,
+            wxFormat(
+              _("Field '%s' differs: %s; %s."),
+              aField.GetName(false),
+              ITEM_DESC(aField),
+              ITEM_DESC(bField),
+            ),
           );
 
           if (!aReporter) return retv;
@@ -2439,7 +2457,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (!aField) {
         retv = 1;
-        REPORT(`Missing field in schematic symbol: ${ITEM_DESC(bField)}.`);
+        REPORT(wxFormat(_('Missing field in schematic symbol: %s.'), ITEM_DESC(bField)));
 
         if (!aReporter) return retv;
       }

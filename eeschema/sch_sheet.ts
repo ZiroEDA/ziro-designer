@@ -66,6 +66,7 @@ import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const MIN_SHEET_WIDTH = 500; // Units are mils.
 export const MIN_SHEET_HEIGHT = 150; // Units are mils.
@@ -1498,7 +1499,10 @@ export class SCH_SHEET extends SCH_ITEM {
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
     const sheetnameField = this.GetField(FIELD_T.SHEET_NAME)!;
 
-    return `Hierarchical Sheet '${aFull ? sheetnameField.GetShownText(false) : KIUI_EllipsizeMenuText(sheetnameField.GetText())}'`;
+    return wxFormat(
+      _("Hierarchical Sheet '%s'"),
+      aFull ? sheetnameField.GetShownText(false) : KIUI_EllipsizeMenuText(sheetnameField.GetText()),
+    );
   }
 
   /**

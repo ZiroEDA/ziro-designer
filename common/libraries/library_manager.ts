@@ -39,6 +39,7 @@ import {
   LIBRARY_TABLE_TYPE,
 } from './library_table.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `LIBRARY_MANAGER` (common/libraries/library_manager.{h,cpp}), the part an
@@ -858,7 +859,7 @@ export abstract class LIBRARY_MANAGER_ADAPTER {
       }
     }
 
-    return { ok: false, error: new LIBRARY_ERROR(`Library ${aNickname} not found`) };
+    return { ok: false, error: new LIBRARY_ERROR(wxFormat(_('Library %s not found'), aNickname)) };
   }
 
   /**

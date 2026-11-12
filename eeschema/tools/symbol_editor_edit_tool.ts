@@ -64,6 +64,7 @@ import { SYMBOL_EDITOR_DRAWING_TOOLS } from './symbol_editor_drawing_tools.js';
 import { SYMBOL_EDITOR_MOVE_TOOL } from './symbol_editor_move_tool.js';
 import { SYMBOL_EDITOR_PIN_TOOL } from './symbol_editor_pin_tool.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const veq = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -620,8 +621,8 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     const frame = this.m_frame!;
     let caption: string;
 
-    if (aField.IsMandatory()) caption = `Edit ${titleCaps(aField.GetName())} Field`;
-    else caption = `Edit '${aField.GetName()}' Field`;
+    if (aField.IsMandatory()) caption = wxFormat(_('Edit %s Field'), titleCaps(aField.GetName()));
+    else caption = wxFormat(_("Edit '%s' Field"), aField.GetName());
 
     // DIALOG_FIELD_PROPERTIES dlg( m_frame, caption, aField ): the window's. The dialog may invoke
     // a kiway player for footprint fields, so upstream uses a quasimodal dialog. On OK the window
@@ -950,7 +951,9 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     // Remove all pins at once, like the Delete command does
     for (const pin of pinsToRemove) symbol.RemoveDrawItem(pin);
 
-    commit.Push(`Convert ${pinsToConvert.length} Stacked Pins to '${stackedNotation}'`);
+    commit.Push(
+      wxFormat(_("Convert %zu Stacked Pins to '%s'"), pinsToConvert.length, stackedNotation),
+    );
     frame.RebuildView();
     return 0;
   }

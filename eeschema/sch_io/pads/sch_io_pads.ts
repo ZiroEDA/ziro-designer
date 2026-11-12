@@ -54,6 +54,8 @@ import {
 import { PADS_SCH_SCHEMATIC_BUILDER } from './pads_sch_schematic_builder.js';
 import { PADS_SCH_SYMBOL_BUILDER } from './pads_sch_symbol_builder.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const isdigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
 const isalpha = (c: string | undefined): boolean =>
@@ -1157,12 +1159,12 @@ export class SCH_IO_PADS extends SCH_IO {
     this.m_cachedLibraryTimestamp = timestamp;
 
     if (!this.checkFileHeader(aLibraryPath))
-      throw new IO_ERROR(`'${aLibraryPath}' is not a PADS Logic ASCII file.`);
+      throw new IO_ERROR(wxFormat(_("'%s' is not a PADS Logic ASCII file."), aLibraryPath));
 
     const parser = new PADS_SCH_PARSER();
 
     if (!parser.Parse(this.m_readFile(aLibraryPath), aLibraryPath))
-      throw new IO_ERROR(`Failed to parse PADS Logic file '${aLibraryPath}'.`);
+      throw new IO_ERROR(wxFormat(_("Failed to parse PADS Logic file '%s'."), aLibraryPath));
 
     const params = parser.GetParameters();
     const symbolBuilder = new PADS_SCH_SYMBOL_BUILDER(params);

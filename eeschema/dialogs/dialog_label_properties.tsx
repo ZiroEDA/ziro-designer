@@ -68,6 +68,7 @@ import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The radio buttons of m_shapeSizer, in the base dialog's order. */
 const LABEL_SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
@@ -541,7 +542,7 @@ export class DIALOG_LABEL_PROPERTIES {
         : FieldNamesAreDuplicates(newName, existing, []);
 
       if (duplicate) {
-        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        DisplayErrorMessage(wxFormat(_("Field name '%s' already in use."), newName));
         aEvent.Veto();
         break;
       }

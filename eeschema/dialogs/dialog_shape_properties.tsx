@@ -35,6 +35,7 @@ import {
   type FILL_RADIO,
 } from './dialog_shape_properties_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `lineTypeNames`, as the constructor fills `m_borderStyleCombo`. */
 const BORDER_STYLES: BITMAP_COMBO_ITEM[] = LINE_STYLE_NAMES.map((d) => ({
@@ -84,7 +85,7 @@ export class DIALOG_SHAPE_PROPERTIES {
 
   /** `SetTitle( wxString::Format( GetTitle(), aShape->GetFriendlyName() ) )`: "%s Properties". */
   Title(): string {
-    return `${this.m_shape.GetFriendlyName()} Properties`;
+    return wxFormat(_('%s Properties'), this.m_shape.GetFriendlyName());
   }
 
   /** `m_ruleAreaSizer->Show( dynamic_cast<SCH_RULE_AREA*>( aShape ) != nullptr )`. */
@@ -335,7 +336,7 @@ export class DIALOG_SHAPE_PROPERTIES {
       shape.SetFillColor(aValues.fillColor);
     }
 
-    if (!commit.Empty()) commit.Push(`Edit ${shape.GetFriendlyName()}`);
+    if (!commit.Empty()) commit.Push(wxFormat(_('Edit %s'), shape.GetFriendlyName()));
 
     return true;
   }

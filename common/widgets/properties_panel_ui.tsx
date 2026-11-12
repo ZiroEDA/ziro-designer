@@ -65,6 +65,7 @@ import { Icon } from './icons.js';
 import './properties_panel.css';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * One row of the grid.
@@ -147,7 +148,7 @@ export function colorCellValue(c: Parameters<typeof toHexString>[0]): string {
 export function propertiesPanelCaption(count: number, friendlyName?: string): string {
   if (count === 0) return _('No objects selected');
   if (count === 1) return friendlyName ?? '';
-  return `${count} objects selected`;
+  return wxFormat(_('%d objects selected'), count);
 }
 
 /** Rows in the order given, split into groups in first-appearance order. */

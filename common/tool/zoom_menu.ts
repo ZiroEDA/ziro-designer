@@ -15,6 +15,7 @@ import { ACTION_MENU } from './action_menu.js';
 import { ACTIONS } from './actions.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What ZOOM_MENU asks of `EDA_DRAW_FRAME`. */
 export interface ZOOM_MENU_PARENT {
@@ -55,7 +56,7 @@ export class ZOOM_MENU extends ACTION_MENU {
     const zoomList = this.m_parent.config()!.m_Window.zoom_factors;
 
     for (const factor of zoomList)
-      this.Append(ii++, `Zoom: ${factor.toFixed(2)}`, '', wxItemKind.wxITEM_CHECK);
+      this.Append(ii++, wxFormat(_('Zoom: %.2f'), factor.toFixed(2)), '', wxItemKind.wxITEM_CHECK);
 
     const zoom = this.m_parent.GetCanvas()!.GetGAL()!.GetZoomFactor();
 

@@ -68,6 +68,7 @@ import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { DIALOG_LIB_SYMBOL_PROPERTIES_BASE } from './dialog_lib_symbol_properties_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const { FDC_NAME, FDC_VALUE } = FIELDS_DATA_COL_ORDER;
 
@@ -503,7 +504,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       if (subRef === '') subRef = LIB_SYMBOL.LetterSubReference(row + 1, 'A');
 
       if (seenSubRefs.has(subRef.toUpperCase())) {
-        this.m_delayedErrorMessage = `The unit name '${subRef}' is already in use.`;
+        this.m_delayedErrorMessage = wxFormat(_("The unit name '%s' is already in use."), subRef);
         this.m_delayedFocusGrid = this.m_unitNamesGrid;
         this.m_delayedFocusColumn = 1;
         this.m_delayedFocusRow = row;
@@ -579,7 +580,11 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
 
       if (this.m_Parent.GetLibManager().SymbolNameInUse(newName, libName)) {
         DisplayErrorMessage(
-          `Symbol name '${unescapeString(newName)}' already in use in library '${libName}'.`,
+          wxFormat(
+            _("Symbol name '%s' already in use in library '%s'."),
+            unescapeString(newName),
+            libName,
+          ),
         );
         return false;
       }
@@ -754,7 +759,10 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
     if (aRow < 0 || aCol < 0 || aRow >= this.m_fields.size() || !this.m_fields.IsInherited(aRow))
       return '';
 
-    return `This field is inherited from '${this.m_fields.ParentField(aRow)!.GetName()}'.`;
+    return wxFormat(
+      _("This field is inherited from '%s'."),
+      this.m_fields.ParentField(aRow)!.GetName(),
+    );
   }
 
   /** `OnGridCellChanging()`: a field name already in use is refused. */
@@ -767,7 +775,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       if (i === aEvent.GetRow()) continue;
 
       if (FieldNamesAreDuplicates(newName, this.m_grid.GetCellValue(i, FDC_NAME))) {
-        DisplayErrorMessage(`The name '${newName}' is already in use.`);
+        DisplayErrorMessage(wxFormat(_("The name '%s' is already in use."), newName));
         aEvent.Veto();
         this.m_delayedFocusRow = aEvent.GetRow();
         this.m_delayedFocusColumn = aEvent.GetCol();
@@ -844,7 +852,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       (row) => {
         if (row < this.m_fields.GetMandatoryRowCount()) {
           DisplayErrorMessage(
-            `The first ${this.m_fields.GetMandatoryRowCount()} fields are mandatory.`,
+            wxFormat(_('The first %d fields are mandatory.'), this.m_fields.GetMandatoryRowCount()),
           );
           return false;
         }

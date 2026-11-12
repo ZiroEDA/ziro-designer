@@ -59,6 +59,7 @@ import { COMPONENT, NETLIST } from './netlist.js';
 import { parseKicadNetlist } from './kicad_netlist_reader.js';
 import { parse } from '@ziroeda/sexpr/parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** NETLIST_READER::NETLIST_FILE_T. */
 export type NetlistFileType = 'unknown' | 'orcad' | 'legacy' | 'kicad';
@@ -309,7 +310,7 @@ function loadFootprintFilters(netlist: NETLIST, lines: string[], from: number): 
       // Cannot happen if the netlist is valid.
       if (component === null) {
         throw new NetlistParseError(
-          `Cannot find symbol ${cmpRef} in footprint filter section of netlist.`,
+          wxFormat(_('Cannot find symbol %s in footprint filter section of netlist.'), cmpRef),
           i + 1,
         );
       }

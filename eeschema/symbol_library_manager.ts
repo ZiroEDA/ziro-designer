@@ -30,6 +30,7 @@ import type { SCH_IO_PROPERTIES } from './sch_io/sch_io.js';
 import type { SCH_IO } from './sch_io/sch_io_mgr.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `SYMBOL_NAME_FILTER` (symbol_library_manager.h). */
 export enum SYMBOL_NAME_FILTER {
@@ -584,7 +585,9 @@ export class SYMBOL_LIBRARY_MANAGER {
       this.m_libs.delete(aLibrary);
       this.getLibraryBuffer(aLibrary);
     } catch (e) {
-      console.error(`Error updating library buffer: ${e instanceof Error ? e.message : e}`);
+      console.error(
+        wxFormat(_('Error updating library buffer: %s'), e instanceof Error ? e.message : String(e)),
+      );
       return false;
     }
 
@@ -620,7 +623,7 @@ export class SYMBOL_LIBRARY_MANAGER {
       if (!(e instanceof IO_ERROR)) throw e;
 
       DisplayErrorMessage(
-        `Cannot load symbol '${aSymbolName}' from library '${aLibrary}'.`,
+        wxFormat(_("Cannot load symbol '%s' from library '%s'."), aSymbolName, aLibrary),
         e.message,
       );
       return null;
@@ -668,7 +671,7 @@ export class SYMBOL_LIBRARY_MANAGER {
         if (!(e instanceof IO_ERROR)) throw e;
 
         DisplayErrorMessage(
-          `Error loading symbol ${aSymbolName} from library '${aLibrary}'.`,
+          wxFormat(_("Error loading symbol %s from library '%s'."), aSymbolName, aLibrary),
           e.message,
         );
         bufferedSymbol = null;

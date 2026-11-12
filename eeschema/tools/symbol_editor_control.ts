@@ -38,6 +38,7 @@ import { AUTOPLACE_ALGO } from '../sch_item.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `DIALOG_LIB_FIELDS_TABLE::SCOPE`. */
 export enum DIALOG_LIB_FIELDS_TABLE_SCOPE {
@@ -194,7 +195,11 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
       const symbolName = libId.GetLibItemName();
 
       DisplayErrorMessage(
-        `Failed to load symbol ${unescapeString(symbolName)} from library ${unescapeString(libName)}.`,
+        wxFormat(
+          _('Failed to load symbol %s from library %s.'),
+          unescapeString(symbolName),
+          unescapeString(libName),
+        ),
       );
     }
     return 0;
@@ -213,12 +218,12 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     }
 
     if (!editFrame.GetLibManager().LibraryExists(libName)) {
-      this.m_frame!.ShowInfoBarError(`Symbol library '${libName}' not found.`);
+      this.m_frame!.ShowInfoBarError(wxFormat(_("Symbol library '%s' not found."), libName));
       return 0;
     }
 
     if (editFrame.GetLibManager().IsLibraryReadOnly(libName)) {
-      this.m_frame!.ShowInfoBarError(`Symbol library '${libName}' is not writable.`);
+      this.m_frame!.ShowInfoBarError(wxFormat(_("Symbol library '%s' is not writable."), libName));
       return 0;
     }
 
@@ -273,9 +278,9 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
         const libName = sel.GetLibNickname();
 
         if (!editFrame.GetLibManager().LibraryExists(libName))
-          msg = `Symbol library '${libName}' not found.`;
+          msg = wxFormat(_("Symbol library '%s' not found."), libName);
         else if (editFrame.GetLibManager().IsLibraryReadOnly(libName))
-          msg = `Symbol library '${libName}' is not writable.`;
+          msg = wxFormat(_("Symbol library '%s' is not writable."), libName);
         else hasWritableLibs = true;
       }
 
@@ -307,12 +312,12 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const libName = sel.GetLibNickname();
 
     if (!editFrame.GetLibManager().LibraryExists(libName)) {
-      this.m_frame!.ShowInfoBarError(`Symbol library '${libName}' not found.`);
+      this.m_frame!.ShowInfoBarError(wxFormat(_("Symbol library '%s' not found."), libName));
       return 0;
     }
 
     if (editFrame.GetLibManager().IsLibraryReadOnly(libName)) {
-      this.m_frame!.ShowInfoBarError(`Symbol library '${libName}' is not writable.`);
+      this.m_frame!.ShowInfoBarError(wxFormat(_("Symbol library '%s' is not writable."), libName));
       return 0;
     }
 
@@ -345,7 +350,11 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
         // If no change, accept it without prompting
         if (newName !== oldName && libMgr.SymbolNameInUse(newName, libName)) {
-          const msg = `Symbol '${unescapeString(newName)}' already exists in library '${libName}'.`;
+          const msg = wxFormat(
+            _("Symbol '%s' already exists in library '%s'."),
+            unescapeString(newName),
+            libName,
+          );
 
           return (
             (await editFrame.ShowKiDialog({
@@ -499,7 +508,9 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const path = fn;
 
     if (!editFrame.SaveCanvasImageToFile(path, BITMAP_TYPE.PNG)) {
-      yield* this.RunMainStackModal(() => editFrame.wxMessageBox(`Can't save file '${path}'.`));
+      yield* this.RunMainStackModal(() =>
+        editFrame.wxMessageBox(wxFormat(_("Can't save file '%s'."), path)),
+      );
     }
 
     return 0;

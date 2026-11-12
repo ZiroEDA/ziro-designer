@@ -58,6 +58,7 @@ import {
 } from './sch_io_kicad_sexpr_common.js';
 import { SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const IU = (aValue: number): string => FormatInternalUnits(schIUScale, aValue);
 
@@ -99,7 +100,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
       this.m_libFileName.AssignDir(this.m_libFileName.GetFullPath());
 
     if (!this.isLibraryPathValid())
-      throw new IO_ERROR(`Library '${this.m_libFileName.GetFullPath()}' not found.`);
+      throw new IO_ERROR(wxFormat(_("Library '%s' not found."), this.m_libFileName.GetFullPath()));
 
     // wxCHECK_RET: "Cannot use relative file paths in sexpr plugin to open library '%s'."
     if (!this.m_libFileName.IsAbsolute()) return;
@@ -124,7 +125,10 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
       if (warnings.length > 0) {
         this.SetParseError(true);
 
-        let errorMsg = `Library '${this.m_libFileName.GetFullPath()}' loaded with errors:\n\n`;
+        let errorMsg = wxFormat(
+          _("Library '%s' loaded with errors:\n\n"),
+          this.m_libFileName.GetFullPath(),
+        );
 
         for (const warning of warnings) errorMsg += `${warning}\n\n`;
 
@@ -220,7 +224,12 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
     // lose all symbols after the error point. See issue #22241.
     if (this.HasParseError()) {
       throw new IO_ERROR(
-        `Cannot save library '${this.m_libFileName.GetFullPath()}' because it had a parse error during loading.\n\nSaving would permanently lose symbols that could not be loaded.\nPlease fix the library file manually before saving.`,
+        wxFormat(
+          _(
+            "Cannot save library '%s' because it had a parse error during loading.\n\nSaving would permanently lose symbols that could not be loaded.\nPlease fix the library file manually before saving.",
+          ),
+          this.m_libFileName.GetFullPath(),
+        ),
       );
     }
 
@@ -242,7 +251,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
 
       // PRETTIFIED_FILE_OUTPUTFORMATTER's destructor: a file it cannot write is an IO_ERROR.
       if (!wxWriteFileSync(aPath, new TextEncoder().encode(text)))
-        throw new IO_ERROR(`Cannot open file '${aPath}'.`);
+        throw new IO_ERROR(wxFormat(_("Cannot open file '%s'."), aPath));
     };
 
     if (!fn.IsDir()) {
@@ -253,7 +262,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
     } else {
       if (!fn.DirExists()) {
         if (!wxMkdir(fn.GetPath()))
-          throw new IO_ERROR(`Cannot create symbol library path '${fn.GetPath()}'.`);
+          throw new IO_ERROR(wxFormat(_("Cannot create symbol library path '%s'."), fn.GetPath()));
       }
 
       // Group symbols by their source file to preserve multi-symbol files
@@ -311,7 +320,11 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
 
     if (!symbol)
       throw new IO_ERROR(
-        `library ${this.m_libFileName.GetFullName()} does not contain a symbol named ${aSymbolName}`,
+        wxFormat(
+          _('library %s does not contain a symbol named %s'),
+          this.m_libFileName.GetFullName(),
+          aSymbolName,
+        ),
       );
 
     const recordSourceFileForDeletion = (aName: string) => {
@@ -698,7 +711,11 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
 
       if (!parent)
         throw new IO_ERROR(
-          `No parent for extended symbol ${name} found in library '${this.m_libFileName.GetFullPath()}'`,
+          wxFormat(
+            _("No parent for extended symbol %s found in library '%s'"),
+            name,
+            this.m_libFileName.GetFullPath(),
+          ),
         );
 
       symbol.SetLibParent(parent);

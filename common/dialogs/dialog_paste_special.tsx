@@ -31,6 +31,7 @@ import { DialogShim } from '../dialog_shim.js';
 import { PASTE_MODES, type PasteSpecialMode } from './dialog_paste_special_types.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { PASTE_MODES, type PasteSpecialMode };
 
@@ -56,7 +57,7 @@ const UNIQUE_TOOLTIP = _HKI(
 
 /** `_( "Replaces reference designators with '%s'." )`, formatted with `aDefaultRef`. */
 export function removeTooltip(defaultRef: string): string {
-  return `Replaces reference designators with '${defaultRef}'.`;
+  return wxFormat(_("Replaces reference designators with '%s'."), defaultRef);
 }
 
 export interface DialogPasteSpecialProps {
