@@ -14,6 +14,7 @@ import { wxID_OK } from '@ziroeda/wx/menu.js';
 import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { type SYMBOL_EDIT_HARNESS, symbolEditHarness } from './support/symbol_edit_harness.js';
 
 let t: SYMBOL_EDIT_HARNESS;
@@ -75,7 +76,7 @@ it('says it cannot save when the canvas has no screenshot', async () => {
   await exportView();
 
   expect(outputs).toEqual([]);
-  expect(messages).toEqual(["Can't save file 'U.png'."]);
+  expect(messages).toEqual([wxFormat(_("Can't save file '%s'."), 'U.png')]);
 });
 
 it('with no symbol says so and writes nothing', async () => {

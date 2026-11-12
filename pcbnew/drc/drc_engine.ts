@@ -64,6 +64,7 @@ import {
   DRC_TEST_PROVIDER_REGISTRY,
 } from './drc_test_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // wxListBox's performance degrades horrifically with very large datasets.  It's not clear
 // they're useful to the user anyway.
@@ -453,7 +454,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasClearance()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetClearanceParent()!.GetHumanReadableName()}'`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s'"),
+          nc.GetClearanceParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}')`;
@@ -469,7 +473,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasTrackWidth()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetTrackWidthParent()!.GetHumanReadableName()}'`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s'"),
+          nc.GetTrackWidthParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}')`;
@@ -484,7 +491,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasDiffPairWidth()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetDiffPairWidthParent()!.GetHumanReadableName()}' (diff pair)`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s' (diff pair)"),
+          nc.GetDiffPairWidthParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}') && A.inDiffPair('*')`;
@@ -499,7 +509,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasDiffPairGap()) {
         let netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetDiffPairGapParent()!.GetHumanReadableName()}' (diff pair)`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s' (diff pair)"),
+          nc.GetDiffPairGapParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}')`;
@@ -514,7 +527,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         // A narrower diffpair gap overrides the netclass min clearance
         if (nc.GetDiffPairGap() < nc.GetClearance()) {
           netclassRule = new DRC_RULE();
-          netclassRule.m_Name = `netclass '${nc.GetDiffPairGapParent()!.GetHumanReadableName()}' (diff pair)`;
+          netclassRule.m_Name = wxFormat(
+            _("netclass '%s' (diff pair)"),
+            nc.GetDiffPairGapParent()!.GetHumanReadableName(),
+          );
           netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
           expr = `A.hasExactNetclass('${ncName}') && AB.isCoupledDiffPair()`;
@@ -531,7 +547,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasViaDiameter()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetViaDiameterParent()!.GetHumanReadableName()}'`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s'"),
+          nc.GetViaDiameterParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}') && A.Via_Type != 'Micro'`;
@@ -546,7 +565,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasViaDrill()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetViaDrillParent()!.GetHumanReadableName()}'`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s'"),
+          nc.GetViaDrillParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}') && A.Via_Type != 'Micro'`;
@@ -561,7 +583,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasuViaDiameter()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetuViaDiameterParent()!.GetHumanReadableName()}' (uvia)`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s' (uvia)"),
+          nc.GetuViaDiameterParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}') && A.Via_Type == 'Micro'`;
@@ -576,7 +601,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (nc.HasuViaDrill()) {
         const netclassRule = new DRC_RULE();
-        netclassRule.m_Name = `netclass '${nc.GetuViaDrillParent()!.GetHumanReadableName()}' (uvia)`;
+        netclassRule.m_Name = wxFormat(
+          _("netclass '%s' (uvia)"),
+          nc.GetuViaDrillParent()!.GetHumanReadableName(),
+        );
         netclassRule.SetImplicitSource(DRC_IMPLICIT_SOURCE.NET_CLASS);
 
         expr = `A.hasExactNetclass('${ncName}') && A.Via_Type == 'Micro'`;
@@ -627,7 +655,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       if (name.length === 0) {
         if (parentFP) {
           rule = this.createImplicitRule(
-            `keepout area of ${DescribeRef(parentFP.GetReference())}`,
+            wxFormat(_('keepout area of %s'), DescribeRef(parentFP.GetReference())),
             DRC_IMPLICIT_SOURCE.KEEPOUT,
           );
         } else {
@@ -636,11 +664,14 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       } else {
         if (parentFP) {
           rule = this.createImplicitRule(
-            `keepout area '${name}' of ${DescribeRef(parentFP.GetReference())}`,
+            wxFormat(_("keepout area '%s' of %s"), name, DescribeRef(parentFP.GetReference())),
             DRC_IMPLICIT_SOURCE.KEEPOUT,
           );
         } else {
-          rule = this.createImplicitRule(`keepout area '${name}'`, DRC_IMPLICIT_SOURCE.KEEPOUT);
+          rule = this.createImplicitRule(
+            wxFormat(_("keepout area '%s'"), name),
+            DRC_IMPLICIT_SOURCE.KEEPOUT,
+          );
         }
       }
 
@@ -955,7 +986,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     );
 
     REPORT('');
-    REPORT(`Resolved zone connection type: ${PrintZoneConnection(constraint.m_ZoneConnection)}.`);
+    REPORT(
+      wxFormat(
+        _('Resolved zone connection type: %s.'),
+        PrintZoneConnection(constraint.m_ZoneConnection),
+      ),
+    );
 
     if (constraint.m_ZoneConnection === ZONE_CONNECTION.THT_THERMAL) {
       let pad: PAD | null = null;
@@ -967,7 +1003,10 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         constraint.m_ZoneConnection = ZONE_CONNECTION.THERMAL;
       } else {
         REPORT(
-          `Pad is not a through hole pad; connection will be: ${PrintZoneConnection(ZONE_CONNECTION.FULL)}.`,
+          wxFormat(
+            _('Pad is not a through hole pad; connection will be: %s.'),
+            PrintZoneConnection(ZONE_CONNECTION.FULL),
+          ),
         );
         constraint.m_ZoneConnection = ZONE_CONNECTION.FULL;
       }
@@ -1094,9 +1133,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (netcodes.has(alt_items[ii]!.GetNetCode())) {
           REPORT(() => '');
-          REPORT(
-            () =>
-              `Net tie on ${EscapeHTML(footprints[ii]!.GetItemDescription(this, true))}; clearance: 0.`,
+          REPORT(() =>
+            wxFormat(
+              _('Net tie on %s; clearance: 0.'),
+              EscapeHTML(footprints[ii]!.GetItemDescription(this, true)),
+            ),
           );
 
           constraint.SetName(_('net tie'));
@@ -1124,9 +1165,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (overrideA !== undefined) {
           REPORT(() => '');
-          REPORT(
-            () =>
-              `Local override on ${EscapeHTML(a!.GetItemDescription(this, true))}; clearance: ${this.MessageTextFromValue(overrideA!)}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Local override on %s; clearance: %s.'),
+              EscapeHTML(a!.GetItemDescription(this, true)),
+              this.MessageTextFromValue(overrideA!),
+            ),
           );
 
           override_val = ac!.GetClearanceOverrides(msg)!;
@@ -1134,9 +1178,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (overrideB !== undefined) {
           REPORT(() => '');
-          REPORT(
-            () =>
-              `Local override on ${EscapeHTML(b!.GetItemDescription(this, true))}; clearance: ${this.MessageTextFromValue(overrideB!)}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Local override on %s; clearance: %s.'),
+              EscapeHTML(b!.GetItemDescription(this, true)),
+              this.MessageTextFromValue(overrideB!),
+            ),
           );
 
           if (overrideB > override_val) override_val = bc!.GetClearanceOverrides(msg)!;
@@ -1149,7 +1196,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
               msg.value = _('board minimum');
 
               REPORT(() => '');
-              REPORT(() => `Board minimum clearance: ${this.MessageTextFromValue(override_val)}.`);
+              REPORT(() =>
+                wxFormat(
+                  _('Board minimum clearance: %s.'),
+                  this.MessageTextFromValue(override_val),
+                ),
+              );
             }
           } else {
             if (override_val < this.m_designSettings!.m_HoleClearance) {
@@ -1157,8 +1209,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
               msg.value = _('board minimum hole');
 
               REPORT(() => '');
-              REPORT(
-                () => `Board minimum hole clearance: ${this.MessageTextFromValue(override_val)}.`,
+              REPORT(() =>
+                wxFormat(
+                  _('Board minimum hole clearance: %s.'),
+                  this.MessageTextFromValue(override_val),
+                ),
               );
             }
           }
@@ -1174,9 +1229,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         const override = pad.GetZoneConnectionOverrides(msg);
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(pad!.GetItemDescription(this, true))}; zone connection: ${PrintZoneConnection(override)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; zone connection: %s.'),
+            EscapeHTML(pad!.GetItemDescription(this, true)),
+            PrintZoneConnection(override),
+          ),
         );
 
         constraint.SetName(msg.value);
@@ -1189,9 +1247,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         const gap_override = pad.GetLocalThermalGapOverride(msg);
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(pad!.GetItemDescription(this, true))}; thermal relief gap: ${this.MessageTextFromValue(gap_override)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; thermal relief gap: %s.'),
+            EscapeHTML(pad!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(gap_override),
+          ),
         );
 
         constraint.SetName(msg.value);
@@ -1204,18 +1265,24 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         let spoke_override = pad.GetLocalSpokeWidthOverride(msg);
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(pad!.GetItemDescription(this, true))}; thermal spoke width: ${this.MessageTextFromValue(spoke_override)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; thermal spoke width: %s.'),
+            EscapeHTML(pad!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(spoke_override),
+          ),
         );
 
         if (zone && zone.GetMinThickness() > spoke_override) {
           spoke_override = zone.GetMinThickness();
 
           REPORT(() => '');
-          REPORT(
-            () =>
-              `${EscapeHTML(zone!.GetItemDescription(this, true))} min thickness: ${this.MessageTextFromValue(spoke_override)}.`,
+          REPORT(() =>
+            wxFormat(
+              _('%s min thickness: %s.'),
+              EscapeHTML(zone!.GetItemDescription(this, true)),
+              this.MessageTextFromValue(spoke_override),
+            ),
           );
         }
 
@@ -1247,9 +1314,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (override !== undefined) {
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(overrideItem!.GetItemDescription(this, true))}; solder mask expansion: ${this.MessageTextFromValue(override!)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; solder mask expansion: %s.'),
+            EscapeHTML(overrideItem!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(override!),
+          ),
         );
 
         constraint.m_Value.SetOpt(override);
@@ -1272,9 +1342,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (override !== undefined) {
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(overrideItem!.GetItemDescription(this, true))}; solder paste absolute clearance: ${this.MessageTextFromValue(override!)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; solder paste absolute clearance: %s.'),
+            EscapeHTML(overrideItem!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(override!),
+          ),
         );
 
         constraint.m_Value.SetOpt(override ?? 0);
@@ -1297,9 +1370,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (overrideRatio !== undefined) {
         REPORT(() => '');
-        REPORT(
-          () =>
-            `Local override on ${EscapeHTML(overrideItem!.GetItemDescription(this, true))}; solder paste relative clearance: ${this.MessageTextFromValue(overrideRatio! * 100.0)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local override on %s; solder paste relative clearance: %s.'),
+            EscapeHTML(overrideItem!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(overrideRatio! * 100.0),
+          ),
         );
 
         constraint.m_Value.SetOpt(KiROUND((overrideRatio ?? 0) * 1000));
@@ -1308,7 +1384,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     }
 
     const testAssertion = (c: DRC_ENGINE_CONSTRAINT): void => {
-      REPORT(() => `Checking assertion '${EscapeHTML(c.constraint.m_Test!.GetExpression())}'.`);
+      REPORT(() =>
+        wxFormat(_("Checking assertion '%s'."), EscapeHTML(c.constraint.m_Test!.GetExpression())),
+      );
 
       if (c.constraint.m_Test!.EvaluateFor(a, b, c.constraint.m_Type, aLayer, aReporter))
         REPORT(() => _('Assertion passed.'));
@@ -1328,77 +1406,110 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         case DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT:
         case DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT:
         case DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} clearance: ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s clearance: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Min()),
+            ),
           );
           break;
         case DRC_CONSTRAINT_T.CREEPAGE_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} creepage: ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s creepage: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Min()),
+            ),
           );
           break;
         case DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} max uncoupled length: ${this.MessageTextFromValue(c.constraint.m_Value.Max())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s max uncoupled length: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Max()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.SKEW_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} max skew: ${this.MessageTextFromValue(c.constraint.m_Value.Max())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s max skew: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Max()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.THERMAL_RELIEF_GAP_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} gap: ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s gap: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Min()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.THERMAL_SPOKE_WIDTH_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} thermal spoke width: ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s thermal spoke width: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} solder mask expansion: ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s solder mask expansion: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.SOLDER_PASTE_ABS_MARGIN_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} solder paste absolute clearance: ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s solder paste absolute clearance: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} solder paste relative clearance: ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s solder paste relative clearance: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.MIN_RESOLVED_SPOKES_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} min spoke count: ${this.MessageTextFromUnscaledValue(c.constraint.m_Value.Min())}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s min spoke count: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              this.MessageTextFromUnscaledValue(c.constraint.m_Value.Min()),
+            ),
           );
           break;
 
         case DRC_CONSTRAINT_T.ZONE_CONNECTION_CONSTRAINT:
-          REPORT(
-            () =>
-              `Checking ${EscapeHTML(c.constraint.GetName())} zone connection: ${PrintZoneConnection(c.constraint.m_ZoneConnection)}.`,
+          REPORT(() =>
+            wxFormat(
+              _('Checking %s zone connection: %s.'),
+              EscapeHTML(c.constraint.GetName()),
+              PrintZoneConnection(c.constraint.m_ZoneConnection),
+            ),
           );
           break;
 
@@ -1416,50 +1527,71 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
             switch (c.constraint.m_Type) {
               case DRC_CONSTRAINT_T.TRACK_WIDTH_CONSTRAINT:
                 if (c.constraint.m_Value.HasOpt()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} track width: opt ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s track width: opt %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+                    ),
                   );
                 } else if (c.constraint.m_Value.HasMin()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} track width: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s track width: min %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                    ),
                   );
                 }
 
                 break;
 
               case DRC_CONSTRAINT_T.ANNULAR_WIDTH_CONSTRAINT:
-                REPORT(
-                  () =>
-                    `Checking ${EscapeHTML(c.constraint.GetName())} annular width: min ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+                REPORT(() =>
+                  wxFormat(
+                    _('Checking %s annular width: min %s.'),
+                    EscapeHTML(c.constraint.GetName()),
+                    this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+                  ),
                 );
                 break;
 
               case DRC_CONSTRAINT_T.VIA_DIAMETER_CONSTRAINT:
                 if (c.constraint.m_Value.HasOpt()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} via diameter: opt ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s via diameter: opt %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+                    ),
                   );
                 } else if (c.constraint.m_Value.HasMin()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} via diameter: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s via diameter: min %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                    ),
                   );
                 }
                 break;
 
               case DRC_CONSTRAINT_T.HOLE_SIZE_CONSTRAINT:
                 if (c.constraint.m_Value.HasOpt()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} hole size: opt ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s hole size: opt %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+                    ),
                   );
                 } else if (c.constraint.m_Value.HasMin()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} hole size: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s hole size: min %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                    ),
                   );
                 }
 
@@ -1468,60 +1600,71 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
               case DRC_CONSTRAINT_T.TEXT_HEIGHT_CONSTRAINT:
               case DRC_CONSTRAINT_T.TEXT_THICKNESS_CONSTRAINT:
               case DRC_CONSTRAINT_T.CONNECTION_WIDTH_CONSTRAINT:
-                REPORT(
-                  () =>
-                    `Checking ${EscapeHTML(c.constraint.GetName())}: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                REPORT(() =>
+                  wxFormat(
+                    _('Checking %s: min %s.'),
+                    EscapeHTML(c.constraint.GetName()),
+                    this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                  ),
                 );
                 break;
 
               case DRC_CONSTRAINT_T.DIFF_PAIR_GAP_CONSTRAINT:
                 if (c.constraint.m_Value.HasOpt()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} diff pair gap: opt ${this.MessageTextFromValue(c.constraint.m_Value.Opt())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s diff pair gap: opt %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Opt()),
+                    ),
                   );
                 } else if (c.constraint.m_Value.HasMin()) {
-                  REPORT(
-                    () =>
-                      `Checking ${EscapeHTML(c.constraint.GetName())} clearance: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                  REPORT(() =>
+                    wxFormat(
+                      _('Checking %s clearance: min %s.'),
+                      EscapeHTML(c.constraint.GetName()),
+                      this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                    ),
                   );
                 }
 
                 break;
 
               case DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT:
-                REPORT(
-                  () =>
-                    `Checking ${EscapeHTML(c.constraint.GetName())} hole to hole: min ${this.MessageTextFromValue(c.constraint.m_Value.Min())}.`,
+                REPORT(() =>
+                  wxFormat(
+                    _('Checking %s hole to hole: min %s.'),
+                    EscapeHTML(c.constraint.GetName()),
+                    this.MessageTextFromValue(c.constraint.m_Value.Min()),
+                  ),
                 );
                 break;
 
               default:
-                REPORT(() => `Checking ${EscapeHTML(c.constraint.GetName())}.`);
+                REPORT(() => wxFormat(_('Checking %s.'), EscapeHTML(c.constraint.GetName())));
             }
           } else {
-            REPORT(
-              () =>
-                `Checking ${EscapeHTML(c.constraint.GetName())}: min ${
-                  c.constraint.m_Value.HasMin()
-                    ? this.MessageTextFromValue(c.constraint.m_Value.Min())
-                    : '<i>undefined</i>'
-                }; opt ${
-                  c.constraint.m_Value.HasOpt()
-                    ? this.MessageTextFromValue(c.constraint.m_Value.Opt())
-                    : '<i>undefined</i>'
-                }; max ${
-                  c.constraint.m_Value.HasMax()
-                    ? this.MessageTextFromValue(c.constraint.m_Value.Max())
-                    : '<i>undefined</i>'
-                }.`,
+            REPORT(() =>
+              wxFormat(
+                _('Checking %s: min %s; opt %s; max %s.'),
+                EscapeHTML(c.constraint.GetName()),
+                c.constraint.m_Value.HasMin()
+                  ? this.MessageTextFromValue(c.constraint.m_Value.Min())
+                  : '<i>undefined</i>',
+                c.constraint.m_Value.HasOpt()
+                  ? this.MessageTextFromValue(c.constraint.m_Value.Opt())
+                  : '<i>undefined</i>',
+                c.constraint.m_Value.HasMax()
+                  ? this.MessageTextFromValue(c.constraint.m_Value.Max())
+                  : '<i>undefined</i>',
+              ),
             );
           }
           break;
         }
 
         default:
-          REPORT(() => `Checking ${EscapeHTML(c.constraint.GetName())}.`);
+          REPORT(() => wxFormat(_('Checking %s.'), EscapeHTML(c.constraint.GetName())));
       }
 
       if (c.constraint.m_Type === DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT) {
@@ -1626,9 +1769,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           if (implicit) {
             REPORT(() => _('Keepout layer(s) not matched.'));
           } else if (c.parentRule) {
-            REPORT(
-              () =>
-                `Rule layer '${EscapeHTML(c.parentRule!.m_LayerSource)}' not matched; rule ignored.`,
+            REPORT(() =>
+              wxFormat(
+                _("Rule layer '%s' not matched; rule ignored."),
+                EscapeHTML(c.parentRule!.m_LayerSource),
+              ),
             );
           } else {
             REPORT(() => _('Rule layer not matched; rule ignored.'));
@@ -1645,9 +1790,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         if (implicit) {
           REPORT(() => _('Constraint layer not matched.'));
         } else if (c.parentRule) {
-          REPORT(
-            () =>
-              `Rule layer '${EscapeHTML(c.parentRule!.m_LayerSource)}' not matched; rule ignored.`,
+          REPORT(() =>
+            wxFormat(
+              _("Rule layer '%s' not matched; rule ignored."),
+              EscapeHTML(c.parentRule!.m_LayerSource),
+            ),
           );
         } else {
           REPORT(() => _('Rule layer not matched; rule ignored.'));
@@ -1658,7 +1805,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         !b!.HasDrilledHole()
       ) {
         // Report non-drilled-holes as an implicit condition
-        REPORT(() => `${a!.GetItemDescription(this, true)} is not a drilled hole; rule ignored.`);
+        REPORT(() =>
+          wxFormat(_('%s is not a drilled hole; rule ignored.'), a!.GetItemDescription(this, true)),
+        );
       } else if (!c.condition || c.condition.GetExpression().length === 0) {
         if (aReporter) {
           if (implicit) {
@@ -1676,7 +1825,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         if (implicit) {
           // Don't report on implicit rule conditions; they're synthetic.
         } else {
-          REPORT(() => `Checking rule condition '${EscapeHTML(c.condition!.GetExpression())}'.`);
+          REPORT(() =>
+            wxFormat(_("Checking rule condition '%s'."), EscapeHTML(c.condition!.GetExpression())),
+          );
         }
 
         if (c.condition.EvaluateFor(a, b, c.constraint.m_Type, aLayer, aReporter)) {
@@ -1772,9 +1923,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         aConstraintType === DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT)
     ) {
       REPORT(() => '');
-      REPORT(
-        () =>
-          `Inheriting from parent: ${EscapeHTML(parentFootprint!.GetItemDescription(this, true))}.`,
+      REPORT(() =>
+        wxFormat(
+          _('Inheriting from parent: %s.'),
+          EscapeHTML(parentFootprint!.GetItemDescription(this, true)),
+        ),
       );
 
       if (a === pad) a = parentFootprint;
@@ -1824,9 +1977,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           needBlankLine = false;
         }
 
-        REPORT(
-          () =>
-            `Local clearance on ${EscapeHTML(a!.GetItemDescription(this, true))}: ${this.MessageTextFromValue(localA)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local clearance on %s: %s.'),
+            EscapeHTML(a!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(localA),
+          ),
         );
 
         if (localA > clearance) {
@@ -1846,9 +2002,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           needBlankLine = false;
         }
 
-        REPORT(
-          () =>
-            `Local clearance on ${EscapeHTML(b!.GetItemDescription(this, true))}: ${this.MessageTextFromValue(localB)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Local clearance on %s: %s.'),
+            EscapeHTML(b!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(localB),
+          ),
         );
 
         if (localB > clearance) {
@@ -1866,9 +2025,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           needBlankLine = false;
         }
 
-        REPORT(
-          () =>
-            `Board minimum clearance: ${this.MessageTextFromValue(this.m_designSettings!.m_MinClearance)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('Board minimum clearance: %s.'),
+            this.MessageTextFromValue(this.m_designSettings!.m_MinClearance),
+          ),
         );
 
         if (clearance < this.m_designSettings!.m_MinClearance) {
@@ -1881,9 +2042,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       return constraint;
     } else if (aConstraintType === DRC_CONSTRAINT_T.DIFF_PAIR_GAP_CONSTRAINT) {
       REPORT(() => '');
-      REPORT(
-        () =>
-          `Board minimum clearance: ${this.MessageTextFromValue(this.m_designSettings!.m_MinClearance)}.`,
+      REPORT(() =>
+        wxFormat(
+          _('Board minimum clearance: %s.'),
+          this.MessageTextFromValue(this.m_designSettings!.m_MinClearance),
+        ),
       );
 
       if (constraint.m_Value.Min() < this.m_designSettings!.m_MinClearance) {
@@ -1899,9 +2062,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (local !== ZONE_CONNECTION.INHERITED) {
           REPORT(() => '');
-          REPORT(
-            () =>
-              `${EscapeHTML(parentFootprint!.GetItemDescription(this, true))} zone connection: ${PrintZoneConnection(local)}.`,
+          REPORT(() =>
+            wxFormat(
+              _('%s zone connection: %s.'),
+              EscapeHTML(parentFootprint!.GetItemDescription(this, true)),
+              PrintZoneConnection(local),
+            ),
           );
 
           constraint.SetParentRule(null);
@@ -1915,9 +2081,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         const local = zone.GetPadConnection();
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `${EscapeHTML(zone!.GetItemDescription(this, true))} pad connection: ${PrintZoneConnection(local)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('%s pad connection: %s.'),
+            EscapeHTML(zone!.GetItemDescription(this, true)),
+            PrintZoneConnection(local),
+          ),
         );
 
         constraint.SetParentRule(null);
@@ -1930,9 +2099,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         const local = zone.GetThermalReliefGap();
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `${EscapeHTML(zone!.GetItemDescription(this, true))} thermal relief gap: ${this.MessageTextFromValue(local)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('%s thermal relief gap: %s.'),
+            EscapeHTML(zone!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(local),
+          ),
         );
 
         constraint.SetParentRule(null);
@@ -1945,9 +2117,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         const local = zone.GetThermalReliefSpokeWidth();
 
         REPORT(() => '');
-        REPORT(
-          () =>
-            `${EscapeHTML(zone!.GetItemDescription(this, true))} thermal spoke width: ${this.MessageTextFromValue(local)}.`,
+        REPORT(() =>
+          wxFormat(
+            _('%s thermal spoke width: %s.'),
+            EscapeHTML(zone!.GetItemDescription(this, true)),
+            this.MessageTextFromValue(local),
+          ),
         );
 
         constraint.SetParentRule(null);
@@ -2025,8 +2200,11 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     };
 
     const testAssertion = (c: DRC_ENGINE_CONSTRAINT): void => {
-      REPORT(
-        () => `Checking rule assertion '${EscapeHTML(c.constraint.m_Test!.GetExpression())}'.`,
+      REPORT(() =>
+        wxFormat(
+          _("Checking rule assertion '%s'."),
+          EscapeHTML(c.constraint.m_Test!.GetExpression()),
+        ),
       );
 
       if (c.constraint.m_Test!.EvaluateFor(a, null, c.constraint.m_Type, a.GetLayer(), aReporter)) {
@@ -2039,12 +2217,14 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
     const processConstraint = (c: DRC_ENGINE_CONSTRAINT): void => {
       REPORT(() => '');
-      REPORT(() => `Checking ${c.constraint.GetName()}.`);
+      REPORT(() => wxFormat(_('Checking %s.'), c.constraint.GetName()));
 
       if (!a.GetLayerSet().and(c.layerTest).any()) {
-        REPORT(
-          () =>
-            `Rule layer '${EscapeHTML(c.parentRule!.m_LayerSource)}' not matched; rule ignored.`,
+        REPORT(() =>
+          wxFormat(
+            _("Rule layer '%s' not matched; rule ignored."),
+            EscapeHTML(c.parentRule!.m_LayerSource),
+          ),
         );
       }
 
@@ -2052,7 +2232,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         REPORT(() => _('Unconditional rule applied.'));
         testAssertion(c);
       } else {
-        REPORT(() => `Checking rule condition '${EscapeHTML(c.condition!.GetExpression())}'.`);
+        REPORT(() =>
+          wxFormat(_("Checking rule condition '%s'."), EscapeHTML(c.condition!.GetExpression())),
+        );
 
         if (c.condition.EvaluateFor(a, null, c.constraint.m_Type, a.GetLayer(), aReporter)) {
           REPORT(() => _('Rule applied.'));

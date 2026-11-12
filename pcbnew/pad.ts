@@ -116,6 +116,7 @@ import { ZONE_CONNECTION, ZONE_THICKNESS_MIN_VALUE_MM } from './zones.js';
 import type { FOOTPRINT } from './footprint.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { PAD_ATTRIB, PAD_PROP, PAD_SHAPE } from './padstack.js';
 
@@ -2552,8 +2553,8 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     if (source.value !== '') {
       aList.push(
         new MSG_PANEL_ITEM(
-          `Min Clearance: ${frame.MessageTextFromValue(clearance)}`,
-          `(from ${source.value})`,
+          wxFormat(_('Min Clearance: %s'), frame.MessageTextFromValue(clearance)),
+          wxFormat(_('(from %s)'), source.value),
         ),
       );
     }
@@ -2999,18 +3000,23 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     if (this.GetBoard() && this.GetBoard()!.GetBoardUse() === BOARD_USE.FPHOLDER) parentFP = null;
 
     if (this.GetAttribute() === PAD_ATTRIB.NPTH) {
-      if (parentFP) return `NPTH pad of ${parentFP.GetReference()}`;
+      if (parentFP) return wxFormat(_('NPTH pad of %s'), parentFP.GetReference());
       else return 'NPTH pad';
     } else if (this.GetNumber() === '') {
       if (this.GetAttribute() === PAD_ATTRIB.SMD || this.GetAttribute() === PAD_ATTRIB.CONN) {
         if (parentFP) {
-          return `Pad ${this.GetNetnameMsg()} of ${parentFP.GetReference()} on ${this.LayerMaskDescribe()}`;
+          return wxFormat(
+            _('Pad %s of %s on %s'),
+            this.GetNetnameMsg(),
+            parentFP.GetReference(),
+            this.LayerMaskDescribe(),
+          );
         } else {
-          return `Pad on ${this.LayerMaskDescribe()}`;
+          return wxFormat(_('Pad on %s'), this.LayerMaskDescribe());
         }
       } else {
         if (parentFP) {
-          return `PTH pad ${this.GetNetnameMsg()} of ${parentFP.GetReference()}`;
+          return wxFormat(_('PTH pad %s of %s'), this.GetNetnameMsg(), parentFP.GetReference());
         } else {
           return 'PTH pad';
         }
@@ -3018,15 +3024,26 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     } else {
       if (this.GetAttribute() === PAD_ATTRIB.SMD || this.GetAttribute() === PAD_ATTRIB.CONN) {
         if (parentFP) {
-          return `Pad ${this.GetNumber()} ${this.GetNetnameMsg()} of ${parentFP.GetReference()} on ${this.LayerMaskDescribe()}`;
+          return wxFormat(
+            _('Pad %s %s of %s on %s'),
+            this.GetNumber(),
+            this.GetNetnameMsg(),
+            parentFP.GetReference(),
+            this.LayerMaskDescribe(),
+          );
         } else {
-          return `Pad ${this.GetNumber()} on ${this.LayerMaskDescribe()}`;
+          return wxFormat(_('Pad %s on %s'), this.GetNumber(), this.LayerMaskDescribe());
         }
       } else {
         if (parentFP) {
-          return `PTH pad ${this.GetNumber()} ${this.GetNetnameMsg()} of ${parentFP.GetReference()}`;
+          return wxFormat(
+            _('PTH pad %s %s of %s'),
+            this.GetNumber(),
+            this.GetNetnameMsg(),
+            parentFP.GetReference(),
+          );
         } else {
-          return `PTH pad ${this.GetNumber()}`;
+          return wxFormat(_('PTH pad %s'), this.GetNumber());
         }
       }
     }
@@ -3706,7 +3723,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       const min_drill_size = 4;
 
       if (this.GetDrillSizeX() <= min_drill_size || this.GetDrillSizeY() <= min_drill_size) {
-        msg = `(PTH pad hole size must be larger than ${aUnitsProvider.StringFromValue(min_drill_size, true)})`;
+        msg = wxFormat(
+          _('(PTH pad hole size must be larger than %s)'),
+          aUnitsProvider.StringFromValue(min_drill_size, true),
+        );
         aErrorHandler(DRCE_PADSTACK_INVALID, msg);
       }
 

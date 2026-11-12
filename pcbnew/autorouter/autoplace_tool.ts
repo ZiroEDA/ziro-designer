@@ -21,6 +21,7 @@ import { PCB_ACTIONS } from '../tools/pcb_actions.js';
 import { PCB_TOOL_BASE } from '../tools/pcb_tool_base.js';
 import { AR_AUTOPLACER, AR_RESULT } from './ar_autoplacer.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class AUTOPLACE_TOOL extends PCB_TOOL_BASE {
   constructor() {
@@ -31,7 +32,10 @@ export class AUTOPLACE_TOOL extends PCB_TOOL_BASE {
     const bbox = this.board().GetBoardEdgesBoundingBox();
 
     if (bbox.GetWidth() === 0 || bbox.GetHeight() === 0) {
-      const msg = `Board edges must be defined on the ${LayerName(PCB_LAYER_ID.Edge_Cuts)} layer.`;
+      const msg = wxFormat(
+        _('Board edges must be defined on the %s layer.'),
+        LayerName(PCB_LAYER_ID.Edge_Cuts),
+      );
 
       // `GetInfoBar()->RemoveAllButtons(); ShowMessageFor( msg, 5000, wxICON_ERROR )`.
       this.frame<PCB_EDIT_FRAME>().ShowInfoBarError(msg);

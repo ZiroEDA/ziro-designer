@@ -30,6 +30,8 @@ import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
 import { FormatDouble2Str, UIDouble2Str } from '@ziroeda/common/string_utils.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // stackup_predefined_prms.h
@@ -358,7 +360,7 @@ export class BOARD_STACKUP_ITEM {
   /// @return a wxString to print/display a dielectric name
   FormatDielectricLayerName(): string {
     // return a wxString to print/display a dielectric name
-    return `Dielectric ${this.GetDielectricLayerId()}`;
+    return wxFormat(_('Dielectric %d'), this.GetDielectricLayerId());
   }
 
   // Getters:

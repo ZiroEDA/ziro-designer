@@ -19,6 +19,7 @@ import {
 } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The radio selection is `attenuators.type` and it indexes this list, which is
@@ -398,7 +399,9 @@ export function PanelRfAttenuators(): JSX.Element {
                 <br />
                 <b>Error!</b>
                 <br />
-                <em>{`Attenuation more than ${shown.minAttenuationDb.toFixed(6)} dB`}</em>
+                <em>
+                  {wxFormat(_('Attenuation more than %f dB'), shown.minAttenuationDb.toFixed(6))}
+                </em>
               </>
             )}
           </div>

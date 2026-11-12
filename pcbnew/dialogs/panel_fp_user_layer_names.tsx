@@ -78,6 +78,8 @@ import {
   userLayerChoices,
 } from '../grid_layer_box_helpers.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `IsUserLayer`: User_1 .. User_45, the numbered user layers. */
 const IsUserLayer = (aLayer: number): boolean =>
@@ -275,7 +277,7 @@ export function PanelFpUserLayerNames({
         const layerName = table.GetValue(ii, 1);
 
         if (ii !== e.GetRow() && layerName === table.GetValue(e.GetRow(), 1)) {
-          setError(`Layer name ${layerName} already in use.`);
+          setError(wxFormat(_('Layer name %s already in use.'), layerName));
           return;
         }
       }

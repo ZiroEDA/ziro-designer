@@ -19,6 +19,7 @@ import { type BOARD, BOARD_LISTENER } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The dialog's checkboxes (`dialog_find_base.cpp`). */
 export interface FIND_OPTIONS {
@@ -329,7 +330,7 @@ export class DIALOG_FIND {
     // Display the item
     if (this.m_hitList.length === 0) {
       this.m_frame.SetStatusText('');
-      const msg = `'${searchString}' not found`;
+      const msg = wxFormat(_("'%s' not found"), searchString);
       this.m_frame.ShowInfoBarMsg(msg);
       this.m_status = msg;
     } else if (endIsReached || this.m_it === end) {
@@ -341,8 +342,8 @@ export class DIALOG_FIND {
       mgr.RunAction(ACTIONS.selectionClear);
       mgr.RunAction(ACTIONS.selectItem, this.m_hitList[this.m_it]);
 
-      this.m_frame.SetStatusText(`'${searchString}' found`);
-      this.m_status = `Hit(s): ${this.m_it + 1} / ${this.m_hitList.length}`;
+      this.m_frame.SetStatusText(wxFormat(_("'%s' found"), searchString));
+      this.m_status = wxFormat(_('Hit(s): %d / %zu'), this.m_it + 1, this.m_hitList.length);
     }
 
     this.m_highlightCallback?.(this.GetItem());

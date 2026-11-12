@@ -24,6 +24,8 @@ import {
   type PANEL_SETUP_CONSTRAINTS_BASE_PROPS,
 } from './panel_setup_constraints_base.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The page's fields: BOARD_DESIGN_SETTINGS' minimums, in mm as the binders show them. */
 export interface BoardConstraints {
@@ -256,7 +258,10 @@ export function PanelSetupConstraints({
       grooveShown={false}
       m_maxError={field('maxDeviationMM')}
       // TransferDataToWindow: Printf( label, m_Frame->StringFromValue( ARC_HIGH_DEF, true ) ).
-      m_stCircleToPolyWarning={`Note: zone filling can be slow when < ${stringFromValue(pcbIUScale, units, ARC_HIGH_DEF, true)}.`}
+      m_stCircleToPolyWarning={wxFormat(
+        _('Note: zone filling can be slow when < %s.'),
+        stringFromValue(pcbIUScale, units, ARC_HIGH_DEF, true),
+      )}
       m_allowExternalFilletsOpt={{
         value: value.allowFilletsOutside,
         onChange: (aOn) => setCon('allowFilletsOutside', aOn),

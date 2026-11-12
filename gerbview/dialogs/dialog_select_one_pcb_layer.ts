@@ -19,6 +19,7 @@ import { UNDEFINED_LAYER, UNSELECTED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The radio box's major dimension: `std::min( int( m_layerId.size() ), 12 )`
@@ -48,7 +49,7 @@ export class SELECT_LAYER_DIALOG {
     aCopperLayerCount: number,
     aGerberName: string,
   ) {
-    this.m_title = `Select Layer: ${aGerberName}`;
+    this.m_title = wxFormat(_('Select Layer: %s'), aGerberName);
 
     let selected = -1;
 

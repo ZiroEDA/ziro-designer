@@ -558,8 +558,12 @@ export class BACK_ANNOTATE {
 
         if (ref.GetSymbol().GetExcludedFromBoard()) {
           this.m_reporter.ReportTail(
-            `Footprint '${DescribeRef(this.m_refs.at(i).GetRef())}' is not present on PCB. ` +
-              'Corresponding symbols in schematic must be manually deleted (if desired).',
+            wxFormat(
+              _(
+                "Footprint '%s' is not present on PCB. Corresponding symbols in schematic must be manually deleted (if desired).",
+              ),
+              DescribeRef(this.m_refs.at(i).GetRef()),
+            ),
             RPT_SEVERITY_WARNING,
           );
         }
@@ -867,9 +871,12 @@ export class BACK_ANNOTATE {
         !symbol.GetField(FIELD_T.FOOTPRINT)!.HasTextVars()
       ) {
         ++this.m_changesCount;
-        msg =
-          `Change ${DescribeRef(ref.GetRef())} footprint assignment from ` +
-          `'${EscapeHTML(oldFootprint)}' to '${EscapeHTML(fpData.m_footprint)}'.`;
+        msg = wxFormat(
+          _("Change %s footprint assignment from '%s' to '%s'."),
+          DescribeRef(ref.GetRef()),
+          EscapeHTML(oldFootprint),
+          EscapeHTML(fpData.m_footprint),
+        );
 
         if (!this.m_dryRun) symbol.SetFootprintFieldText(fpData.m_footprint);
 
@@ -883,9 +890,12 @@ export class BACK_ANNOTATE {
         !symbol.GetField(FIELD_T.VALUE)!.HasTextVars()
       ) {
         ++this.m_changesCount;
-        msg =
-          `Change ${DescribeRef(ref.GetRef())} value from ` +
-          `'${EscapeHTML(oldValue)}' to '${EscapeHTML(fpData.m_value)}'.`;
+        msg = wxFormat(
+          _("Change %s value from '%s' to '%s'."),
+          DescribeRef(ref.GetRef()),
+          EscapeHTML(oldValue),
+          EscapeHTML(fpData.m_value),
+        );
 
         if (!this.m_dryRun) symbol.SetValueFieldText(fpData.m_value);
 
@@ -894,9 +904,12 @@ export class BACK_ANNOTATE {
 
       if (this.m_processAttributes && oldDNP !== fpData.m_DNP && !skip) {
         ++this.m_changesCount;
-        msg =
-          `Change ${DescribeRef(ref.GetRef())} 'Do not populate' from ` +
-          `'${boolString(oldDNP)}' to '${boolString(fpData.m_DNP)}'.`;
+        msg = wxFormat(
+          _("Change %s 'Do not populate' from '%s' to '%s'."),
+          DescribeRef(ref.GetRef()),
+          boolString(oldDNP),
+          boolString(fpData.m_DNP),
+        );
 
         if (!this.m_dryRun) symbol.SetDNP(fpData.m_DNP);
 
@@ -905,9 +918,12 @@ export class BACK_ANNOTATE {
 
       if (this.m_processAttributes && oldExBOM !== fpData.m_excludeFromBOM && !skip) {
         ++this.m_changesCount;
-        msg =
-          `Change ${DescribeRef(ref.GetRef())} 'Exclude from bill of materials' from ` +
-          `'${boolString(oldExBOM)}' to '${boolString(fpData.m_excludeFromBOM)}'.`;
+        msg = wxFormat(
+          _("Change %s 'Exclude from bill of materials' from '%s' to '%s'."),
+          DescribeRef(ref.GetRef()),
+          boolString(oldExBOM),
+          boolString(fpData.m_excludeFromBOM),
+        );
 
         if (!this.m_dryRun) symbol.SetExcludedFromBOM(fpData.m_excludeFromBOM);
 
@@ -916,9 +932,12 @@ export class BACK_ANNOTATE {
 
       if (this.m_processAttributes && oldExPosFiles !== fpData.m_excludeFromPosFiles && !skip) {
         ++this.m_changesCount;
-        msg =
-          `Change ${DescribeRef(ref.GetRef())} 'Exclude from position files' from ` +
-          `'${boolString(oldExPosFiles)}' to '${boolString(fpData.m_excludeFromPosFiles)}'.`;
+        msg = wxFormat(
+          _("Change %s 'Exclude from position files' from '%s' to '%s'."),
+          DescribeRef(ref.GetRef()),
+          boolString(oldExPosFiles),
+          boolString(fpData.m_excludeFromPosFiles),
+        );
 
         if (!this.m_dryRun) symbol.SetExcludedFromPosFiles(fpData.m_excludeFromPosFiles);
 
@@ -987,9 +1006,12 @@ export class BACK_ANNOTATE {
             symField.GetShownText(ref.GetSheetPath(), false) !== fpFieldValue
           ) {
             this.m_changesCount++;
-            msg =
-              `Change ${DescribeRef(ref.GetRef())} field '${EscapeHTML(symField.GetCanonicalName())}' ` +
-              `value to '${EscapeHTML(fpFieldValue)}'.`;
+            msg = wxFormat(
+              _("Change %s field '%s' value to '%s'."),
+              DescribeRef(ref.GetRef()),
+              EscapeHTML(symField.GetCanonicalName()),
+              EscapeHTML(fpFieldValue),
+            );
 
             if (!this.m_dryRun) symField.SetText(fpFieldValue);
 
@@ -999,9 +1021,12 @@ export class BACK_ANNOTATE {
           // 2. New field has been added to footprint and needs to be added to symbol
           if (symField === null) {
             this.m_changesCount++;
-            msg =
-              `Add ${DescribeRef(ref.GetRef())} field '${EscapeHTML(fpFieldName)}' ` +
-              `with value '${EscapeHTML(fpFieldValue)}'.`;
+            msg = wxFormat(
+              _("Add %s field '%s' with value '%s'."),
+              DescribeRef(ref.GetRef()),
+              EscapeHTML(fpFieldName),
+              EscapeHTML(fpFieldValue),
+            );
 
             if (!this.m_dryRun) {
               const newField = new SCH_FIELD(symbol, FIELD_T.USER, fpFieldName);
@@ -1196,29 +1221,54 @@ export class BACK_ANNOTATE {
           const projects = AccumulateDescriptions(otherProjects);
 
           if (projects === '') {
-            msg =
-              `Would swap ${DescribeRef(aReference.GetRef())} pins ${a} and ${b} to match PCB, ` +
-              'but the symbol is shared across other projects.';
+            msg = wxFormat(
+              _(
+                'Would swap %s pins %s and %s to match PCB, but the symbol is shared across other projects.',
+              ),
+              DescribeRef(aReference.GetRef()),
+              a,
+              b,
+            );
           } else {
             // 10.0.6 passes the bare reference here, not DescribeRef( … ); mirrored.
-            msg =
-              `Would swap ${aReference.GetRef()} pins ${a} and ${b} to match PCB, but the symbol ` +
-              `is shared across other projects (${projects}).`;
+            msg = wxFormat(
+              _(
+                'Would swap %s pins %s and %s to match PCB, but the symbol is shared across other projects (%s).',
+              ),
+              aReference.GetRef(),
+              a,
+              b,
+              projects,
+            );
           }
         } else if (friendlySheetNames.size > 0) {
           const sheets = AccumulateDescriptions([...friendlySheetNames].sort(cmp));
 
-          msg =
-            `Would swap ${DescribeRef(aReference.GetRef())} pins ${a} and ${b} to match PCB, ` +
-            `but the symbol is used by multiple sheet instances (${sheets}).`;
+          msg = wxFormat(
+            _(
+              'Would swap %s pins %s and %s to match PCB, but the symbol is used by multiple sheet instances (%s).',
+            ),
+            DescribeRef(aReference.GetRef()),
+            a,
+            b,
+            sheets,
+          );
         } else if (sharedSheetSymbol) {
-          msg =
-            `Would swap ${DescribeRef(aReference.GetRef())} pins ${a} and ${b} to match PCB, ` +
-            'but the symbol is shared.';
+          msg = wxFormat(
+            _('Would swap %s pins %s and %s to match PCB, but the symbol is shared.'),
+            DescribeRef(aReference.GetRef()),
+            a,
+            b,
+          );
         } else {
-          msg =
-            `Would swap ${DescribeRef(aReference.GetRef())} pins ${a} and ${b} to match PCB, ` +
-            'but unconstrained pin swaps are disabled in the schematic preferences.';
+          msg = wxFormat(
+            _(
+              'Would swap %s pins %s and %s to match PCB, but unconstrained pin swaps are disabled in the schematic preferences.',
+            ),
+            DescribeRef(aReference.GetRef()),
+            a,
+            b,
+          );
         }
 
         this.m_reporter.ReportHead(msg, RPT_SEVERITY_INFO);
@@ -1248,9 +1298,12 @@ export class BACK_ANNOTATE {
 
       ++this.m_changesCount;
 
-      msg =
-        `Swap ${DescribeRef(aReference.GetRef())} pins ${EscapeHTML(change.pin.GetShownNumber())} ` +
-        `and ${EscapeHTML(partner.pin.GetShownNumber())} to match PCB.`;
+      msg = wxFormat(
+        _('Swap %s pins %s and %s to match PCB.'),
+        DescribeRef(aReference.GetRef()),
+        EscapeHTML(change.pin.GetShownNumber()),
+        EscapeHTML(partner.pin.GetShownNumber()),
+      );
       this.m_reporter.ReportHead(msg, RPT_SEVERITY_ACTION);
     }
 
@@ -1317,9 +1370,13 @@ export class BACK_ANNOTATE {
       case KICAD_T.SCH_SHEET_PIN_T:
         ++this.m_changesCount;
 
-        msg =
-          `Change ${DescribeRef(aRef)} pin ${EscapeHTML(aPin.GetShownNumber())} net label from ` +
-          `'${EscapeHTML(aOldName)}' to '${EscapeHTML(aNewName)}'.`;
+        msg = wxFormat(
+          _("Change %s pin %s net label from '%s' to '%s'."),
+          DescribeRef(aRef),
+          EscapeHTML(aPin.GetShownNumber()),
+          EscapeHTML(aOldName),
+          EscapeHTML(aNewName),
+        );
 
         if (!this.m_dryRun) {
           aCommit.Modify(driver!, aConnection.Sheet().LastScreen());
@@ -1331,9 +1388,11 @@ export class BACK_ANNOTATE {
 
       case KICAD_T.SCH_PIN_T: {
         if ((driver as SCH_PIN).IsPower()) {
-          msg =
-            `Net ${EscapeHTML(aOldName)} cannot be changed to ${EscapeHTML(aNewName)} ` +
-            'because it is driven by a power pin.';
+          msg = wxFormat(
+            _('Net %s cannot be changed to %s because it is driven by a power pin.'),
+            EscapeHTML(aOldName),
+            EscapeHTML(aNewName),
+          );
 
           this.m_reporter.ReportHead(msg, RPT_SEVERITY_ERROR);
           break;
@@ -1353,9 +1412,13 @@ export class BACK_ANNOTATE {
           const resolvedDriver = sg.GetDriver()!;
 
           ++this.m_changesCount;
-          msg =
-            `Change ${DescribeRef(aRef)} pin ${EscapeHTML(aPin.GetShownNumber())} net label from ` +
-            `'${EscapeHTML(aOldName)}' to '${EscapeHTML(aNewName)}'.`;
+          msg = wxFormat(
+            _("Change %s pin %s net label from '%s' to '%s'."),
+            DescribeRef(aRef),
+            EscapeHTML(aPin.GetShownNumber()),
+            EscapeHTML(aOldName),
+            EscapeHTML(aNewName),
+          );
 
           if (!this.m_dryRun) {
             if (resolvedDriver.Type() === KICAD_T.SCH_PIN_T) {
@@ -1375,9 +1438,12 @@ export class BACK_ANNOTATE {
         }
 
         ++this.m_changesCount;
-        msg =
-          `Add label '${EscapeHTML(aNewName)}' to ${DescribeRef(aRef)} pin ` +
-          `${EscapeHTML(aPin.GetShownNumber())} net.`;
+        msg = wxFormat(
+          _("Add label '%s' to %s pin %s net."),
+          EscapeHTML(aNewName),
+          DescribeRef(aRef),
+          EscapeHTML(aPin.GetShownNumber()),
+        );
 
         if (!this.m_dryRun) {
           const settings = this.m_frame.Schematic().Settings();

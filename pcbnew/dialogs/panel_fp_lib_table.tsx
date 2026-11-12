@@ -56,6 +56,7 @@ import {
 
 import { PANEL_FP_LIB_TABLE_BASE } from './panel_fp_lib_table_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 interface Props {
   /**
    * The open project's files (footprints, the table, the `.kicad_pro`); null with no project open, which shows the
@@ -226,14 +227,14 @@ export function DialogFpLibTable({
         if (row.Type() === 'KiCad' && isAccountLibrary(row.URI()))
           return wxDirExists(row.URI()) || madeGlobal.current.has(row.URI())
             ? LIB_LOADED
-            : libNotFound(`Footprint library '${row.URI()}' not found.`);
+            : libNotFound(wxFormat(_("Footprint library '%s' not found."), row.URI()));
 
         if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
 
         // PCB_IO_KICAD_SEXPR's FP_CACHE::Load: "Footprint library '%s' not found."
         return dirExists(row)
           ? LIB_LOADED
-          : libNotFound(`Footprint library '${row.URI()}' not found.`);
+          : libNotFound(wxFormat(_("Footprint library '%s' not found."), row.URI()));
       }}
       nestedTableExists={(row) =>
         isProjectRelative(row.URI())

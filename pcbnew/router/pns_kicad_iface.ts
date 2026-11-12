@@ -130,6 +130,7 @@ import {
   type ROUTER_PREVIEW_IFACE,
 } from './router_preview_item.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `ENTERED_GROUP_MAGIC_NUMBER`: the replacement-map key for brand-new items. */
 const ENTERED_GROUP = Symbol('ENTERED_GROUP_MAGIC_NUMBER');
@@ -1246,7 +1247,8 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
         if (!zone.HasKeepoutParametersSet()) break;
 
-        if (zone.GetZoneName() !== '') return `Rule area '${zone.GetZoneName()}' disallows tracks.`;
+        if (zone.GetZoneName() !== '')
+          return wxFormat(_("Rule area '%s' disallows tracks."), zone.GetZoneName());
 
         return _('Rule area disallows tracks.');
       }

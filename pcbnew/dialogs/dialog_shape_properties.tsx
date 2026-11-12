@@ -30,6 +30,7 @@ import { DIALOG_SHAPE_PROPERTIES_BASE } from './dialog_shape_properties_base.js'
 import type { TransferResult } from './dialog_text_properties.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A UNIT_BINDER over one generated wxTextCtrl: its label and the text it holds. */
 export interface BOUND_CONTROL {
@@ -626,7 +627,7 @@ export class DIALOG_SHAPE_PROPERTIES {
     const shape = this.m_item.GetShape();
 
     return {
-      title: `${this.m_item.GetFriendlyName()} Properties`,
+      title: wxFormat(_('%s Properties'), this.m_item.GetFriendlyName()),
       pages: this.m_pages,
       lockedShown: this.m_parent.IsType(FRAME_T.FRAME_PCB_EDITOR),
       netShown: !this.m_parent.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR),

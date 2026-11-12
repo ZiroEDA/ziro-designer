@@ -26,6 +26,7 @@ import { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The frame the table tool's two dialogs need. */
 interface TABLE_TOOL_FRAME {
@@ -188,7 +189,7 @@ export class PCB_EDIT_TABLE_TOOL extends PCB_TOOL_BASE {
 
       // Open file for writing
       if (!frame.WriteTextFile?.(filePath, outFile))
-        DisplayErrorMessage(`Failed to open file:\n${filePath}`);
+        DisplayErrorMessage(wxFormat(_('Failed to open file:\n%s'), filePath));
 
       if (clearSelection) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
     })();

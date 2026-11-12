@@ -97,6 +97,7 @@ import { BOARD_ITEM } from './board_item.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // The enums of pcb_dimension.h
@@ -912,7 +913,11 @@ export abstract class PCB_DIMENSION_BASE extends PCB_TEXT {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Dimension '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}' on ${this.GetLayerName()}`;
+    return wxFormat(
+      _("Dimension '%s' on %s"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+      this.GetLayerName(),
+    );
   }
 
   override ViewBBox(): BOX2I {

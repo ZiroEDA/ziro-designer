@@ -47,6 +47,7 @@ import {
   ValidateName,
 } from './pcad2kicad_common.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // std::numeric_limits<long>::max(), as a sort key only
 const LONG_MAX = Number.MAX_SAFE_INTEGER;
@@ -58,7 +59,7 @@ class PCB_CALLBACKS implements PCAD_CALLBACKS {
   private layer(aPCadLayer: number): TLAYER {
     const it = this.m_pcb!.m_LayersMap.get(aPCadLayer);
 
-    if (!it) throw new IO_ERROR(`Unknown PCad layer ${aPCadLayer >>> 0}`);
+    if (!it) throw new IO_ERROR(wxFormat(_('Unknown PCad layer %u'), aPCadLayer >>> 0));
 
     return it;
   }

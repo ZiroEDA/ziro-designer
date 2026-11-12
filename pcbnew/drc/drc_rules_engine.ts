@@ -33,6 +33,7 @@ import type {
   MinOptMax,
 } from './drc_rule_view.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The item kinds `A.Type` can report, spelled as upstream spells them. */
 export type DrcItemType =
@@ -340,10 +341,12 @@ export function evalDrcRules(
   if (report && entries.length === 0) report.push(`No ${type} constraints defined.`);
 
   for (const entry of entries) {
-    report?.push(`Checking ${entry.rule.name}.`);
+    report?.push(wxFormat(_('Checking %s.'), entry.rule.name));
 
     if (!ruleMatchesLayer(entry.rule, layer)) {
-      report?.push(`Rule layer '${entry.rule.layer}' not matched; rule ignored.`);
+      report?.push(
+        wxFormat(_("Rule layer '%s' not matched; rule ignored."), entry.rule.layer ?? ''),
+      );
       continue;
     }
 
@@ -358,7 +361,8 @@ export function evalDrcRules(
     }
 
     // A netclass-derived rule has no condition to test upstream either.
-    if (entry.rule.condition) report?.push(`Checking rule condition '${entry.rule.condition}'.`);
+    if (entry.rule.condition)
+      report?.push(wxFormat(_("Checking rule condition '%s'."), entry.rule.condition));
 
     if (!conditionHolds(entry.rule.condition, a, b, out.errors)) {
       report?.push(
@@ -493,14 +497,14 @@ export function netClassRules(
   for (const c of classes) {
     if (c.clearance !== undefined) {
       rules.push({
-        name: `netclass '${c.name}'`,
+        name: wxFormat(_("netclass '%s'"), c.name),
         condition: `A.NetClass == '${c.name}'`,
         constraints: [{ type: 'clearance', value: { min: c.clearance } }],
       });
     }
     if (c.trackWidth !== undefined) {
       rules.push({
-        name: `netclass '${c.name}'`,
+        name: wxFormat(_("netclass '%s'"), c.name),
         condition: `A.NetClass == '${c.name}'`,
         constraints: [{ type: 'track_width', value: { min: c.trackWidth } }],
       });

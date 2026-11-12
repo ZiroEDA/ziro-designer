@@ -1511,9 +1511,12 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         const sheetHierarchy = SCH_SHEET_LIST.build(sheet);
 
         if (hierarchy.TestForRecursion(sheetHierarchy, destFn)) {
-          const msg =
-            `The pasted sheet '${sheet.GetFileName()}'\nwas dropped because the destination already has ` +
-            'the sheet or one of its subsheets as a parent.';
+          const msg = wxFormat(
+            _(
+              "The pasted sheet '%s'\nwas dropped because the destination already has the sheet or one of its subsheets as a parent.",
+            ),
+            sheet.GetFileName(),
+          );
           this.m_frame!.DisplayError(msg);
           loadedItems.pop();
         }

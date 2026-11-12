@@ -88,6 +88,8 @@ import {
   type CvpcbComponent,
 } from './cvpcb_mainframe.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One line of a `.equ` file (`FOOTPRINT_EQUIVALENCE`, auto_associate.h:35-42). */
 export interface FootprintEquivalence {
@@ -186,7 +188,7 @@ export function parseEquivalenceFile(text: string): FootprintEquivalence[] {
 
 /** `_( "Equivalence file '%s' could not be found." )` (auto_associate.cpp:107). */
 export function equFileNotFoundMessage(name: string): string {
-  return `Equivalence file '${name}' could not be found.`;
+  return wxFormat(_("Equivalence file '%s' could not be found."), name);
 }
 
 /** `_( "Equivalence File Load Error" )` (auto_associate.cpp:180). */
@@ -263,13 +265,17 @@ export function matchesWildcard(text: string, mask: string): boolean {
 
 /** `_( "%lu footprint/symbol equivalences found." )` (auto_associate.cpp:187). */
 export function equivalencesFoundMessage(count: number): string {
-  return `${count} footprint/symbol equivalences found.`;
+  return wxFormat(_('%lu footprint/symbol equivalences found.'), count);
 }
 
 /** `_( "Component %s: footprint %s not found in any of the project footprint
  *  libraries." )` (auto_associate.cpp:257-259). */
 export function footprintNotFoundMessage(reference: string, fpid: string): string {
-  return `Component ${reference}: footprint ${fpid} not found in any of the project footprint libraries.`;
+  return wxFormat(
+    _('Component %s: footprint %s not found in any of the project footprint libraries.'),
+    reference,
+    fpid,
+  );
 }
 
 /** What {@link automaticFootprintMatching} leaves behind. */

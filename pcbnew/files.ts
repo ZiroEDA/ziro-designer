@@ -48,6 +48,7 @@ import { FOOTPRINT_IMPORT_RECONCILER } from './footprint_import_reconciler.js';
 import { findProjectDru, findProjectPrl, findProjectPro } from './pcb_edit_frame.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `PCB_EDIT_FRAME`'s `files.cpp` half, mixed into that class by `pcb_edit_frame.ts`. */
 export class FILES_MIXIN {
@@ -365,7 +366,7 @@ export class FILES_MIXIN {
       if (!(e instanceof IO_ERROR)) throw e;
 
       reporter.Report(
-        `Could not reconcile imported footprint libraries: ${e.message}`,
+        wxFormat(_('Could not reconcile imported footprint libraries: %s'), e.message),
         RPT_SEVERITY_ERROR,
       );
     }

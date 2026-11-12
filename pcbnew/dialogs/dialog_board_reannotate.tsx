@@ -93,6 +93,7 @@ import type { BOARD } from '../board.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */
 export const REANNOTATE_MIN_GRID = 1000;
@@ -605,7 +606,7 @@ export function planBoardReannotate(
     if (changes[i]!.action !== 'empty' && changes[i]!.action !== 'invalid') {
       for (let j = i + 1; j < changes.length; j++) {
         if (changes[i]!.newRefDes === changes[j]!.newRefDes) {
-          errors.push(`Duplicate instances of ${changes[j]!.newRefDes}`);
+          errors.push(wxFormat(_('Duplicate instances of %s'), changes[j]!.newRefDes));
 
           if (errorCount++ > REANNOTATE_MAX_ERROR) {
             errors.push(_('Aborted: too many errors'));
@@ -693,7 +694,13 @@ function planReport(
       : _('(sorted by reference designator location)');
     message += '<br/>-------------------------------------------------------------';
     list.forEach((fp, i) => {
-      message += `<br/>${i + 1} ${fp.refDesString || empty_str} at ${aCoord(fp.x, fp.y)} (rounded to ${aCoord(fp.roundedX, fp.roundedY)})`;
+      message += wxFormat(
+        _('<br/>%d %s at %s (rounded to %s)'),
+        i + 1,
+        fp.refDesString || empty_str,
+        aCoord(fp.x, fp.y),
+        aCoord(fp.roundedX, fp.roundedY),
+      );
     });
     lines.push(...reportLines(`${message}<br/>`, RPT_SEVERITY_INFO));
   }
@@ -705,7 +712,10 @@ function planReport(
   });
   message += '<br/>';
   if (aPlan.excludes.length > 0)
-    message += `(Excluding ${aPlan.excludes.map((e) => `${e} `).join('')} from reannotation.)`;
+    message += wxFormat(
+      _('(Excluding %s from reannotation.)'),
+      aPlan.excludes.map((e) => `${e} `).join(''),
+    );
   lines.push(...reportLines(`${message}<br/>`, RPT_SEVERITY_INFO));
 
   message = _('Change Log');
@@ -808,14 +818,21 @@ export function DialogBoardReannotate({
     }
 
     if (plan.badRefDes.length > 0) {
-      const message1 = `PCB has ${plan.badRefDes.length} empty or invalid reference designations.`;
+      const message1 = wxFormat(
+        _('PCB has %d empty or invalid reference designations.'),
+        plan.badRefDes.length,
+      );
       const message2 = _(
         "You may wish to run DRC with 'Test for parity between PCB and schematic' checked.",
       );
       const badrefdes = plan.badRefDes
-        .map(
-          (mod) =>
-            `<br/>    RefDes: ${mod.refDesString || empty_str}; footprint: ${mod.fpid || '<unknown>'} at ${coord(mod.x, mod.y)} on PCB.`,
+        .map((mod) =>
+          wxFormat(
+            _('<br/>    RefDes: %s; footprint: %s at %s on PCB.'),
+            mod.refDesString || empty_str,
+            mod.fpid || '<unknown>',
+            coord(mod.x, mod.y),
+          ),
         )
         .join('');
       out.push(

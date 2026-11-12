@@ -10,6 +10,8 @@
  */
 import { type JSX, type ReactNode, useLayoutEffect, useReducer } from 'react';
 import type { wxAuiNotebook } from './aui_notebook.js';
+import { wxGetTranslation } from './translation.js';
+import { wxFormat } from './wxstring.js';
 
 export function AuiNotebookView<PAGE>({
   notebook,
@@ -60,7 +62,7 @@ export function AuiNotebookView<PAGE>({
               <button
                 type="button"
                 className="ze-tab-close"
-                aria-label={`Close ${notebook.GetPageText(i)}`}
+                aria-label={wxFormat(wxGetTranslation('Close %s'), notebook.GetPageText(i))}
                 onClick={() => onPageClose?.(i)}
               >
                 ×

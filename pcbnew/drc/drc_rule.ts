@@ -16,6 +16,8 @@ import { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { DRC_RULE_CONDITION } from './drc_rule_condition.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum DRC_CONSTRAINT_T {
   NULL_CONSTRAINT = 0,
@@ -216,7 +218,7 @@ export class DRC_CONSTRAINT {
   GetName(): string {
     if (this.m_parentRule) {
       if (this.m_parentRule.IsImplicit()) return this.m_parentRule.m_Name;
-      else return `rule '${this.m_parentRule.m_Name}'`;
+      else return wxFormat(_("rule '%s'"), this.m_parentRule.m_Name);
     }
 
     return this.m_name;

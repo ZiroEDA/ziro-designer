@@ -54,6 +54,7 @@ import { BINARY_PARSER } from './pads_binary_parser.js';
 import { PADS_LAYER_MAPPER, type PADS_LAYER_INFO, PADS_LAYER_TYPE } from './pads_layer_mapper.js';
 import { PADS_LAYER_FUNCTION } from './pads_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const V = (x: number, y: number): VECTOR2I => ({ x, y });
 
@@ -338,7 +339,7 @@ export class PCB_IO_PADS_BINARY extends PCB_IO {
             track_layer = F_Cu;
           } else {
             this.Report(
-              `Skipping track on non-copper layer ${track_def.layer}`,
+              wxFormat(_('Skipping track on non-copper layer %d'), track_def.layer),
               RPT_SEVERITY_WARNING,
             );
             continue;
@@ -418,7 +419,7 @@ export class PCB_IO_PADS_BINARY extends PCB_IO {
 
       if (textLayer === UNDEFINED_LAYER) {
         this.Report(
-          `Text on unmapped layer ${pads_text.layer} assigned to Comments layer`,
+          wxFormat(_('Text on unmapped layer %d assigned to Comments layer'), pads_text.layer),
           RPT_SEVERITY_WARNING,
         );
         textLayer = Cmts_User;
@@ -476,7 +477,10 @@ export class PCB_IO_PADS_BINARY extends PCB_IO {
       const pourLayer = this.getMappedLayer(pour_def.layer);
 
       if (pourLayer === UNDEFINED_LAYER) {
-        this.Report(`Skipping pour on unmapped layer ${pour_def.layer}`, RPT_SEVERITY_WARNING);
+        this.Report(
+          wxFormat(_('Skipping pour on unmapped layer %d'), pour_def.layer),
+          RPT_SEVERITY_WARNING,
+        );
         continue;
       }
 
@@ -525,7 +529,14 @@ export class PCB_IO_PADS_BINARY extends PCB_IO {
     }
 
     this.Report(
-      `Imported ${this.board.Footprints().length} footprints, ${this.board.GetNetCount()} nets, ${trackCount} tracks, ${viaCount} vias, ${this.board.Zones().length} zones`,
+      wxFormat(
+        _('Imported %zu footprints, %d nets, %zu tracks, %zu vias, %zu zones'),
+        this.board.Footprints().length,
+        this.board.GetNetCount(),
+        trackCount,
+        viaCount,
+        this.board.Zones().length,
+      ),
       RPT_SEVERITY_INFO,
     );
   }

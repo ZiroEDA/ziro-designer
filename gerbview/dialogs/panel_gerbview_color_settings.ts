@@ -47,6 +47,8 @@ import { toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `s_defaultTheme`'s entry for `key`, as the `rgb( r, g, b )` string the
@@ -139,7 +141,7 @@ export const GERBVIEW_FIXED_LAYERS: readonly {
 export const graphicLayerKey = (row: number): string => `gerbview.layer${row}`;
 
 /** `_( "Graphic Layer %d" )`, `layer + 1 - GERBVIEW_LAYER_ID_START` (`:103-104`). */
-export const graphicLayerName = (row: number): string => `Graphic Layer ${row + 1}`;
+export const graphicLayerName = (row: number): string => wxFormat(_('Graphic Layer %d'), row + 1);
 
 /**
  * {@link graphicLayerKey} backwards — the row a stored key names, or null if it

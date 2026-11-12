@@ -231,16 +231,18 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     expect(result.errorCount).toBe(0);
 
     const msgs = messages(reporter);
-    expect(msgs).toContain("Add C1 (footprint 'Capacitor_SMD:C_0805').");
-    expect(msgs).toContain("Add R1 (footprint 'Resistor_SMD:R_0805').");
-    expect(msgs).toContain("Add R2 (footprint 'Resistor_SMD:R_0805').");
+    expect(msgs).toContain(wxFormat(_("Add %s (footprint '%s')."), 'C1', 'Capacitor_SMD:C_0805'));
+    expect(msgs).toContain(wxFormat(_("Add %s (footprint '%s')."), 'R1', 'Resistor_SMD:R_0805'));
+    expect(msgs).toContain(wxFormat(_("Add %s (footprint '%s')."), 'R2', 'Resistor_SMD:R_0805'));
     // A footprint that does not exist yet has no pads to connect, so a dry run on an
     // empty board reports only the additions (upstream returns nullptr from
     // addNewFootprint in a dry run, which skips the per-footprint update calls).
     expect(msgs.some((m) => m.includes('Connect '))).toBe(false);
     // Past tense is reserved for a real run.
     expect(msgs.some((m) => m.startsWith('Added '))).toBe(false);
-    expect(reporter.lines.at(-1)?.message).toBe('Total warnings: 0, errors: 0.');
+    expect(reporter.lines.at(-1)?.message).toBe(
+      wxFormat(_('Total warnings: %d, errors: %d.'), 0, 0),
+    );
   });
 
   it('adds every footprint, links it to its symbol and connects its pads', () => {
@@ -270,7 +272,9 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     expect(padNet(r2, '1')).toBe('VOUT');
     expect(padNet(r2, '2')).toBe('GND');
 
-    expect(messages(reporter)).toContain('Connected R1 pin 2 to VOUT.');
+    expect(messages(reporter)).toContain(
+      wxFormat(_('Connected %s pin %s to %s.'), 'R1', '2', 'VOUT'),
+    );
   });
 
   it("reports a new footprint's first association from the empty path, as KiCad prints it", () => {
@@ -279,7 +283,12 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     // The library footprint has no path; KIID_PATH::AsString of that is "" (kiid.cpp:379),
     // so the line reads "from  to": two spaces, nothing between them.
     expect(messages(reporter)).toContain(
-      'Updated R1 symbol association from  to /aaaaaaa1-0000-4000-8000-000000000001.',
+      wxFormat(
+        _('Updated %s symbol association from %s to %s.'),
+        'R1',
+        '',
+        '/aaaaaaa1-0000-4000-8000-000000000001',
+      ),
     );
   });
 
@@ -313,7 +322,9 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
       NETLIST.replace('Resistor_SMD:R_0805', 'Nope:Missing'),
     );
     expect(result.errorCount).toBeGreaterThan(0);
-    expect(messages(reporter)).toContain("Cannot add R1 (footprint 'Nope:Missing' not found).");
+    expect(messages(reporter)).toContain(
+      wxFormat(_("Cannot add %s (footprint '%s' not found)."), 'R1', 'Nope:Missing'),
+    );
     // Only R1's footprint was replaced in the netlist text, so R2 still lands.
     expect(refs(result.board)).toEqual(['R2', 'C1']);
   });
@@ -325,7 +336,9 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     );
     const { reporter, result } = update(EMPTY_BOARD, withPin3);
     expect(result.errorCount).toBe(1);
-    expect(messages(reporter)).toContain('R1 pad 3 not found in Resistor_SMD:R_0805.');
+    expect(messages(reporter)).toContain(
+      wxFormat(_('%s pad %s not found in %s.'), 'R1', '3', 'Resistor_SMD:R_0805'),
+    );
   });
 
   it('warns about a legacy footprint id with no library name', () => {
@@ -377,7 +390,9 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       populated(),
       loadKicadNetlist(NETLIST.replace('(value "10k")', '(value "4k7")')),
     );
-    expect(messages(reporter)).toContain('Changed R1 value from 10k to 4k7.');
+    expect(messages(reporter)).toContain(
+      wxFormat(_('Changed %s value from %s to %s.'), 'R1', '10k', '4k7'),
+    );
     expect(fpOf(result.board, 'R1').GetValue()).toBe('4k7');
     expect(FormatBoard(result.board)).toContain('"4k7"');
   });
@@ -388,9 +403,11 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       loadKicadNetlist(NETLIST.replaceAll('VOUT', 'MID')),
     );
     const msgs = messages(reporter);
-    expect(msgs).toContain('Add net MID.');
-    expect(msgs).toContain('Reconnected R1 pin 2 from VOUT to MID.');
-    expect(msgs).toContain('Removed unused net VOUT.');
+    expect(msgs).toContain(wxFormat(_('Add net %s.'), 'MID'));
+    expect(msgs).toContain(
+      wxFormat(_('Reconnected %s pin %s from %s to %s.'), 'R1', '2', 'VOUT', 'MID'),
+    );
+    expect(msgs).toContain(wxFormat(_('Removed unused net %s.'), 'VOUT'));
     expect(netNames(result.board)).not.toContain('VOUT');
     expect(netNames(result.board)).toContain('MID');
   });
@@ -407,7 +424,12 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     );
 
     expect(messages(reporter)).toContain(
-      "Changed R1 footprint from 'Resistor_SMD:R_0805' to 'Capacitor_SMD:C_0805'.",
+      wxFormat(
+        _("Changed %s footprint from '%s' to '%s'."),
+        'R1',
+        'Resistor_SMD:R_0805',
+        'Capacitor_SMD:C_0805',
+      ),
     );
     const r1 = fpOf(result.board, 'R1');
     expect(r1.GetFPID().Format()).toBe('Capacitor_SMD:C_0805');
@@ -455,7 +477,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     const deleted = runUpdate(populated(), loadKicadNetlist(withoutR2), {
       deleteUnusedFootprints: true,
     });
-    expect(messages(deleted.reporter)).toContain('Removed unused footprint R2.');
+    expect(messages(deleted.reporter)).toContain(wxFormat(_('Removed unused footprint %s.'), 'R2'));
     expect(refs(deleted.result.board)).toEqual(['R1', 'C1']);
   });
 
@@ -480,7 +502,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     expect(userFields(fpOf(off.result.board, 'C1'))).toEqual([]);
 
     const on = runUpdate(populated(), loadKicadNetlist(NETLIST), { updateFields: true });
-    expect(messages(on.reporter)).toContain('Updated C1 fields.');
+    expect(messages(on.reporter)).toContain(wxFormat(_('Updated %s fields.'), 'C1'));
     expect(userFields(fpOf(on.result.board, 'C1'))).toEqual([{ name: 'MPN', value: 'CAP-100N' }]);
     // The new field is written out as an invisible fab-layer property.
     const text = FormatBoard(on.result.board);
@@ -496,7 +518,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     const { reporter, result } = runUpdate(withField, loadKicadNetlist(changed), {
       updateFields: true,
     });
-    expect(messages(reporter)).toContain('Updated C1 fields.');
+    expect(messages(reporter)).toContain(wxFormat(_('Updated %s fields.'), 'C1'));
     expect(userFields(fpOf(result.board, 'C1')).find((f) => f.name === 'MPN')?.value).toBe(
       'CAP-220N',
     );
@@ -520,7 +542,9 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       updateFields: true,
       removeExtraFields: true,
     });
-    expect(messages(removed.reporter)).toContain('Removed C1 footprint fields not in symbol.');
+    expect(messages(removed.reporter)).toContain(
+      wxFormat(_('Removed %s footprint fields not in symbol.'), 'C1'),
+    );
     expect(userFieldNames(fpOf(removed.result.board, 'C1'))).toEqual([]);
     expect(FormatBoard(removed.result.board)).not.toContain('"CAP-100N"');
   });
@@ -549,8 +573,8 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       loadKicadNetlist(NETLIST.replace('(node (ref "R1") (pin "1") (pintype "passive"))', '')),
     );
     const msgs = messages(reporter);
-    expect(msgs).toContain('Disconnected R1 pin 1.');
-    expect(msgs).toContain('Removed unused net VIN.');
+    expect(msgs).toContain(wxFormat(_('Disconnected %s pin %s.'), 'R1', '1'));
+    expect(msgs).toContain(wxFormat(_('Removed unused net %s.'), 'VIN'));
     // NETINFO_LIST::UNCONNECTED.
     expect(
       fpOf(result.board, 'R1')
@@ -570,7 +594,9 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     const { reporter, result } = runUpdate(populated(), loadKicadNetlist(renamed), {
       lookupByTimestamp: true,
     });
-    expect(messages(reporter)).toContain('Changed R1 reference designator to R9.');
+    expect(messages(reporter)).toContain(
+      wxFormat(_('Changed %s reference designator to %s.'), 'R1', 'R9'),
+    );
     expect(refs(result.board).sort()).toEqual(['C1', 'R2', 'R9']);
   });
 
@@ -582,7 +608,9 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       board,
       loadKicadNetlist(NETLIST.replaceAll('GND', 'GNDA')),
     );
-    expect(messages(reporter)).toContain('Reconnected copper zone from GND to GNDA.');
+    expect(messages(reporter)).toContain(
+      wxFormat(_('Reconnected copper zone from %s to %s.'), 'GND', 'GNDA'),
+    );
     expect(result.board.Zones()[0]!.GetNetname()).toBe('GNDA');
   });
 

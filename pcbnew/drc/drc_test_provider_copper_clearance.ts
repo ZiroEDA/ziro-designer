@@ -37,6 +37,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrGreater } from './drc_test_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
   private m_drcEpsilon = 0;
@@ -208,7 +209,11 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         } else if (actual.value === 0 && otherNet && testShorting) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SHORTING_ITEMS)!;
           drcItem.SetErrorDetail(
-            `(nets ${itemNet ? itemNet.GetNetname() : _('<no net>')} and ${otherNet ? otherNet.GetNetname() : _('<no net>')})`,
+            wxFormat(
+              _('(nets %s and %s)'),
+              itemNet ? itemNet.GetNetname() : _('<no net>'),
+              otherNet ? otherNet.GetNetname() : _('<no net>'),
+            ),
           );
           drcItem.SetItems(item, other);
           this.reportTwoPointGeometry(drcItem, pos, pos, pos, layer);
@@ -496,7 +501,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         if (testShorts && actual.value === 0 && aInheritedNet.value) {
           drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SHORTING_ITEMS)!;
           drcItem.SetErrorDetail(
-            `(nets ${aInheritedNet.value.GetNetname()} and ${aZone.GetNetname()})`,
+            wxFormat(_('(nets %s and %s)'), aInheritedNet.value.GetNetname(), aZone.GetNetname()),
           );
         } else {
           drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
@@ -716,7 +721,9 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         }
 
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SHORTING_ITEMS)!;
-        drcItem.SetErrorDetail(`(nets ${pad.GetNetname()} and ${otherPad.GetNetname()})`);
+        drcItem.SetErrorDetail(
+          wxFormat(_('(nets %s and %s)'), pad.GetNetname(), otherPad.GetNetname()),
+        );
         drcItem.SetItems(pad, otherPad);
         this.reportViolation(drcItem, otherPad.GetPosition(), aLayer);
         has_error = true;
@@ -741,7 +748,9 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
             // with the net-tie footprint's graphics.
           } else if (actual.value === 0 && padNet && otherNet && testShorting) {
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SHORTING_ITEMS)!;
-            drcItem.SetErrorDetail(`(nets ${pad.GetNetname()} and ${otherCItem!.GetNetname()})`);
+            drcItem.SetErrorDetail(
+              wxFormat(_('(nets %s and %s)'), pad.GetNetname(), otherCItem!.GetNetname()),
+            );
             drcItem.SetItems(pad, other);
             this.reportTwoPointGeometry(drcItem, pos, pos, pos, aLayer);
             has_error = true;

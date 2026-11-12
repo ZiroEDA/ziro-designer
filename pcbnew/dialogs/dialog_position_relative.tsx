@@ -34,6 +34,7 @@ import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_ACTIONS } from '../tools/pcb_actions.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `DIALOG_POSITION_RELATIVE::ANCHOR_TYPE`: persistent dialog options. */
 export enum ANCHOR_TYPE {
@@ -381,14 +382,18 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
 
         if (aItem) msg = aItem.GetItemDescription(unitsProvider, true);
 
-        this.m_referenceInfo = `Reference item: ${msg}`;
+        this.m_referenceInfo = wxFormat(_('Reference item: %s'), msg);
         break;
       }
 
       case ANCHOR_TYPE.ANCHOR_POINT: {
         const up = this.m_parentFrame.GetUnitsProvider();
 
-        this.m_referenceInfo = `Reference location: selected point (${up.MessageTextFromValue(this.m_anchorItemPosition.x)}, ${up.MessageTextFromValue(this.m_anchorItemPosition.y)})`;
+        this.m_referenceInfo = wxFormat(
+          _('Reference location: selected point (%s, %s)'),
+          up.MessageTextFromValue(this.m_anchorItemPosition.x),
+          up.MessageTextFromValue(this.m_anchorItemPosition.y),
+        );
         break;
       }
     }

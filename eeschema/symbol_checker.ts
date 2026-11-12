@@ -96,29 +96,69 @@ export function CheckDuplicatePins(
         // symbol_checker.cpp:135 prints `prev.pin->GetName()` bare here, not
         // through the quoted/space-prefixed `pinName` it uses everywhere
         // else in this function - an upstream inconsistency, kept as-is.
-        msg =
-          `<b>Duplicate pin ${nextNumber}</b> ${pinName(next.pin)} at location <b>(${nextX}, ${nextY})</b>` +
-          ` conflicts with pin ${prevNumber}${prev.pin.GetName()} at location <b>(${prevX}, ${prevY})</b>` +
-          ` in ${aSymbol.GetBodyStyleDescription(prev.pin.GetBodyStyle(), true).toLowerCase()} body style.`;
+        msg = wxFormat(
+          _(
+            '<b>Duplicate pin %s</b> %s at location <b>(%s, %s)</b> conflicts with pin %s%s at location <b>(%s, %s)</b> in %s body style.',
+          ),
+          nextNumber,
+          pinName(next.pin),
+          nextX,
+          nextY,
+          prevNumber,
+          prev.pin.GetName(),
+          prevX,
+          prevY,
+          aSymbol.GetBodyStyleDescription(prev.pin.GetBodyStyle(), true).toLowerCase(),
+        );
       } else {
-        msg =
-          `<b>Duplicate pin ${nextNumber}</b> ${pinName(next.pin)} at location <b>(${nextX}, ${nextY})</b>` +
-          ` conflicts with pin ${prevNumber}${pinName(prev.pin)} at location <b>(${prevX}, ${prevY})</b>` +
-          ` in units ${aSymbol.GetUnitDisplayName(next.pin.GetUnit(), false)} and` +
-          ` ${aSymbol.GetUnitDisplayName(prev.pin.GetUnit(), false)} of` +
-          ` ${aSymbol.GetBodyStyleDescription(prev.pin.GetBodyStyle(), true).toLowerCase()} body style.`;
+        msg = wxFormat(
+          _(
+            '<b>Duplicate pin %s</b> %s at location <b>(%s, %s)</b> conflicts with pin %s%s at location <b>(%s, %s)</b> in units %s and %s of %s body style.',
+          ),
+          nextNumber,
+          pinName(next.pin),
+          nextX,
+          nextY,
+          prevNumber,
+          pinName(prev.pin),
+          prevX,
+          prevY,
+          aSymbol.GetUnitDisplayName(next.pin.GetUnit(), false),
+          aSymbol.GetUnitDisplayName(prev.pin.GetUnit(), false),
+          aSymbol.GetBodyStyleDescription(prev.pin.GetBodyStyle(), true).toLowerCase(),
+        );
       }
     } else {
       if (prev.pin.GetUnit() === 0 || next.pin.GetUnit() === 0) {
-        msg =
-          `<b>Duplicate pin ${nextNumber}</b> ${pinName(next.pin)} at location <b>(${nextX}, ${nextY})</b>` +
-          ` conflicts with pin ${prevNumber}${pinName(prev.pin)} at location <b>(${prevX}, ${prevY})</b>.`;
+        msg = wxFormat(
+          _(
+            '<b>Duplicate pin %s</b> %s at location <b>(%s, %s)</b> conflicts with pin %s%s at location <b>(%s, %s)</b>.',
+          ),
+          nextNumber,
+          pinName(next.pin),
+          nextX,
+          nextY,
+          prevNumber,
+          pinName(prev.pin),
+          prevX,
+          prevY,
+        );
       } else {
-        msg =
-          `<b>Duplicate pin ${nextNumber}</b> ${pinName(next.pin)} at location <b>(${nextX}, ${nextY})</b>` +
-          ` conflicts with pin ${prevNumber}${pinName(prev.pin)} at location <b>(${prevX}, ${prevY})</b>` +
-          ` in units ${aSymbol.GetUnitDisplayName(next.pin.GetUnit(), false)} and` +
-          ` ${aSymbol.GetUnitDisplayName(prev.pin.GetUnit(), false)}.`;
+        msg = wxFormat(
+          _(
+            '<b>Duplicate pin %s</b> %s at location <b>(%s, %s)</b> conflicts with pin %s%s at location <b>(%s, %s)</b> in units %s and %s.',
+          ),
+          nextNumber,
+          pinName(next.pin),
+          nextX,
+          nextY,
+          prevNumber,
+          pinName(prev.pin),
+          prevX,
+          prevY,
+          aSymbol.GetUnitDisplayName(next.pin.GetUnit(), false),
+          aSymbol.GetUnitDisplayName(prev.pin.GetUnit(), false),
+        );
       }
     }
 
@@ -239,8 +279,16 @@ export function CheckLibSymbol(
         const bodyStyle = aSymbol.GetBodyStyleDescription(pin.GetBodyStyle(), true).toLowerCase();
         msg =
           aSymbol.GetUnitCount() <= 1
-            ? `Info: <b>Hidden power pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
-              ` in ${bodyStyle} body style.`
+            ? wxFormat(
+                _(
+                  'Info: <b>Hidden power pin %s</b> %s at location <b>(%s, %s)</b> in %s body style.',
+                ),
+                pin.GetNumber(),
+                pinName,
+                x,
+                y,
+                bodyStyle,
+              )
             : `Info: <b>Hidden power pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
               ` in unit ${unitLetter(pin.GetUnit())} of ${bodyStyle} body style.`;
       } else {
@@ -274,8 +322,14 @@ export function CheckLibSymbol(
         const bodyStyle = aSymbol.GetBodyStyleDescription(pin.GetBodyStyle(), true).toLowerCase();
         msg =
           aSymbol.GetUnitCount() <= 1
-            ? `<b>Off grid pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
-              ` of ${bodyStyle} body style.`
+            ? wxFormat(
+                _('<b>Off grid pin %s</b> %s at location <b>(%s, %s)</b> of %s body style.'),
+                pin.GetNumber(),
+                pinName,
+                x,
+                y,
+                bodyStyle,
+              )
             : `<b>Off grid pin ${pin.GetNumber()}</b> ${pinName} at location <b>(${x}, ${y})</b>` +
               ` in unit ${unitLetter(pin.GetUnit())} of ${bodyStyle} body style.`;
       } else {

@@ -18,6 +18,7 @@ import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
 import { GetRefDesPrefix } from '@ziroeda/common/refdes_utils.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface ISOMORPHISM_PARAMS {
   m_cancelled?: { value: boolean } | null;
@@ -160,7 +161,13 @@ export class COMPONENT {
         !COMPONENT.isUnannotatedRef(b.m_reference) &&
         !COMPONENT.prefixesShareCommonBase(this.m_prefix, b.m_prefix)
       ) {
-        aReason.m_reason = `Reference prefix mismatch: ${aReason.m_reference} uses prefix '${this.m_prefix}' but candidate ${aReason.m_candidate} uses '${b.m_prefix}'.`;
+        aReason.m_reason = wxFormat(
+          _("Reference prefix mismatch: %s uses prefix '%s' but candidate %s uses '%s'."),
+          aReason.m_reference,
+          this.m_prefix,
+          aReason.m_candidate,
+          b.m_prefix,
+        );
       } else {
         let refFootprint = this.GetParent().GetFPIDAsString();
         let candFootprint = b.GetParent().GetFPIDAsString();
@@ -168,7 +175,13 @@ export class COMPONENT {
         if (refFootprint === '') refFootprint = _('(no library ID)');
         if (candFootprint === '') candFootprint = _('(no library ID)');
 
-        aReason.m_reason = `Library link mismatch: ${aReason.m_reference} expects '${refFootprint}' but candidate ${aReason.m_candidate} is '${candFootprint}'.`;
+        aReason.m_reason = wxFormat(
+          _("Library link mismatch: %s expects '%s' but candidate %s is '%s'."),
+          aReason.m_reference,
+          refFootprint,
+          aReason.m_candidate,
+          candFootprint,
+        );
       }
 
       return false;
@@ -181,7 +194,11 @@ export class COMPONENT {
         if (aReason.m_reason === '') {
           aReason.m_reference = this.GetParent().GetReferenceAsString();
           aReason.m_candidate = b.GetParent().GetReferenceAsString();
-          aReason.m_reason = `Component pads differ between ${aReason.m_reference} and ${aReason.m_candidate}.`;
+          aReason.m_reason = wxFormat(
+            _('Component pads differ between %s and %s.'),
+            aReason.m_reference,
+            aReason.m_candidate,
+          );
         }
 
         return false;
@@ -244,7 +261,13 @@ export class PIN {
       if (!matches[i]) {
         aReason.m_reference = this.m_parent!.GetParent().GetReferenceAsString();
         aReason.m_candidate = b.m_parent!.GetParent().GetReferenceAsString();
-        aReason.m_reason = `Pad ${this.m_ref} of ${aReason.m_reference} cannot match candidate pad ${b.m_ref} of ${aReason.m_candidate} due to differing connectivity.`;
+        aReason.m_reason = wxFormat(
+          _('Pad %s of %s cannot match candidate pad %s of %s due to differing connectivity.'),
+          this.m_ref,
+          aReason.m_reference,
+          b.m_ref,
+          aReason.m_candidate,
+        );
         return false;
       }
     }
@@ -342,10 +365,17 @@ export function checkCandidateNetConsistency(
         let refNetName = aRef.GetParent().GetBoard()?.FindNet(refNet)?.GetNetname() ?? '';
         let tgtNetName = aTgt.GetParent().GetBoard()?.FindNet(tgtNet)?.GetNetname() ?? '';
 
-        if (refNetName === '') refNetName = `net ${refNet}`;
-        if (tgtNetName === '') tgtNetName = `net ${tgtNet}`;
+        if (refNetName === '') refNetName = wxFormat(_('net %d'), refNet);
+        if (tgtNetName === '') tgtNetName = wxFormat(_('net %d'), tgtNet);
 
-        aReason.m_reason = `Pad ${aRef.Pins()[i]!.GetReference()} of ${aReason.m_reference} is on net ${refNetName} but its match in candidate ${aReason.m_candidate} is on net ${tgtNetName}.`;
+        aReason.m_reason = wxFormat(
+          _('Pad %s of %s is on net %s but its match in candidate %s is on net %s.'),
+          aRef.Pins()[i]!.GetReference(),
+          aReason.m_reference,
+          refNetName,
+          aReason.m_candidate,
+          tgtNetName,
+        );
         return false;
       }
 
@@ -358,7 +388,12 @@ export function checkCandidateNetConsistency(
       if (local !== tgtNet) {
         aReason.m_reference = aRef.GetParent().GetReferenceAsString();
         aReason.m_candidate = aTgt.GetParent().GetReferenceAsString();
-        aReason.m_reason = `Pad ${aRef.Pins()[i]!.GetReference()} of ${aReason.m_reference} has inconsistent net mapping in candidate ${aReason.m_candidate}.`;
+        aReason.m_reason = wxFormat(
+          _('Pad %s of %s has inconsistent net mapping in candidate %s.'),
+          aRef.Pins()[i]!.GetReference(),
+          aReason.m_reference,
+          aReason.m_candidate,
+        );
         return false;
       }
 

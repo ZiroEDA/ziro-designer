@@ -57,6 +57,7 @@ import { PLACEMENT_SOURCE_T, ZONE_BORDER_DISPLAY_STYLE } from '../zone_settings.
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `REPEAT_LAYOUT_OPTIONS`. */
 export interface REPEAT_LAYOUT_OPTIONS {
@@ -679,7 +680,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
         aErrorOut!.value = compat.m_errorMsg;
       } else {
         this.ShowMismatchDetails(
-          `Rule Area topologies do not match: ${compat.m_errorMsg}`,
+          wxFormat(_('Rule Area topologies do not match: %s'), compat.m_errorMsg),
           compat.m_mismatchReasons,
         );
       }
@@ -697,7 +698,11 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     }
 
     if (!this.copyRuleAreaContents(aRefArea, aTargetArea, commit, aOptions, compat)) {
-      const errMsg = `Copy Rule Area contents failed between rule areas '${aRefArea.m_zone.GetZoneName()}' and '${aTargetArea.m_zone.GetZoneName()}'.`;
+      const errMsg = wxFormat(
+        _("Copy Rule Area contents failed between rule areas '%s' and '%s'."),
+        aRefArea.m_zone.GetZoneName(),
+        aTargetArea.m_zone.GetZoneName(),
+      );
 
       if (!aExternalCommit) commit.Revert();
 
@@ -745,7 +750,11 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       if (
         !this.copyRuleAreaContents(refRA, targetArea, commit, this.m_areas.m_options, compatData)
       ) {
-        const errMsg = `Copy Rule Area contents failed between rule areas '${refRA.m_zone!.GetZoneName()}' and '${targetArea.m_zone!.GetZoneName()}'.`;
+        const errMsg = wxFormat(
+          _("Copy Rule Area contents failed between rule areas '%s' and '%s'."),
+          refRA.m_zone!.GetZoneName(),
+          targetArea.m_zone!.GetZoneName(),
+        );
 
         commit.Revert();
         this.guiFrame()?.ShowInfoBarError(errMsg, true);
@@ -774,7 +783,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
 
     commit.Push(_('Repeat layout'));
 
-    this.guiFrame()?.ShowInfoBarMsg(`Copied to ${totalCopied} Rule Areas.`);
+    this.guiFrame()?.ShowInfoBarMsg(wxFormat(_('Copied to %d Rule Areas.'), totalCopied));
 
     return 0;
   }
@@ -1481,7 +1490,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
           _(
             'This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group.',
           ),
-          `Shared components:\n${FormatComponentList(shared)}`,
+          wxFormat(_('Shared components:\n%s'), FormatComponentList(shared)),
         ];
         return false;
       }
@@ -1593,10 +1602,10 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     // Component count mismatch
     if (aRefArea.m_components.size !== aTargetArea.m_components.size) {
       aMatches.m_mismatchReasons.push(
-        `Reference area total components: ${aRefArea.m_components.size}`,
-        `Reference area components:\n${FormatComponentList(aRefArea.m_components)}`,
-        `Target area total components: ${aTargetArea.m_components.size}`,
-        `Target area components:\n${FormatComponentList(aTargetArea.m_components)}`,
+        wxFormat(_('Reference area total components: %d'), aRefArea.m_components.size),
+        wxFormat(_('Reference area components:\n%s'), FormatComponentList(aRefArea.m_components)),
+        wxFormat(_('Target area total components: %d'), aTargetArea.m_components.size),
+        wxFormat(_('Target area components:\n%s'), FormatComponentList(aTargetArea.m_components)),
       );
     }
 

@@ -203,6 +203,7 @@ import { DialogConfigEquFiles, type CvpcbEquFilesApp } from './dialogs/dialog_co
 import './cvpcb_mainframe_ui.css';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `false` back to `boolean`, `'x'` back to `string` — see `useDialogControl`'s
  *  own `Widened` (`ui/useDialogControl.ts`), which this mirrors. */
@@ -1057,7 +1058,8 @@ export function DialogAssignFootprints({
       parts.push(selectedLibrary ? `Library (${selectedLibrary})` : _('Library'));
     }
     if (filterText) parts.push(`Search Text (${filterText})`);
-    const head = parts.length === 0 ? _('No Filtering') : `Filtered by ${parts.join(', ')}`;
+    const head =
+      parts.length === 0 ? _('No Filtering') : wxFormat(_('Filtered by %s'), parts.join(', '));
     // `msg += _( ": %i matching footprints" )` and nothing else: there is no
     // spinner and no "select a library first" here, because the pad counts come
     // from the index rather than from a download per candidate.
@@ -1083,7 +1085,9 @@ export function DialogAssignFootprints({
 
   const statusLine2 =
     savedStatus ??
-    (fpInfo ? `Description: ${fpInfo.GetDesc()};  Keywords: ${fpInfo.GetKeywords()}` : '');
+    (fpInfo
+      ? wxFormat(_('Description: %s;  Keywords: %s'), fpInfo.GetDesc(), fpInfo.GetKeywords())
+      : '');
 
   const statusLine3 = useMemo(() => {
     let lib = '';
@@ -1094,7 +1098,7 @@ export function DialogAssignFootprints({
     // LIBRARY_MANAGER::GetFullURI, a project library's own URI, else the
     // hosted set's.
     const uri = projectLibUris.get(lib);
-    return `Library location: ${uri ?? `${app.footprintsBase()}/${lib}.pretty`}`;
+    return wxFormat(_('Library location: %s'), uri ?? `${app.footprintsBase()}/${lib}.pretty`);
   }, [
     selectedFootprint,
     focus,

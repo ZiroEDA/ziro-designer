@@ -39,6 +39,7 @@ import {
   ZEROS_FMT,
 } from './gendrill_writer_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FILEEXT::DrillFileExtension`. */
 export const DrillFileExtension = 'drl';
@@ -189,7 +190,7 @@ export class EXCELLON_WRITER extends GENDRILL_WRITER_BASE {
         );
 
         if (aGenDrill) {
-          aReporter?.report(`Created file '${fullFilename}'`, RPT_SEVERITY_ACTION);
+          aReporter?.report(wxFormat(_("Created file '%s'"), fullFilename), RPT_SEVERITY_ACTION);
 
           let file_type = TYPE_FILE.PTH_FILE;
 
@@ -596,7 +597,7 @@ export class EXCELLON_WRITER extends GENDRILL_WRITER_BASE {
   ): boolean {
     const fullFilename = joinPath(aPlotDirectory, this.getBackdrillLayerPairFileName(aSpan));
 
-    aReporter?.report(`Created file '${fullFilename}'`, RPT_SEVERITY_ACTION);
+    aReporter?.report(wxFormat(_("Created file '%s'"), fullFilename), RPT_SEVERITY_ACTION);
 
     this.createDrillFile(fullFilename, aSpan, TYPE_FILE.NPTH_FILE, true);
 

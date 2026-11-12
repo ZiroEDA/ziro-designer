@@ -39,6 +39,7 @@ import {
 import { ReadDouble, ReadInt } from './rs274_read_XY_and_IJ_coordinates.js';
 import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `CODE( x, y )`: two chars as a 16-bit command identifier. */
 const CODE = (x: string, y: string): number => (x.charCodeAt(0) << 8) + y.charCodeAt(0);
@@ -207,7 +208,9 @@ export function ExecuteRS274XCommand(
             self.AddMessageToList(
               `RS274X: Invalid GERBER format command 'D' at line ${self.m_LineNum}: '${aBuff?.s ?? ''}'`,
             );
-            self.AddMessageToList(`GERBER file '${self.m_FileName}' may not display as intended.`);
+            self.AddMessageToList(
+              wxFormat(_("GERBER file '%s' may not display as intended."), self.m_FileName),
+            );
           // KI_FALLTHROUGH
           case 'L': // No Leading 0
             self.m_NoTrailingZeros = false;

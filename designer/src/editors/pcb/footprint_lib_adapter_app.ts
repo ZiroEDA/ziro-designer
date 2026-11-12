@@ -21,6 +21,8 @@ import { footprintText } from '../../libraryBundleStore.js';
 import { libraryBase } from '../../libraryHosts.js';
 import { settings } from '../../prefs/settings.js';
 import { trackLibraryLoad } from '../../widgets/library_loading.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // The hosted footprint library set, or the bundled subset when it is
 // unreachable (see libraryHosts.ts).
@@ -34,7 +36,7 @@ export const FP_LIBRARY_IO: Pick<FOOTPRINT_LIBRARY_STORE_IO, 'footprintText' | '
     // is what a device without a bundle still uses.
     trackLibraryLoad(
       'footprints',
-      `Loading ${libName}...`,
+      wxFormat(_('Loading %s...'), libName),
       footprintText(libName, fpName).then(async (resident) => {
         if (resident !== null) return resident;
         const r = await fetch(

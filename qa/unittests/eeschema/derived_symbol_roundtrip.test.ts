@@ -17,6 +17,8 @@
  * alone misses the writer, which is where this bug actually lived.
  */
 import { describe, it, expect } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
@@ -187,7 +189,7 @@ describe('flattenLibSymbol', () => {
     readSchematic(parse(broken), reporter);
     expect(reporter.count(RPT_SEVERITY_ERROR)).toBe(1);
     expect(reporter.lines[0]!.message).toBe(
-      "No parent for extended symbol Diode:CHILD found in library 'Diode'",
+      wxFormat(_("No parent for extended symbol %s found in library '%s'"), 'Diode:CHILD', 'Diode'),
     );
   });
 

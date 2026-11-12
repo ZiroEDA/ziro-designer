@@ -77,6 +77,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
 import { PCB_SHAPE } from './pcb_shape.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /// Factor to convert the maker unit shape to internal units:
 const SCALING_FACTOR = pcbIUScale.mmToIU(0.1625);
@@ -348,7 +349,10 @@ export class PCB_MARKER extends BOARD_ITEM {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Marker (${aFull ? this.m_rcItem!.GetErrorMessage(true) : this.m_rcItem!.GetErrorText(true)})`;
+    return wxFormat(
+      _('Marker (%s)'),
+      aFull ? this.m_rcItem!.GetErrorMessage(true) : this.m_rcItem!.GetErrorText(true),
+    );
   }
 
   override GetMenuImage(): string {

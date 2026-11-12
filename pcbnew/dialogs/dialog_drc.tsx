@@ -56,6 +56,7 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { DIALOG_DRC_BASE } from './dialog_drc_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `BOARD_INSPECTION_TOOL` as the row menu asks it; found by name until stage 3. */
 export interface BOARD_INSPECTION_TOOL_LIKE {
@@ -381,7 +382,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
         if (elapsed >= 60) tick = `${Math.trunc(elapsed / 60)} min ${elapsed % 60} s`;
         else tick = `${elapsed} s`;
 
-        this.m_statusText = `Elapsed: ${tick}`;
+        this.m_statusText = wxFormat(_('Elapsed: %s'), tick);
       }
     }
 
@@ -570,11 +571,11 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     if (this.m_cancelled) {
       this.m_messages.push(_('-------- DRC canceled by user.<br><br>'));
 
-      this.m_statusText = `Canceled after ${formatElapsed()}`;
+      this.m_statusText = wxFormat(_('Canceled after %s'), formatElapsed());
     } else {
       this.m_messages.push(_('Done.<br><br>'));
 
-      this.m_statusText = `Completed in ${formatElapsed()}`;
+      this.m_statusText = wxFormat(_('Completed in %s'), formatElapsed());
     }
 
     this.Raise();
@@ -843,7 +844,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     if (rcItem.GetParent()!.IsExcluded()) {
       menu.push({
         label: _('Remove exclusion for this violation'),
-        help: `It will be placed back in the ${listName} list`,
+        help: wxFormat(_('It will be placed back in the %s list'), listName),
         action: () => {
           const marker = rcItem.GetParent();
 
@@ -896,8 +897,11 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
       if (drcItem.GetViolatingRule() && !drcItem.GetViolatingRule()!.IsImplicit()) {
         menu.push({
-          label: `Remove all exclusions for violations of rule '${drcItem.GetViolatingRule()!.m_Name}'`,
-          help: `They will be placed back in the ${listName} list`,
+          label: wxFormat(
+            _("Remove all exclusions for violations of rule '%s'"),
+            drcItem.GetViolatingRule()!.m_Name,
+          ),
+          help: wxFormat(_('They will be placed back in the %s list'), listName),
           action: () => {
             for (const marker of this.m_frame.GetBoard()!.Markers()) {
               const candidateDrcItem = marker.GetRCItem() as DRC_ITEM;
@@ -955,20 +959,23 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
       menu.push({
         label: _('Exclude this violation'),
-        help: `It will be excluded from the ${listName} list`,
+        help: wxFormat(_('It will be excluded from the %s list'), listName),
         action: () => addExclusion(false),
       });
 
       menu.push({
         label: _('Exclude with comment...'),
-        help: `It will be excluded from the ${listName} list`,
+        help: wxFormat(_('It will be excluded from the %s list'), listName),
         action: () => addExclusion(true),
       });
 
       if (drcItem.GetViolatingRule() && !drcItem.GetViolatingRule()!.IsImplicit()) {
         menu.push({
-          label: `Exclude all violations of rule '${drcItem.GetViolatingRule()!.m_Name}'...`,
-          help: `They will be excluded from the ${listName} list`,
+          label: wxFormat(
+            _("Exclude all violations of rule '%s'..."),
+            drcItem.GetViolatingRule()!.m_Name,
+          ),
+          help: wxFormat(_('They will be excluded from the %s list'), listName),
           action: () => {
             for (const marker of this.m_frame.GetBoard()!.Markers()) {
               const candidateDrcItem = marker.GetRCItem() as DRC_ITEM;
@@ -1025,20 +1032,26 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
     if (this.bds().m_DRCSeverities.get(rcItem.GetErrorCode()) === RPT_SEVERITY_WARNING) {
       menu.push({
-        label: `Change severity to Error for all '${rcItem.GetErrorText(true)}' violations`,
+        label: wxFormat(
+          _("Change severity to Error for all '%s' violations"),
+          rcItem.GetErrorText(true),
+        ),
         help: _('Violation severities can also be edited in Board Setup'),
         action: () => setSeverity(RPT_SEVERITY_ERROR),
       });
     } else {
       menu.push({
-        label: `Change severity to Warning for all '${rcItem.GetErrorText(true)}' violations`,
+        label: wxFormat(
+          _("Change severity to Warning for all '%s' violations"),
+          rcItem.GetErrorText(true),
+        ),
         help: _('Violation severities can also be edited in Board Setup'),
         action: () => setSeverity(RPT_SEVERITY_WARNING),
       });
     }
 
     menu.push({
-      label: `Ignore all '${rcItem.GetErrorText(true)}' violations`,
+      label: wxFormat(_("Ignore all '%s' violations"), rcItem.GetErrorText(true)),
       help: _('Violations will not be checked or reported'),
       action: () => {
         this.bds().m_DRCSeverities.set(rcItem.GetErrorCode(), RPT_SEVERITY_IGNORE);
@@ -1165,8 +1178,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
     if (path === null) return;
 
-    if (failed === null) this.m_messages.push(`Report file '${path}' created<br>`);
-    else this.m_window.displayError(`Failed to create file '${failed}'.`);
+    if (failed === null) this.m_messages.push(wxFormat(_("Report file '%s' created<br>"), path));
+    else this.m_window.displayError(wxFormat(_("Failed to create file '%s'."), failed));
 
     this.notify();
   }

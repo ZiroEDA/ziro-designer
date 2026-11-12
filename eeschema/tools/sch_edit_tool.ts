@@ -1600,16 +1600,24 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           );
         } else {
           this.m_frame.ShowInfoBarError(
-            `Pin swaps are disabled for symbols shared across other projects (${projects}). ` +
-              'Duplicate the sheet to edit pins independently.',
+            wxFormat(
+              _(
+                'Pin swaps are disabled for symbols shared across other projects (%s). Duplicate the sheet to edit pins independently.',
+              ),
+              projects,
+            ),
           );
         }
       } else if (friendlySheets.size > 0) {
         const sheets = AccumulateDescriptions(friendlySheets);
 
         this.m_frame.ShowInfoBarError(
-          `Pin swaps are disabled for symbols used by multiple sheet instances (${sheets}). ` +
-            'Duplicate the sheet to edit pins independently.',
+          wxFormat(
+            _(
+              'Pin swaps are disabled for symbols used by multiple sheet instances (%s). Duplicate the sheet to edit pins independently.',
+            ),
+            sheets,
+          ),
         );
       } else {
         this.m_frame.ShowInfoBarError(

@@ -32,6 +32,7 @@ import { DRC_LENGTH_REPORT, DRC_LENGTH_REPORT_ENTRY } from './drc_length_report.
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T, type DRC_RULE } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 type CONNECTION = DRC_LENGTH_REPORT_ENTRY;
 
@@ -169,9 +170,25 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
           const reportTotal = isTimeDomain ? ent.totalDelay : ent.total;
 
           if (fail_min) {
-            msg = `(${aConstraint.GetName()} min skew ${this.MessageTextFromValue(aConstraint.GetValue().Min(), true, dataType)}; actual ${this.MessageTextFromValue(skew, true, dataType)}; target net length ${this.MessageTextFromValue(maxLength, true, dataType)} (from ${maxNetname}); actual ${this.MessageTextFromValue(reportTotal, true, dataType)})`;
+            msg = wxFormat(
+              _('(%s min skew %s; actual %s; target net length %s (from %s); actual %s)'),
+              aConstraint.GetName(),
+              this.MessageTextFromValue(aConstraint.GetValue().Min(), true, dataType),
+              this.MessageTextFromValue(skew, true, dataType),
+              this.MessageTextFromValue(maxLength, true, dataType),
+              maxNetname,
+              this.MessageTextFromValue(reportTotal, true, dataType),
+            );
           } else {
-            msg = `(${aConstraint.GetName()} max skew ${this.MessageTextFromValue(aConstraint.GetValue().Max(), true, dataType)}; actual ${this.MessageTextFromValue(skew, true, dataType)}; target net length ${this.MessageTextFromValue(maxLength, true, dataType)} (from ${maxNetname}); actual ${this.MessageTextFromValue(reportTotal, true, dataType)})`;
+            msg = wxFormat(
+              _('(%s max skew %s; actual %s; target net length %s (from %s); actual %s)'),
+              aConstraint.GetName(),
+              this.MessageTextFromValue(aConstraint.GetValue().Max(), true, dataType),
+              this.MessageTextFromValue(skew, true, dataType),
+              this.MessageTextFromValue(maxLength, true, dataType),
+              maxNetname,
+              this.MessageTextFromValue(reportTotal, true, dataType),
+            );
           }
 
           drcItem.SetErrorDetail(msg);

@@ -30,6 +30,7 @@ import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum GENCAD_EXPORT_OPT {
   FLIP_BOTTOM_PADS, // flip bottom components padstacks geometry
@@ -130,7 +131,7 @@ export class DIALOG_GENCAD_EXPORT_OPTIONS {
     const fn = this.GetFileName();
 
     if (this.m_frame.FileExists(fn)) {
-      const msg = `File ${fn} already exists.`;
+      const msg = wxFormat(_('File %s already exists.'), fn);
       const answer = await this.m_frame.ShowKiDialog({
         caption: _('Confirmation'),
         message: msg,

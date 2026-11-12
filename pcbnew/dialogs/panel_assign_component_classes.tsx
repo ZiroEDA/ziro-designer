@@ -40,6 +40,7 @@ import {
 } from './panel_assign_component_classes_base.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One condition panel's CONDITION_DATA: its type and the two controls' text. */
 export interface ClassCondition {
@@ -115,7 +116,10 @@ export const PANEL_ASSIGN_COMPONENT_CLASSES = {
       if (!COMPONENT_CLASS_MANAGER.CompileAssignmentRule(GenerateAssignmentData(a)))
         return {
           index,
-          message: `Error with conditions for component class assignment ${a.componentClass}`,
+          message: wxFormat(
+            wxGetTranslation('Error with conditions for component class assignment %s'),
+            a.componentClass,
+          ),
         };
     }
     return null;

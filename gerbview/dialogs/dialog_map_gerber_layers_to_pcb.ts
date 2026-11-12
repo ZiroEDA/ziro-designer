@@ -60,6 +60,7 @@ import {
 } from '@ziroeda/common/layer_ids.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `findNumX2GerbersLoaded`'s `kicadLayers` map
@@ -403,7 +404,7 @@ export class DIALOG_MAP_GERBER_LAYERS_TO_PCB {
 
     for (let ii = 0; ii < this.m_gerberActiveLayersCount; ii++) {
       this.m_layerLabels.push({
-        layer: `Layer ${this.m_buttonTable[ii]! + 1}:`,
+        layer: wxFormat(wxGetTranslation('Layer %d:'), this.m_buttonTable[ii]! + 1),
         // Add file name and extension without path.
         fileName: stripDirs(images.GetGbrImage(ii)!.m_FileName),
       });

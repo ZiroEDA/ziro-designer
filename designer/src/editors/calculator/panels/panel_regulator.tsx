@@ -33,6 +33,7 @@ import { settings } from '../../../prefs/settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // The tooltips wxFormBuilder attaches, character for character
 // (panel_regulator_base.cpp:29, 88, 108, 113, 118, 236, 258 — note the double
@@ -375,7 +376,7 @@ export function PanelRegulator(): JSX.Element {
         if (parsed[0]) applyRegulator(parsed[0]);
         setDataFileName(file.name);
       } catch {
-        setNotice(`Unable to read data file '${file.name}'.`);
+        setNotice(wxFormat(_("Unable to read data file '%s'."), file.name));
       }
     });
   };

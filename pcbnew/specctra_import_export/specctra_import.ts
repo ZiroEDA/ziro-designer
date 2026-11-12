@@ -37,6 +37,7 @@ import {
   type WIRE_VIA,
 } from './specctra.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** Convert a session file distance to KiCad internal units (nanometers). */
 function scale(distance: number, aResolution: UNIT_RES): number {
@@ -78,7 +79,8 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
   makeTRACK(wire: WIRE, aPath: PATH, aPointIndex: number, aNetcode: number): PCB_TRACK {
     const layerNdx = this.findLayerName(aPath.layer_id);
 
-    if (layerNdx === -1) throw new Error(`Session file uses invalid layer id '${aPath.layer_id}'.`);
+    if (layerNdx === -1)
+      throw new Error(wxFormat(_("Session file uses invalid layer id '%s'."), aPath.layer_id));
 
     const track = new PCB_TRACK(this.m_sessionBoard!);
 
@@ -102,7 +104,8 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
   makeARC(wire: WIRE, aQarc: QARC, aNetcode: number): PCB_ARC {
     const layerNdx = this.findLayerName(aQarc.layer_id);
 
-    if (layerNdx === -1) throw new Error(`Session file uses invalid layer id '${aQarc.layer_id}'.`);
+    if (layerNdx === -1)
+      throw new Error(wxFormat(_("Session file uses invalid layer id '%s'."), aQarc.layer_id));
 
     const res = this.m_routeResolution!;
     const arc = new PCB_ARC(this.m_sessionBoard!);
@@ -196,7 +199,7 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
         const layerNdx = this.findLayerName(circle.layer_id);
 
         if (layerNdx === -1)
-          throw new Error(`Session file uses invalid layer id '${circle.layer_id}'`);
+          throw new Error(wxFormat(_("Session file uses invalid layer id '%s'"), circle.layer_id));
 
         if (layerNdx > topLayerNdx) topLayerNdx = layerNdx;
 
@@ -391,7 +394,9 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
           const padstack = this.m_session!.route!.library!.FindPADSTACK(wire_via.GetPadstackId());
 
           if (!padstack)
-            throw new Error(`A wire_via refers to missing padstack '${wire_via.GetPadstackId()}'.`);
+            throw new Error(
+              wxFormat(_("A wire_via refers to missing padstack '%s'."), wire_via.GetPadstackId()),
+            );
 
           const via_drill_default = aBoard
             .GetDesignSettings()

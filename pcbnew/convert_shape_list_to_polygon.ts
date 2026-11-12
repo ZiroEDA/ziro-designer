@@ -41,6 +41,7 @@ import { PCB_TYPE_COLLECTOR } from './collectors.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type OUTLINE_ERROR_HANDLER = (
   msg: string,
@@ -1026,7 +1027,7 @@ export function TestBoardOutlinesGraphicItems(
 
           if (aErrorHandler) {
             aErrorHandler(
-              `(rectangle has null or very small size: ${dim} nm)`,
+              wxFormat(_('(rectangle has null or very small size: %d nm)'), dim),
               shape,
               null,
               shape.GetStart(),
@@ -1045,7 +1046,7 @@ export function TestBoardOutlinesGraphicItems(
 
           if (aErrorHandler) {
             aErrorHandler(
-              `(circle has null or very small radius: ${r} nm)`,
+              wxFormat(_('(circle has null or very small radius: %d nm)'), r),
               shape,
               null,
               shape.GetStart(),
@@ -1065,7 +1066,7 @@ export function TestBoardOutlinesGraphicItems(
 
           if (aErrorHandler) {
             aErrorHandler(
-              `(segment has null or very small length: ${dim} nm)`,
+              wxFormat(_('(segment has null or very small length: %d nm)'), dim),
               shape,
               null,
               shape.GetStart(),
@@ -1089,7 +1090,7 @@ export function TestBoardOutlinesGraphicItems(
 
           if (aErrorHandler) {
             aErrorHandler(
-              `(arc has null or very small size: ${dim} nm)`,
+              wxFormat(_('(arc has null or very small size: %d nm)'), dim),
               shape,
               null,
               shape.GetStart(),

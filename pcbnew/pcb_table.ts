@@ -65,6 +65,7 @@ import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TABLECELL } from './pcb_tablecell.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `std::map<int, int>` compared as a whole: the same keys with the same values. */
 function mapEquals(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>): boolean {
@@ -830,7 +831,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `${this.m_colCount} column table`;
+    return wxFormat(_('%d column table'), this.m_colCount);
   }
 
   override GetMenuImage(): string {
@@ -868,7 +869,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM(_('Table'), `${this.m_colCount} Columns`));
+    aList.push(new MSG_PANEL_ITEM(_('Table'), wxFormat(_('%d Columns'), this.m_colCount)));
   }
 
   Similarity(aOther: BOARD_ITEM): number {

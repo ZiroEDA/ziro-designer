@@ -60,6 +60,7 @@ import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum BARCODE_T {
   CODE_39 = 0,
@@ -694,7 +695,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Barcode '${this.GetText()}' on ${this.GetLayerName()}`;
+    return wxFormat(_("Barcode '%s' on %s"), this.GetText(), this.GetLayerName());
   }
 
   override GetMenuImage(): string {

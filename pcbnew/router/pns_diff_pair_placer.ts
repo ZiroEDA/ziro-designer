@@ -96,6 +96,8 @@ import { VIATYPE } from '../pcb_track_types.js';
 import type { RoutingSettings } from './pns_routing_settings.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // SIZES_SETTINGS, reduced to the members this placer reads.
@@ -414,7 +416,7 @@ export const DP_ERR_NO_STARTING_POINT =
   "Can't find a suitable starting point.  If starting from an existing differential pair " +
   'make sure you are at the end.';
 export const dpErrNoCoupledStartingPoint = (aNetName: string): string =>
-  `Can't find a suitable starting point for coupled net "${aNetName}".`;
+  wxFormat(_('Can\'t find a suitable starting point for coupled net "%s".'), aNetName);
 
 /**
  * `DIFF_PAIR_PLACER::FindDpPrimitivePair`: given one half of a pair, find the

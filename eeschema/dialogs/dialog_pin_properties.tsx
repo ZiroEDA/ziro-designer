@@ -46,6 +46,7 @@ import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SYMBOL_PREVIEW_WIDGET, SymbolPreviewWidget } from '../widgets/symbol_preview_widget.js';
 import { DIALOG_PIN_PROPERTIES_BASE, type PIN_DIALOG_CHECK } from './dialog_pin_properties_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The alternates grid's columns. */
 export enum ALT_COL {
@@ -475,9 +476,12 @@ export class DIALOG_PIN_PROPERTIES {
       (this.m_origPos.x !== newPos.x || this.m_origPos.y !== newPos.y) &&
       (this.m_posX.GetValue() % standard_grid !== 0 || this.m_posY.GetValue() % standard_grid !== 0)
     ) {
-      const msg =
-        `This pin is not on a ${standard_grid} mils grid which will make it difficult to ` +
-        'connect to in the schematic.\nDo you wish to continue?';
+      const msg = wxFormat(
+        _(
+          'This pin is not on a %d mils grid which will make it difficult to connect to in the schematic.\nDo you wish to continue?',
+        ),
+        standard_grid,
+      );
 
       if (!(await IsOK(msg))) return false;
     }

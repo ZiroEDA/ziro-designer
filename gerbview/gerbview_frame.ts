@@ -110,6 +110,7 @@ import { GERBER_LAYER_WIDGET } from './widgets/gerbview_layer_widget.js';
 import type { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const GERBVIEW_FRAME_NAME = 'GerberFrame';
 
@@ -782,7 +783,11 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
     gerber.DisplayImageInfo(this);
 
     // Display Image Name and Layer Name (from the current gerber data):
-    const status = `Image name: '${gerber.m_ImageName}'  Layer name: '${gerber.GetLayerParams().m_LayerName}'`;
+    const status = wxFormat(
+      _("Image name: '%s'  Layer name: '%s'"),
+      gerber.m_ImageName,
+      gerber.GetLayerParams().m_LayerName,
+    );
     this.SetStatusText(status, 0);
 
     // Display data format like fmt in X3.4Y3.4 no LZ or fmt mm X2.3 Y3.5 no TZ in main toolbar

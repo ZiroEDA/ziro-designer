@@ -17,6 +17,8 @@ import type { JSX } from 'react';
 import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
 import { type FILTER_CHECK, PANEL_SELECTION_FILTER_BASE } from './panel_selection_filter_base.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One category checkbox. */
 export interface SelectionFilterItem {
@@ -173,7 +175,7 @@ export function SelectionFilterOnlyMenu({
       onClose={onClose}
       items={[
         {
-          label: `Only ${at.item.label.toLowerCase()}`,
+          label: wxFormat(_('Only %s'), at.item.label.toLowerCase()),
           action: () => onOnly(at.item.key),
         },
       ]}

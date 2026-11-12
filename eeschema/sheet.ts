@@ -107,10 +107,12 @@ export class SCH_SHEET_MIXIN {
     const newScreens = new SCH_SCREENS(aSheet);
 
     if (newScreens.HasNoFullyDefinedLibIds()) {
-      const msg =
-        `The schematic '${aSheet.GetScreen()!.GetFileName()}' has not had its symbol library links ` +
-        'remapped to the symbol library table.  The project this schematic belongs to must first be ' +
-        'remapped before it can be imported into the current project.';
+      const msg = wxFormat(
+        _(
+          "The schematic '%s' has not had its symbol library links remapped to the symbol library table.  The project this schematic belongs to must first be remapped before it can be imported into the current project.",
+        ),
+        aSheet.GetScreen()!.GetFileName(),
+      );
       void DisplayInfoMessage(msg);
       return true;
     }
@@ -561,8 +563,12 @@ export class SCH_SHEET_MIXIN {
 
     if (schematicSheets.TestForRecursion(loadedSheets, destFilePath)) {
       this.DisplayError(
-        `The sheet changes cannot be made because the destination sheet already has the sheet ` +
-          `'${destFilePath}' or one of its subsheets as a parent somewhere in the schematic hierarchy.`,
+        wxFormat(
+          _(
+            "The sheet changes cannot be made because the destination sheet already has the sheet '%s' or one of its subsheets as a parent somewhere in the schematic hierarchy.",
+          ),
+          destFilePath,
+        ),
       );
       return true;
     }
@@ -819,11 +825,12 @@ export class SCH_SHEET_MIXIN {
       // again" box: here a yes/no question.
       if (
         !(await this.IsOKAsync(
-          `The file name '${name}' can cause issues with an existing file name\n` +
-            'already defined in the schematic on systems that support case\n' +
-            'insensitive file names.  This will cause issues if you copy this\n' +
-            'project to an operating system that supports case insensitive file\n' +
-            'names.\n\nDo you wish to continue?',
+          wxFormat(
+            _(
+              "The file name '%s' can cause issues with an existing file name\nalready defined in the schematic on systems that support case\ninsensitive file names.  This will cause issues if you copy this\nproject to an operating system that supports case insensitive file\nnames.\n\nDo you wish to continue?",
+            ),
+            name,
+          ),
         ))
       )
         return false;

@@ -84,6 +84,7 @@ import type { PCB_SHAPE } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // zone_filler.cpp's file-level helpers (cpp:69-380).
@@ -917,8 +918,12 @@ export class ZONE_FILLER {
       if (hitIterationLimit) {
         // `wxLogWarning( msg )`: there is no parent window to put a KIDIALOG on.
         console.warn(
-          `Zone fills may be incorrect: iterative refill did not converge after ${maxIterations} passes.\n\n` +
-            'This can happen with complex overlapping zones.  Consider simplifying your zones.',
+          wxFormat(
+            _(
+              'Zone fills may be incorrect: iterative refill did not converge after %d passes.\n\nThis can happen with complex overlapping zones.  Consider simplifying your zones.',
+            ),
+            maxIterations,
+          ),
         );
       }
     }

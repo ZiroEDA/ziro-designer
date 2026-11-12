@@ -21,6 +21,7 @@ import { DRC_RULES_PARSER } from '../drc/drc_rule_parser.js';
 import { type DRC_RULE, IsComponentClassSelector } from '../drc/drc_rule.js';
 import { PANEL_SETUP_RULES_BASE } from './panel_setup_rules_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The page's text: the project's .kicad_dru, which the frame hands in. */
 export interface CustomRules {
@@ -46,7 +47,7 @@ export function checkPlausibility(
 
     if (seen !== undefined)
       aReporter.Report(
-        `Rules '${rule.m_Name}' and '${seen}' share the same condition.`,
+        wxFormat(_("Rules '%s' and '%s' share the same condition."), rule.m_Name, seen),
         RPT_SEVERITY_WARNING,
       );
     else seenConditions.set(key, rule.m_Name);
@@ -55,7 +56,7 @@ export function checkPlausibility(
       const ncName = m[1]!;
       if (!bds.m_NetSettings.HasNetclass(ncName))
         aReporter.Report(
-          `Rule '${rule.m_Name}' references undefined netclass '${ncName}'.`,
+          wxFormat(_("Rule '%s' references undefined netclass '%s'."), rule.m_Name, ncName),
           RPT_SEVERITY_WARNING,
         );
     }
@@ -71,7 +72,7 @@ export function checkPlausibility(
           .map((layer) => aBoard.GetLayerName(layer))
           .join(', ');
         aReporter.Report(
-          `Rule '${rule.m_Name}' references undefined layer(s): ${badLayers}.`,
+          wxFormat(_("Rule '%s' references undefined layer(s): %s."), rule.m_Name, badLayers),
           RPT_SEVERITY_WARNING,
         );
       }

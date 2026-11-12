@@ -29,6 +29,7 @@ import { pcbUnitText, pcbUnitValue } from '../pcb_unit_binder.js';
 import { DIALOG_CREATE_ARRAY_BASE, type ENTRY } from './dialog_create_array_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const NUMBERING_TYPE = ARRAY_AXIS.NUMBERING_TYPE;
 
@@ -285,7 +286,13 @@ export class DIALOG_CREATE_ARRAY {
 
     if (!aAxis.SetOffset(aOffset)) {
       aErrors.push(
-        `Could not determine numbering start from '${aOffset}': expected value consistent with alphabet '${aAxis.GetAlphabet()}'.`,
+        wxFormat(
+          _(
+            "Could not determine numbering start from '%s': expected value consistent with alphabet '%s'.",
+          ),
+          aOffset,
+          aAxis.GetAlphabet(),
+        ),
       );
       return false;
     }
@@ -308,7 +315,7 @@ export class DIALOG_CREATE_ARRAY {
 
     const long = (aText: string, aDescription: string): number | null => {
       const v = toLong(aText);
-      if (v === null) errors.push(`Bad numeric value for ${aDescription}: ${aText}`);
+      if (v === null) errors.push(wxFormat(_('Bad numeric value for %s: %s'), aDescription, aText));
       return v;
     };
 
@@ -327,10 +334,10 @@ export class DIALOG_CREATE_ARRAY {
       grid.m_offset = { x: c.offsetX, y: c.offsetY };
 
       if (grid.m_nx > 1 && grid.m_delta.x === 0 && grid.m_offset.x === 0)
-        stackWarnings.push(`horizontal delta of zero with ${grid.m_nx} objects`);
+        stackWarnings.push(wxFormat(_('horizontal delta of zero with %ld objects'), grid.m_nx));
 
       if (grid.m_ny > 1 && grid.m_delta.y === 0 && grid.m_offset.y === 0)
-        stackWarnings.push(`vertical delta of zero with ${grid.m_ny} objects`);
+        stackWarnings.push(wxFormat(_('vertical delta of zero with %ld objects'), grid.m_ny));
 
       grid.m_centred = c.centreOnSource;
       const stagger = long(c.stagger, _('stagger'));
@@ -391,7 +398,7 @@ export class DIALOG_CREATE_ARRAY {
       circ.SetShouldNumber(this.m_isFootprintEditor);
 
       if (circ.m_nPts > 1 && circ.m_angle.IsZero())
-        stackWarnings.push(`angular delta of zero with ${circ.m_nPts} objects`);
+        stackWarnings.push(wxFormat(_('angular delta of zero with %ld objects'), circ.m_nPts));
 
       if (this.m_isFootprintEditor) {
         circ.SetNumberingStartIsSpecified(c.circStartNumberingOpt === 1);

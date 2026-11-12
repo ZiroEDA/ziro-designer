@@ -76,6 +76,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { DRAWING_MODE, type DRAWING_TOOL } from './drawing_tool.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `BOARD_EDITOR_CONTROL::TrackWidthInc` / `TrackWidthDec`
@@ -1078,7 +1079,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     if (messages.length > 0) DisplayErrorMessage(messages.join('\n'));
 
     if (text === null) {
-      DisplayErrorMessage(`Failed to create file '${dlg.path}'.`);
+      DisplayErrorMessage(wxFormat(_("Failed to create file '%s'."), dlg.path));
       return;
     }
 
@@ -1174,7 +1175,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
     // DisplayError: the same error box as DisplayErrorMessage, without extra info.
     if (!frame.WriteTextFile(path, RecreateCmpFile(board)))
-      DisplayErrorMessage(`Failed to create file '${path}'.`);
+      DisplayErrorMessage(wxFormat(_("Failed to create file '%s'."), path));
   }
 
   protected override setTransitions(): void {

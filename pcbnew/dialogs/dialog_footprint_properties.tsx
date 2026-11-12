@@ -55,6 +55,7 @@ import {
   PanelFpProperties3dModel,
 } from './panel_fp_properties_3d_model.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FP_PROPS_RETVALUE`: the option that closed the dialog. */
 export enum FP_PROPS_RETVALUE {
@@ -233,7 +234,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
   CanDeleteField(aRow: number, aFields: readonly PCB_FIELD[]): string | null {
     const mandatory = aFields.filter((f) => f.IsMandatory()).length;
 
-    if (aRow < mandatory) return `The first ${mandatory} fields are mandatory.`;
+    if (aRow < mandatory) return wxFormat(_('The first %d fields are mandatory.'), mandatory);
 
     return null;
   }
@@ -268,7 +269,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         field.SetTextWidth(minSize);
         return {
           ok: false,
-          message: `Text width must be at least ${min}.`,
+          message: wxFormat(_('Text width must be at least %s.'), min),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_WIDTH,
         };
@@ -277,7 +278,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         field.SetTextWidth(maxSize);
         return {
           ok: false,
-          message: `Text width must be at most ${max}.`,
+          message: wxFormat(_('Text width must be at most %s.'), max),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_WIDTH,
         };
@@ -288,7 +289,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         field.SetTextHeight(minSize);
         return {
           ok: false,
-          message: `Text height must be at least ${min}.`,
+          message: wxFormat(_('Text height must be at least %s.'), min),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_HEIGHT,
         };
@@ -297,7 +298,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         field.SetTextHeight(maxSize);
         return {
           ok: false,
-          message: `Text height must be at most ${max}.`,
+          message: wxFormat(_('Text height must be at most %s.'), max),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_HEIGHT,
         };
@@ -311,7 +312,10 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         field.SetTextThickness(maxPenWidth);
         return {
           ok: false,
-          message: `Text thickness is too large for the text size.\nIt will be clamped at ${clamped}.`,
+          message: wxFormat(
+            _('Text thickness is too large for the text size.\nIt will be clamped at %s.'),
+            clamped,
+          ),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_THICKNESS,
         };

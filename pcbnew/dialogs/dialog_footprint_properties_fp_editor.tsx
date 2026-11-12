@@ -79,6 +79,7 @@ import { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `m_componentType`'s rows. [data] */
 export const COMPONENT_TYPES = [_HKI('Through hole'), _HKI('SMD'), _HKI('Unspecified')] as const;
@@ -195,7 +196,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
   CanDeleteField(aRow: number, aFields: readonly PCB_FIELD[]): string | null {
     const mandatory = aFields.filter((f) => f.IsMandatory()).length;
 
-    if (aRow < mandatory) return `The first ${mandatory} fields are mandatory.`;
+    if (aRow < mandatory) return wxFormat(_('The first %d fields are mandatory.'), mandatory);
 
     return null;
   }
@@ -284,7 +285,10 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
     if (!FOOTPRINT.IsLibNameValid(aFootprintName))
       return {
         ok: false,
-        message: `Footprint name may not contain '${FOOTPRINT.StringLibNameInvalidChars(true)}'.`,
+        message: wxFormat(
+          _("Footprint name may not contain '%s'."),
+          FOOTPRINT.StringLibNameInvalidChars(true),
+        ),
       };
 
     const libraryName = fp.GetFPID().GetLibNickname();
@@ -295,7 +299,11 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
       aFootprintName !== originalFPName &&
       adapter?.FootprintExists(libraryName, aFootprintName)
     ) {
-      const msg = `Footprint '${aFootprintName}' already exists in library '${libraryName}'.`;
+      const msg = wxFormat(
+        _("Footprint '%s' already exists in library '%s'."),
+        aFootprintName,
+        libraryName,
+      );
 
       const answer = await this.m_frame.AskKiDialog({
         caption: _('Confirmation'),
@@ -328,7 +336,11 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
 
       const minSize = pcbIUScale.mmToIU(TEXT_MIN_SIZE_MM);
       const maxSize = pcbIUScale.mmToIU(TEXT_MAX_SIZE_MM);
-      const range = `${this.m_frame.GetUnitsProvider().StringFromValue(minSize, true)} and ${this.m_frame.GetUnitsProvider().StringFromValue(maxSize, true)}`;
+      const range = wxFormat(
+        _('%s and %s'),
+        this.m_frame.GetUnitsProvider().StringFromValue(minSize, true),
+        this.m_frame.GetUnitsProvider().StringFromValue(maxSize, true),
+      );
 
       if (field.GetTextWidth() < minSize || field.GetTextWidth() > maxSize)
         return {
@@ -386,9 +398,12 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
       if (orphanLayers.any())
         return {
           ok: false,
-          message:
-            `You are trying to remove layers that are used by the footprint: ${LAYER_UTILS.AccumulateNamesFromSet(orphanLayers, this.m_frame.GetBoard())}.\n` +
-            'Please remove the objects that use these layers first.',
+          message: wxFormat(
+            _(
+              'You are trying to remove layers that are used by the footprint: %s.\nPlease remove the objects that use these layers first.',
+            ),
+            LAYER_UTILS.AccumulateNamesFromSet(orphanLayers, this.m_frame.GetBoard()),
+          ),
           page: 'layers',
         };
     }

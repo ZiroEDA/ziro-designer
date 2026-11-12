@@ -42,6 +42,7 @@ import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footp
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `inline static bool m_showDescription = true; m_showFpMode = true;
@@ -231,7 +232,7 @@ export function FootprintChooserFrame({
             />
             {/* `msg.Printf( _( "Apply footprint filters (%s)" ), strings[1] )`
                 — the patterns are IN the label, space separated. */}
-            <span>{`Apply footprint filters (${(fpFilters ?? []).join(' ')})`}</span>
+            <span>{wxFormat(_('Apply footprint filters (%s)'), (fpFilters ?? []).join(' '))}</span>
           </label>
         )}
         {hasPinCount && (
@@ -241,7 +242,7 @@ export function FootprintChooserFrame({
               checked={filterByPins}
               onChange={(e) => setFilterByPins(e.target.checked)}
             />
-            <span>{`Filter by pin count (${pinCount})`}</span>
+            <span>{wxFormat(_('Filter by pin count (%d)'), pinCount)}</span>
           </label>
         )}
       </>

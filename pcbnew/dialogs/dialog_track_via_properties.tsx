@@ -64,6 +64,7 @@ import {
 import type { TransferResult } from './dialog_text_properties.js';
 import type { UnconnectedLayerMode } from './dialog_pad_properties.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The `(via …)` kind token the window holds: VIATYPE as the file spells it. */
 export type ViaKind = 'through' | 'blind' | 'buried' | 'micro';
@@ -847,10 +848,12 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
     const name = this.netSelectorValue(aNet);
     const message =
       aShortingNets.length === 1
-        ? `Applying these changes will short net ${name} with ${
-            this.m_frame.GetBoard()?.FindNet(aShortingNets[0]!)?.GetNetname() ?? ''
-          }.`
-        : `Applying these changes will short net ${name} with other nets.`;
+        ? wxFormat(
+            _('Applying these changes will short net %s with %s.'),
+            name,
+            this.m_frame.GetBoard()?.FindNet(aShortingNets[0]!)?.GetNetname() ?? '',
+          )
+        : wxFormat(_('Applying these changes will short net %s with other nets.'), name);
 
     return {
       caption: _('Confirmation'),
@@ -869,12 +872,28 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
 
     if (aPads.length === 1) {
       const pad = aPads[0]!;
-      message = `Changing the net will also update ${ref(pad)} pad ${pad.GetNumber()} to ${name}.`;
+      message = wxFormat(
+        _('Changing the net will also update %s pad %s to %s.'),
+        ref(pad),
+        pad.GetNumber(),
+        name,
+      );
     } else if (aPads.length === 2) {
       const [pad1, pad2] = aPads as [PAD, PAD];
-      message = `Changing the net will also update ${ref(pad1)} pad ${pad1.GetNumber()} and ${ref(pad2)} pad ${pad2.GetNumber()} to ${name}.`;
+      message = wxFormat(
+        _('Changing the net will also update %s pad %s and %s pad %s to %s.'),
+        ref(pad1),
+        pad1.GetNumber(),
+        ref(pad2),
+        pad2.GetNumber(),
+        name,
+      );
     } else {
-      message = `Changing the net will also update ${aPads.length} connected pads to ${name}.`;
+      message = wxFormat(
+        _('Changing the net will also update %lu connected pads to %s.'),
+        aPads.length,
+        name,
+      );
     }
 
     return {

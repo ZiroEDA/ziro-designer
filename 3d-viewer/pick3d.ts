@@ -34,6 +34,8 @@ import type { PAD } from '@ziroeda/pcbnew/pad.js';
 import type { PCB_ARC, PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { Vec3 } from './camera3d.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type PickedItem =
   /** By index into `Footprints()`, which is how the model meshes are keyed. */
@@ -194,7 +196,11 @@ export function pickBoardItem(
  * `GetNetClass()->GetHumanReadableName()`.
  */
 const netInfo = (aItem: BOARD_CONNECTED_ITEM): string =>
-  `Net ${unescapeString(aItem.GetNetname())}\tNet class ${aItem.GetNet()?.GetNetClass().GetHumanReadableName() ?? ''}`;
+  wxFormat(
+    _('Net %s\tNet class %s'),
+    unescapeString(aItem.GetNetname()),
+    aItem.GetNet()?.GetNetClass().GetHumanReadableName() ?? '',
+  );
 
 export function hoveredItemMessage(aBoard: BOARD, item: PickedItem | null): string {
   if (!item) return '';
@@ -204,7 +210,7 @@ export function hoveredItemMessage(aBoard: BOARD, item: PickedItem | null): stri
       const pad = item.pad;
       let msg = '';
 
-      if (pad.GetNumber()) msg += `Pad ${pad.GetNumber()}\t`;
+      if (pad.GetNumber()) msg += wxFormat(_('Pad %s\t'), pad.GetNumber());
 
       if (pad.IsOnCopperLayer()) msg += netInfo(pad);
 
@@ -230,7 +236,9 @@ export function hoveredItemMessage(aBoard: BOARD, item: PickedItem | null): stri
       let msg = '';
 
       if (z.GetZoneName())
-        msg += z.GetIsRuleArea() ? `Rule area ${z.GetZoneName()}\t` : `Zone ${z.GetZoneName()}\t`;
+        msg += z.GetIsRuleArea()
+          ? wxFormat(_('Rule area %s\t'), z.GetZoneName())
+          : wxFormat(_('Zone %s\t'), z.GetZoneName());
 
       if (/\.Cu$/.test(item.layer)) msg += netInfo(z);
 

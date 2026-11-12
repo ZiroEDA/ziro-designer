@@ -123,6 +123,7 @@ import { ROUTER_STATUS_VIEW_ITEM } from './router_status_view_item.js';
 import { DIALOG_PNS_SETTINGS } from '../dialogs/dialog_pns_settings.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One row of either menu. */
 export interface RouterSizeMenuItem {
@@ -187,7 +188,7 @@ export function trackWidthMenuItems(
 
   aTrackWidthList.forEach((width, i) => {
     items.push({
-      label: i === 0 ? _('Track netclass width') : `Track ${aText(width)}`,
+      label: i === 0 ? _('Track netclass width') : wxFormat(_('Track %s'), aText(width)),
       checked: useIndex && aBds.GetTrackWidthIndex() === i,
       action: { kind: 'index', index: i },
       separatorAfter: i === aTrackWidthList.length - 1,
@@ -198,8 +199,9 @@ export function trackWidthMenuItems(
     let label: string;
 
     if (i === 0) label = _('Via netclass values');
-    else if (via.m_Drill > 0) label = `Via ${aText(via.m_Diameter)}, hole ${aText(via.m_Drill)}`;
-    else label = `Via ${aText(via.m_Diameter)}`;
+    else if (via.m_Drill > 0)
+      label = wxFormat(_('Via %s, hole %s'), aText(via.m_Diameter), aText(via.m_Drill));
+    else label = wxFormat(_('Via %s'), aText(via.m_Diameter));
 
     items.push({
       label,
@@ -248,13 +250,18 @@ export function diffPairMenuItems(
     if (dp.m_Gap <= 0) {
       label =
         dp.m_ViaGap <= 0
-          ? `Width ${aText(dp.m_Width)}`
-          : `Width ${aText(dp.m_Width)}, via gap ${aText(dp.m_ViaGap)}`;
+          ? wxFormat(_('Width %s'), aText(dp.m_Width))
+          : wxFormat(_('Width %s, via gap %s'), aText(dp.m_Width), aText(dp.m_ViaGap));
     } else {
       label =
         dp.m_ViaGap <= 0
-          ? `Width ${aText(dp.m_Width)}, gap ${aText(dp.m_Gap)}`
-          : `Width ${aText(dp.m_Width)}, gap ${aText(dp.m_Gap)}, via gap ${aText(dp.m_ViaGap)}`;
+          ? wxFormat(_('Width %s, gap %s'), aText(dp.m_Width), aText(dp.m_Gap))
+          : wxFormat(
+              _('Width %s, gap %s, via gap %s'),
+              aText(dp.m_Width),
+              aText(dp.m_Gap),
+              aText(dp.m_ViaGap),
+            );
     }
 
     items.push({
@@ -678,7 +685,9 @@ export function updateDragStatus(
 
   const statusItem = new ROUTER_STATUS_VIEW_ITEM();
   statusItem.SetMessage(_('Track violates DRC.'));
-  statusItem.SetHint(`(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`);
+  statusItem.SetHint(
+    wxFormat(_('(%s to commit anyway.)'), KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)),
+  );
   statusItem.SetPosition({ x: Math.round(aMousePosition.x), y: Math.round(aMousePosition.y) });
   aView.AddToPreview(statusItem);
 
@@ -2499,7 +2508,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
             const statusItem = new ROUTER_STATUS_VIEW_ITEM();
             statusItem.SetMessage(_('Track violates DRC.'));
             statusItem.SetHint(
-              `(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`,
+              wxFormat(_('(%s to commit anyway.)'), KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)),
             );
             statusItem.SetPosition(toVECTOR2I(this.m_toolMgr!.GetMousePosition()));
             view.AddToPreview(statusItem);
@@ -2925,12 +2934,15 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
         ? netclassA.GetHumanReadableName()
         : `${netclassA.GetHumanReadableName()}, ${netclassB.GetHumanReadableName()}`;
 
-      secondary = `Resolved Netclass: ${unescapeString(netclass)}`;
+      secondary = wxFormat(_('Resolved Netclass: %s'), unescapeString(netclass));
     } else if (nets.length > 0 && nets[0]) {
       const net = nets[0];
 
-      description = `Routing Track: ${net.GetNetname()}`;
-      secondary = `Resolved Netclass: ${unescapeString(net.GetNetClass().GetHumanReadableName())}`;
+      description = wxFormat(_('Routing Track: %s'), net.GetNetname());
+      secondary = wxFormat(
+        _('Resolved Netclass: %s'),
+        unescapeString(net.GetNetClass().GetHumanReadableName()),
+      );
     } else {
       description = _('Routing Track');
       secondary = _('(no net)');
@@ -2987,20 +2999,20 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     if (router.mode() === PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR) {
       items.push(
         new MSG_PANEL_ITEM(
-          `Track Width: ${FORMAT_VALUE(sizes.diffPairWidth)}`,
-          `(from ${sizes.diffPairWidthSource})`,
+          wxFormat(_('Track Width: %s'), FORMAT_VALUE(sizes.diffPairWidth)),
+          wxFormat(_('(from %s)'), sizes.diffPairWidthSource),
         ),
       );
       items.push(
         new MSG_PANEL_ITEM(
-          `Min Clearance: ${FORMAT_VALUE(sizes.clearance)}`,
-          `(from ${sizes.clearanceSource})`,
+          wxFormat(_('Min Clearance: %s'), FORMAT_VALUE(sizes.clearance)),
+          wxFormat(_('(from %s)'), sizes.clearanceSource),
         ),
       );
       items.push(
         new MSG_PANEL_ITEM(
-          `Diff Pair Gap: ${FORMAT_VALUE(sizes.diffPairGap)}`,
-          `(from ${sizes.diffPairGapSource})`,
+          wxFormat(_('Diff Pair Gap: %s'), FORMAT_VALUE(sizes.diffPairGap)),
+          wxFormat(_('(from %s)'), sizes.diffPairGapSource),
         ),
       );
 
@@ -3019,22 +3031,25 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
       if (constraint) {
         items.push(
           new MSG_PANEL_ITEM(
-            `DP Max Uncoupled-length: ${FORMAT_VALUE(constraint.value.max ?? INT_MAX)}`,
-            `(from ${constraint.ruleName})`,
+            wxFormat(
+              _('DP Max Uncoupled-length: %s'),
+              FORMAT_VALUE(constraint.value.max ?? INT_MAX),
+            ),
+            wxFormat(_('(from %s)'), constraint.ruleName),
           ),
         );
       }
     } else {
       items.push(
         new MSG_PANEL_ITEM(
-          `Track Width: ${FORMAT_VALUE(sizes.trackWidth)}`,
-          `(from ${sizes.widthSource})`,
+          wxFormat(_('Track Width: %s'), FORMAT_VALUE(sizes.trackWidth)),
+          wxFormat(_('(from %s)'), sizes.widthSource),
         ),
       );
       items.push(
         new MSG_PANEL_ITEM(
-          `Min Clearance: ${FORMAT_VALUE(sizes.clearance)}`,
-          `(from ${sizes.clearanceSource})`,
+          wxFormat(_('Min Clearance: %s'), FORMAT_VALUE(sizes.clearance)),
+          wxFormat(_('(from %s)'), sizes.clearanceSource),
         ),
       );
     }

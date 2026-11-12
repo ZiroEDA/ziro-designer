@@ -43,6 +43,7 @@ import {
   setupPlotterNewPDFPage,
 } from './plot_board_layers.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A plotted file: the layer and the file's full name (`jobfile_writer->AddGbrFile`). */
 export interface PCB_PLOTTED_FILE {
@@ -311,10 +312,13 @@ export class PCB_PLOTTER {
 
           plotter = null;
 
-          this.m_reporter?.report(`Plotted to '${fullPath}'.`, RPT_SEVERITY_ACTION);
+          this.m_reporter?.report(wxFormat(_("Plotted to '%s'."), fullPath), RPT_SEVERITY_ACTION);
         }
       } else {
-        this.m_reporter?.report(`Failed to create file '${fullPath}'.`, RPT_SEVERITY_ERROR);
+        this.m_reporter?.report(
+          wxFormat(_("Failed to create file '%s'."), fullPath),
+          RPT_SEVERITY_ERROR,
+        );
 
         success = false;
       }

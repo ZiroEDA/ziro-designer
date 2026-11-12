@@ -50,6 +50,7 @@ import {
   footprintSaveClone,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FILEEXT::KiCadFootprintLibPathExtension` and `KiCadFootprintFileExtension`. */
 const KICAD_FOOTPRINT_LIB_PATH_EXTENSION = 'pretty';
@@ -95,7 +96,7 @@ function replaceIllegalFileNameChars(aName: string): string {
 export class KICAD_SEXPR_FOOTPRINT_LIBRARY_IO implements FOOTPRINT_LIBRARY_IO {
   CreateLibrary(aLibraryPath: string): void {
     if (wxDirExists(aLibraryPath))
-      throw new IO_ERROR(`Cannot overwrite library path '${aLibraryPath}'.`);
+      throw new IO_ERROR(wxFormat(_("Cannot overwrite library path '%s'."), aLibraryPath));
   }
 
   /**
@@ -113,7 +114,7 @@ export class KICAD_SEXPR_FOOTPRINT_LIBRARY_IO implements FOOTPRINT_LIBRARY_IO {
     const text = FormatFootprintForLibrary(footprint);
 
     if (!wxWriteFileSync(fullPath, new TextEncoder().encode(text)))
-      throw new IO_ERROR(`Library '${aLibraryPath}' is read only.`);
+      throw new IO_ERROR(wxFormat(_("Library '%s' is read only."), aLibraryPath));
   }
 
   DeleteLibrary(aLibraryPath: string): boolean {
@@ -270,7 +271,10 @@ export class FOOTPRINT_IMPORT_RECONCILER {
       for (const inst of instances.slice(1)) {
         if (placedSignature(inst) !== firstSig) {
           this.report(
-            `Imported footprint '${name}' has conflicting placed definitions; keeping the first.`,
+            wxFormat(
+              _("Imported footprint '%s' has conflicting placed definitions; keeping the first."),
+              name,
+            ),
             RPT_SEVERITY_WARNING,
           );
         }
@@ -359,7 +363,7 @@ export class FOOTPRINT_IMPORT_RECONCILER {
       if (!(e instanceof IO_ERROR)) throw e;
 
       this.report(
-        `Error writing imported footprint cache '${aCacheNickname}': ${e.message}`,
+        wxFormat(_("Error writing imported footprint cache '%s': %s"), aCacheNickname, e.message),
         RPT_SEVERITY_ERROR,
       );
     }
@@ -376,7 +380,10 @@ export class FOOTPRINT_IMPORT_RECONCILER {
         safeDelete(finalPath);
       } else {
         this.report(
-          `A library already exists at '${finalPath}'; leaving imported footprints unresolved.`,
+          wxFormat(
+            _("A library already exists at '%s'; leaving imported footprints unresolved."),
+            finalPath,
+          ),
           RPT_SEVERITY_ERROR,
         );
         safeDelete(tempPath);
@@ -386,7 +393,7 @@ export class FOOTPRINT_IMPORT_RECONCILER {
 
     if (!wxRenameFile(tempPath, finalPath, false)) {
       this.report(
-        `Could not publish imported footprint cache to '${finalPath}'.`,
+        wxFormat(_("Could not publish imported footprint cache to '%s'."), finalPath),
         RPT_SEVERITY_ERROR,
       );
       safeDelete(tempPath);

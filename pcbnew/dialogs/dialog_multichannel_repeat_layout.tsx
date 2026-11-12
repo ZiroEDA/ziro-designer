@@ -24,6 +24,7 @@ import type { BOARD } from '../board.js';
 import type { MULTICHANNEL_TOOL, RULE_AREA } from '../tools/multichannel_tool.js';
 import { DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE } from './dialog_multichannel_repeat_layout_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface TABLE_ENTRY {
   m_targetRA: RULE_AREA;
@@ -163,7 +164,7 @@ export class DIALOG_MULTICHANNEL_REPEAT_LAYOUT {
 
     if (!entry.m_isOK && entry.m_mismatchReasons.length > 0) {
       this.m_parentTool.ShowMismatchDetails(
-        `Rule area topologies do not match: ${entry.m_errMsg}`,
+        wxFormat(_('Rule area topologies do not match: %s'), entry.m_errMsg),
         entry.m_mismatchReasons,
       );
     }

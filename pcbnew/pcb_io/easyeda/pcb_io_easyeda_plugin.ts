@@ -34,6 +34,7 @@ import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.j
 import { type FOOTPRINT_MAP, PCB_IO_EASYEDA_PARSER } from './pcb_io_easyeda_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface FOUND {
   js: JSON_VALUE;
@@ -150,7 +151,7 @@ export class PCB_IO_EASYEDA extends PCB_IO {
     if (!aAppendToMe) board.SetFileName(aFileName);
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Loading ${aFileName}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
       if (!this.m_progressReporter.KeepRefreshing())
         throw new IO_ERROR(_('File import canceled by user.'));
@@ -161,7 +162,8 @@ export class PCB_IO_EASYEDA extends PCB_IO {
     try {
       const found = this.find(aFileName);
 
-      if (!found) throw new IO_ERROR(`Unable to find a valid board in '${aFileName}'`);
+      if (!found)
+        throw new IO_ERROR(wxFormat(_("Unable to find a valid board in '%s'"), aFileName));
 
       const { js, doc } = found;
 
@@ -246,7 +248,11 @@ export class PCB_IO_EASYEDA extends PCB_IO {
     } catch (e) {
       if (e instanceof JSON_EXCEPTION || !(e instanceof IO_ERROR)) {
         throw new IO_ERROR(
-          `Error loading board '${aFileName}': ${e instanceof Error ? e.message : String(e)}`,
+          wxFormat(
+            _("Error loading board '%s': %s"),
+            aFileName,
+            e instanceof Error ? e.message : String(e),
+          ),
         );
       }
 
@@ -267,7 +273,8 @@ export class PCB_IO_EASYEDA extends PCB_IO {
     try {
       const found = this.find(aLibraryPath);
 
-      if (!found) throw new IO_ERROR(`Unable to find valid footprints in '${aLibraryPath}'`);
+      if (!found)
+        throw new IO_ERROR(wxFormat(_("Unable to find valid footprints in '%s'"), aLibraryPath));
 
       const { js, doc } = found;
 
@@ -316,7 +323,11 @@ export class PCB_IO_EASYEDA extends PCB_IO {
       if (e instanceof IO_ERROR && !(e instanceof JSON_EXCEPTION)) throw e;
 
       throw new IO_ERROR(
-        `Error enumerating footprints in library '${aLibraryPath}': ${(e as Error).message}`,
+        wxFormat(
+          _("Error enumerating footprints in library '%s': %s"),
+          aLibraryPath,
+          (e as Error).message,
+        ),
       );
     }
   }
@@ -334,7 +345,8 @@ export class PCB_IO_EASYEDA extends PCB_IO {
     try {
       const found = this.find(aLibraryPath);
 
-      if (!found) throw new IO_ERROR(`Unable to find valid footprints in '${aLibraryPath}'`);
+      if (!found)
+        throw new IO_ERROR(wxFormat(_("Unable to find valid footprints in '%s'"), aLibraryPath));
 
       const { js, doc } = found;
 
@@ -436,7 +448,12 @@ export class PCB_IO_EASYEDA extends PCB_IO {
       if (e instanceof IO_ERROR && !(e instanceof JSON_EXCEPTION)) throw e;
 
       throw new IO_ERROR(
-        `Error reading footprint '${aFootprintName}' from library '${aLibraryPath}': ${(e as Error).message}`,
+        wxFormat(
+          _("Error reading footprint '%s' from library '%s': %s"),
+          aFootprintName,
+          aLibraryPath,
+          (e as Error).message,
+        ),
       );
     }
 

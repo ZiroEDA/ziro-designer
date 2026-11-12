@@ -17,6 +17,8 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCB_VIEWERS_SETTINGS_BASE } from './pcbnew_settings.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A Graphics Defaults row that carries only a line width (Edge Cuts, Courtyards). */
 export interface FP_GRAPHICS_LINE_CLASS_LIKE {
@@ -222,9 +224,12 @@ export function checkFpGraphicsRow(
 
   if (lineWidth < minWidth || lineWidth > maxWidth) {
     errors.push(
-      `${label}: Incorrect line width.\n` +
-        `It must be between ${describe(MINIMUM_LINE_WIDTH_MM)} and ` +
-        `${describe(MAXIMUM_LINE_WIDTH_MM)}`,
+      wxFormat(
+        _('%s: Incorrect line width.\nIt must be between %s and %s'),
+        label,
+        describe(MINIMUM_LINE_WIDTH_MM),
+        describe(MAXIMUM_LINE_WIDTH_MM),
+      ),
     );
   } else {
     store.line_width = row.line_width;
@@ -241,8 +246,12 @@ export function checkFpGraphicsRow(
 
   if (textWidth < minSize || textHeight < minSize || textWidth > maxSize || textHeight > maxSize) {
     errors.push(
-      `${label}: Text size is incorrect.\n` +
-        `Size must be between ${describe(TEXT_MIN_SIZE_MM)} and ${describe(TEXT_MAX_SIZE_MM)}`,
+      wxFormat(
+        _('%s: Text size is incorrect.\nSize must be between %s and %s'),
+        label,
+        describe(TEXT_MIN_SIZE_MM),
+        describe(TEXT_MAX_SIZE_MM),
+      ),
     );
     badParam = true;
   }
@@ -252,13 +261,19 @@ export function checkFpGraphicsRow(
   if (!badParam && (textThickness < minWidth || textThickness > textMaxThickness)) {
     if (textThickness > textMaxThickness) {
       errors.push(
-        `${label}: Text thickness is too large.\n` +
-          `It will be truncated to ${describe(toMM(textMaxThickness))}`,
+        wxFormat(
+          _('%s: Text thickness is too large.\nIt will be truncated to %s'),
+          label,
+          describe(toMM(textMaxThickness)),
+        ),
       );
     } else {
       errors.push(
-        `${label}: Text thickness is too small.\n` +
-          `It will be truncated to ${describe(toMM(minWidth))}`,
+        wxFormat(
+          _('%s: Text thickness is too small.\nIt will be truncated to %s'),
+          label,
+          describe(toMM(minWidth)),
+        ),
       );
     }
 

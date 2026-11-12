@@ -55,6 +55,7 @@ import type { BOARD } from '../board.js';
 import { LAYER_T } from '../board_types.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type CopperLayerType = 'signal' | 'power' | 'mixed' | 'jumper';
 
@@ -484,12 +485,19 @@ export function testLayerNames(value: LayersSetup): { layerId: string; message: 
     if (!name) return { layerId: l.id, message: wxGetTranslation('Layer must have a name.') };
 
     if ([...name].some((c) => badchars.includes(c)))
-      return { layerId: l.id, message: `${badchars} are forbidden in layer names.` };
+      return {
+        layerId: l.id,
+        message: wxFormat(wxGetTranslation('%s are forbidden in layer names.'), badchars),
+      };
 
     if (name === 'signal')
       return { layerId: l.id, message: wxGetTranslation('Layer name "signal" is reserved.') };
 
-    if (seen.has(name)) return { layerId: l.id, message: `Layer name '${name}' already in use.` };
+    if (seen.has(name))
+      return {
+        layerId: l.id,
+        message: wxFormat(wxGetTranslation("Layer name '%s' already in use."), name),
+      };
 
     seen.add(name);
   }

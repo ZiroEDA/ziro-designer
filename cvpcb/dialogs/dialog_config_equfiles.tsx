@@ -75,6 +75,7 @@ import {
 } from '../cvpcb_equ_files.js';
 import './dialog_config_equfiles.css';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * What the program's Open dialog (the account's project tree) is asked of
@@ -98,7 +99,7 @@ const PROJECT_VAR_NAME = 'KIPRJMOD';
 
 /** `wxString::Format( _( "Project file: '%s'" ), … )` (`:47`). */
 export function equFilesDialogTitle(projectFullName: string): string {
-  return `Project file: '${projectFullName}'`;
+  return wxFormat(_("Project file: '%s'"), projectFullName);
 }
 
 interface Props {

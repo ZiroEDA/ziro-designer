@@ -76,6 +76,7 @@ import {
   PCB_TOOL_BASE,
 } from './pcb_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The window half of the tool: the modal dialogs `PAD_TOOL` shows and the infobar,
@@ -463,7 +464,10 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
     // Callable lambda to set the popup text for the given pad value
     const setPopupTextForValue = (aValue: number): void => {
       statusPopup.SetText(
-        `Click on pad ${constructPadNumber(aValue)}\nPress <esc> to cancel all; double-click to finish`,
+        wxFormat(
+          _('Click on pad %s\nPress <esc> to cancel all; double-click to finish'),
+          constructPadNumber(aValue),
+        ),
       );
     };
 
@@ -901,9 +905,15 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
     let msg: string;
 
     if (PCB_ACTIONS.explodePad.GetHotKey() === PCB_ACTIONS.recombinePad.GetHotKey()) {
-      msg = `Pad Edit Mode.  Press ${KeyNameFromKeyCode(PCB_ACTIONS.recombinePad.GetHotKey())} again to exit.`;
+      msg = wxFormat(
+        _('Pad Edit Mode.  Press %s again to exit.'),
+        KeyNameFromKeyCode(PCB_ACTIONS.recombinePad.GetHotKey()),
+      );
     } else {
-      msg = `Pad Edit Mode.  Press ${KeyNameFromKeyCode(PCB_ACTIONS.recombinePad.GetHotKey())} to exit.`;
+      msg = wxFormat(
+        _('Pad Edit Mode.  Press %s to exit.'),
+        KeyNameFromKeyCode(PCB_ACTIONS.recombinePad.GetHotKey()),
+      );
     }
 
     this.editFrame().ShowInfoBarMsg?.(msg);

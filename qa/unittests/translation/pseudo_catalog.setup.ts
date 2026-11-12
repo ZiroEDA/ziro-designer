@@ -41,6 +41,7 @@ export const KICAD_TRANSLATES_INTO_OUTPUT: ReadonlyMap<string, string> = new Map
   ['Page %s', "a PDF page's name"],
   ['%s (Page %s)', "a PDF page's name"],
   ['Show Page %s', "a PDF link's menu"],
+  ['Open %s', "a PDF link's menu"],
 ]);
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));

@@ -52,6 +52,7 @@ import {
   userFlagIndex,
 } from '../viewer3d_appearance.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `COLOR4D::WHITE`, the `aBackground` every swatch of this pane is built with (`.cpp:475`). */
 const SWATCH_BACKGROUND: Color4d = { r: 1, g: 1, b: 1, a: 1 };
@@ -136,7 +137,7 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
                     checked={on}
                     checkedBitmap={BITMAPS.visibility}
                     uncheckedBitmap={BITMAPS.visibility_off}
-                    tooltip={`Show or hide ${row.label.toLowerCase()}`}
+                    tooltip={wxFormat(_('Show or hide %s'), row.label.toLowerCase())}
                     onToggle={(checked) => p.onToggleLayer(row.id, checked)}
                   />
                 )}

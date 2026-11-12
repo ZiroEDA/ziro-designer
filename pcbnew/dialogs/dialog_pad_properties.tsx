@@ -86,6 +86,7 @@ import { ZONE_CONNECTION } from '../zones.js';
 import { DIALOG_PAD_PROPERTIES_BASE, type UNIT } from './dialog_pad_properties_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** ZONE_CONNECTION, spelled as the Properties panel and the footprint dialog spell it. */
 export type ZoneConnection = 'inherited' | 'none' | 'thermal' | 'full' | 'tht_thermal';
@@ -1351,14 +1352,24 @@ export class DIALOG_PAD_PROPERTIES {
       case PTH_DLG_TYPE:
         sel.Append(_('All copper layers'));
         sel.Append(
-          `${b.GetLayerName(PCB_LAYER_ID.F_Cu)}, ${b.GetLayerName(PCB_LAYER_ID.B_Cu)} and connected layers`,
+          wxFormat(
+            _('%s, %s and connected layers'),
+            b.GetLayerName(PCB_LAYER_ID.F_Cu),
+            b.GetLayerName(PCB_LAYER_ID.B_Cu),
+          ),
         );
         sel.Append(_('Connected layers only'));
         sel.Append(_('None'));
         break;
 
       case NPTH_DLG_TYPE:
-        sel.Append(`${b.GetLayerName(PCB_LAYER_ID.F_Cu)} and ${b.GetLayerName(PCB_LAYER_ID.B_Cu)}`);
+        sel.Append(
+          wxFormat(
+            _('%s and %s'),
+            b.GetLayerName(PCB_LAYER_ID.F_Cu),
+            b.GetLayerName(PCB_LAYER_ID.B_Cu),
+          ),
+        );
         sel.Append(b.GetLayerName(PCB_LAYER_ID.F_Cu));
         sel.Append(b.GetLayerName(PCB_LAYER_ID.B_Cu));
         sel.Append(_('None'));

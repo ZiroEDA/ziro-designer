@@ -29,6 +29,7 @@ import {
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { parseNum } from '../fields.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // The resistor calculator offers only the coarser series (E1…E24).
 const R_SERIES = ESERIES.filter((e) => e.id <= ESeriesId.E24);
@@ -69,7 +70,7 @@ export function PanelRCalculator(): JSX.Element {
     const targetOhm = parseNum(required) * 1000;
     if (Number.isNaN(targetOhm) || targetOhm < MIN_TARGET || targetOhm > MAX_TARGET) {
       // wxMessageBox, not an inline label (panel_r_calculator.cpp:108).
-      setNotice(`Incorrect required resistance value: ${required}`);
+      setNotice(wxFormat(_('Incorrect required resistance value: %s'), required));
       return;
     }
     // As in KiCad: the required value itself is excluded (it needs replacing
@@ -77,7 +78,7 @@ export function PanelRCalculator(): JSX.Element {
     const excl = [targetOhm, parseNum(exclude1) * 1000, parseNum(exclude2) * 1000];
     const res = resEquivCalc(targetOhm, serie, excl);
     if (!res) {
-      setNotice(`Incorrect required resistance value: ${required}`);
+      setNotice(wxFormat(_('Incorrect required resistance value: %s'), required));
       return;
     }
     setSimple(rowOf(res.s2r, targetOhm));

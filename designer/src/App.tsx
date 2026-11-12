@@ -90,6 +90,7 @@ import '@ziroeda/common/widgets/shell.css';
 import { isBinaryBytes } from './home/files.js';
 import { isToolingPath } from './home/project_picker.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The editor frames load on demand, one chunk each.
@@ -1802,7 +1803,7 @@ export function App(): JSX.Element {
   const showPcbFromSchematic = useCallback(async () => {
     if (!pcbFile && activeProName) {
       const name = activeProName.replace(/\.kicad_pro$/i, '.kicad_pcb');
-      if (await IsOK(`PCB '${name}' does not exist. Do you wish to create it?`)) {
+      if (await IsOK(wxFormat(_("PCB '%s' does not exist. Do you wish to create it?"), name))) {
         const board = { name, text: EMPTY_PCB };
         setProjectFiles((prev) => (prev ? [...prev, board] : prev));
         if (!demoProject) persistFilesNow([board]);

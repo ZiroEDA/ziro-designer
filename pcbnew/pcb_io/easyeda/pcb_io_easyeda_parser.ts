@@ -91,6 +91,8 @@ import { ZONE } from '../../zone.js';
 import { ISLAND_REMOVAL_MODE } from '../../zone_settings.js';
 import { ZONE_CONNECTION } from '../../zones.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const DIRECT_MODEL_UUID_KEY = 'JLC_3DModel';
 const MODEL_SIZE_KEY = 'JLC_3D_Size';
@@ -773,7 +775,7 @@ export class PCB_IO_EASYEDA_PARSER extends EASYEDA_PARSER_BASE {
             }
           }
         } else {
-          throw new IO_ERROR(`Unknown SVGNODE nodeType ${nodeType}`);
+          throw new IO_ERROR(wxFormat(_('Unknown SVGNODE nodeType %d'), nodeType));
         }
       } else if (elType === 'TEXT') {
         let text: PCB_TEXT;

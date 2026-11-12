@@ -21,6 +21,8 @@
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { strtol10 } from './libc.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `GERBER_ORDER_ENUM`: the numbering is the sort key — `return (int)
@@ -372,7 +374,7 @@ export class GERBER_FILE_IMAGE_LIST {
       return `${aIdx + 1} ${name}`;
     }
 
-    name = `Graphic layer ${aIdx + 1}`;
+    name = wxFormat(_('Graphic layer %d'), aIdx + 1);
 
     return name;
   }

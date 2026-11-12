@@ -45,6 +45,7 @@ import { DRILL_PRECISION, ZEROS_FMT } from '../exporters/gendrill_writer_base.js
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { DIALOG_GENDRILL_BASE } from './dialog_gendrill_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface Props {
   board: BOARD;
@@ -120,7 +121,7 @@ export function DialogGendrill({ board, fileName, onOutputFile, onClose }: Props
     const path = dir ? `${dir}/${name}` : name;
     if (onOutputFile) onOutputFile(path, bytes, mime);
     else download(name, bytes);
-    appendMsg(`Created file '${path}'.`);
+    appendMsg(wxFormat(_("Created file '%s'."), path));
   };
 
   /** `DIALOG_GENDRILL::updateConfig` — persist output dir / origin onto the
@@ -198,10 +199,11 @@ export function DialogGendrill({ board, fileName, onOutputFile, onClose }: Props
       const path = dir ? `${dir}/${name}` : name;
       if (onOutputFile) onOutputFile(path, bytes, 'text/plain');
       else download(name, bytes);
-      appendMsg(`Report file '${path}' created.`);
+      appendMsg(wxFormat(_("Report file '%s' created."), path));
     });
 
-    if (!writer.GenDrillReportFile(name)) appendMsg(`Failed to create file '${name}'.`);
+    if (!writer.GenDrillReportFile(name))
+      appendMsg(wxFormat(_("Failed to create file '%s'."), name));
   };
 
   const check = (aValue: boolean, aSet: (aOn: boolean) => void, aEnabled = true) => ({

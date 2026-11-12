@@ -19,6 +19,8 @@ import {
 } from '@ziroeda/common/reporter.js';
 import { FOOTPRINT } from '../footprint.js';
 import { PCB_COMPONENT } from './pcb_component.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What netlist.cpp asks its PCB_EDIT_FRAME for. */
 export interface NETLIST_FRAME {
@@ -51,7 +53,7 @@ export function ReadNetlistFromFile(
     const loaded = loadNetlist(aText);
 
     if (!loaded) {
-      aFrame.DisplayErrorMessage(`Cannot open netlist file '${aFilename}'.`);
+      aFrame.DisplayErrorMessage(wxFormat(_("Cannot open netlist file '%s'."), aFilename));
       return false;
     }
 
@@ -63,7 +65,7 @@ export function ReadNetlistFromFile(
 
     LoadFootprints(aFrame, aNetlist, aReporter);
   } catch (ioe) {
-    aFrame.DisplayErrorMessage(`Error loading netlist.\n${(ioe as Error).message}`);
+    aFrame.DisplayErrorMessage(wxFormat(_('Error loading netlist.\n%s'), (ioe as Error).message));
     return false;
   }
 
@@ -92,7 +94,7 @@ export function LoadFootprints(
     // The FPID is ok as long as there is a footprint portion coming from eeschema.
     if (!fpidItemName(fpid).length) {
       aReporter.report(
-        `No footprint defined for symbol ${component.GetReference()}.`,
+        wxFormat(_('No footprint defined for symbol %s.'), component.GetReference()),
         RPT_SEVERITY_ERROR,
       );
       continue;
@@ -125,8 +127,12 @@ export function LoadFootprints(
 
     if (footprintMisMatch && !aNetlist.GetReplaceFootprints()) {
       aReporter.report(
-        `Footprint of ${component.GetReference()} changed: board footprint ` +
-          `'${fpOnBoard!.GetFPIDAsString()}', netlist footprint '${fpid}'.`,
+        wxFormat(
+          _("Footprint of %s changed: board footprint '%s', netlist footprint '%s'."),
+          component.GetReference(),
+          fpOnBoard!.GetFPIDAsString(),
+          fpid,
+        ),
         RPT_SEVERITY_WARNING,
       );
       continue;
@@ -146,8 +152,11 @@ export function LoadFootprints(
         lastFPID = fpid;
       } else {
         aReporter.report(
-          `${component.GetReference()} footprint '${fpidItemName(fpid)}' not found in any ` +
-            'libraries in the footprint library table.',
+          wxFormat(
+            _("%s footprint '%s' not found in any libraries in the footprint library table."),
+            component.GetReference(),
+            fpidItemName(fpid),
+          ),
           RPT_SEVERITY_ERROR,
         );
         continue;

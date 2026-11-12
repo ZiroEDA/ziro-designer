@@ -27,6 +27,7 @@ import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** C's `%2.2d`. */
 const d2 = (n: number): string => String(n).padStart(2, '0');
@@ -139,14 +140,14 @@ export class GERBVIEW_INSPECTION_TOOL extends TOOL_INTERACTIVE {
         // This is not always the case, because it can be a temporary file
         // if it comes from a zip archive.
         if (!wxFileExists(gerber_layer.m_FileName)) {
-          const msg = `Source file '${gerber_layer.m_FileName}' not found.`;
+          const msg = wxFormat(_("Source file '%s' not found."), gerber_layer.m_FileName);
           void frame.Host().MessageBox(msg);
         }
       } else {
         void frame.Host().MessageBox(_('No text editor selected in KiCad.  Please choose one.'));
       }
     } else {
-      const msg = `No file loaded on the active layer ${layer + 1}.`;
+      const msg = wxFormat(_('No file loaded on the active layer %d.'), layer + 1);
       void frame.Host().MessageBox(msg);
     }
 

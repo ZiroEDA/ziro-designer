@@ -37,6 +37,7 @@ import {
   BOARD_STACKUP_ITEM_TYPE,
 } from '../board_stackup_manager/board_stackup.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** [data] `PANEL_SETUP_TUNING_PROFILE_INFO::RHO`: copper resistivity, ohm·m. */
 export const RHO = 1.72e-8;
@@ -682,7 +683,7 @@ export function calculateTrackParameters(
       ? calculateDifferentialMicrostrip(aStackup, aRow, aTargetZ, aCalculationType)
       : calculateDifferentialStripline(aStackup, aRow, aTargetZ, aCalculationType);
 
-    if (!result.OK) return fail(`Error: ${result.ErrorMsg}`);
+    if (!result.OK) return fail(wxFormat(_('Error: %s'), result.ErrorMsg));
 
     if (!(result.Width > 0)) return fail(_('Could not compute track width'));
     if (!(result.DiffPairGap > 0)) return fail(_('Could not compute differential pair gap'));
@@ -695,7 +696,7 @@ export function calculateTrackParameters(
     ? calculateSingleMicrostrip(aStackup, aRow, aTargetZ, aCalculationType)
     : calculateSingleStripline(aStackup, aRow, aTargetZ, aCalculationType);
 
-  if (!result.OK) return fail(`Error: ${result.ErrorMsg}`);
+  if (!result.OK) return fail(wxFormat(_('Error: %s'), result.ErrorMsg));
 
   if (!(result.Width > 0)) return fail(_('Could not compute track width'));
   if (!(result.Delay > 0)) return fail(_('Could not compute track propagation delay'));

@@ -17,6 +17,7 @@ import {
 } from '../pcbexpr_evaluator.js';
 import type { ZONE } from '../zone.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class DRC_RULE_CONDITION {
   private m_expression: string;
@@ -82,7 +83,13 @@ export class DRC_RULE_CONDITION {
         const bar = aMessage.indexOf('|');
         const first = bar >= 0 ? aMessage.slice(0, bar) : aMessage;
         const rest = bar >= 0 ? aMessage.slice(bar + 1) : '';
-        const msg = `ERROR: <a href='${aSourceLine}:${aSourceOffset + aOffset}'>${first}</a>${rest}`;
+        const msg = wxFormat(
+          _("ERROR: <a href='%d:%d'>%s</a>%s"),
+          aSourceLine,
+          aSourceOffset + aOffset,
+          first,
+          rest,
+        );
 
         aReporter.report(msg, RPT_SEVERITY_ERROR);
       });

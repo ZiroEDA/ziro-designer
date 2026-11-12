@@ -92,6 +92,7 @@ import {
 } from './zones.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export {
   ISLAND_REMOVAL_MODE,
@@ -565,9 +566,18 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     if (layers.length === 1) {
       layerDesc = `${board.GetLayerName(layers[0]!)}`;
     } else if (layers.length === 2) {
-      layerDesc = `${board.GetLayerName(layers[0]!)} and ${board.GetLayerName(layers[1]!)}`;
+      layerDesc = wxFormat(
+        _('%s and %s'),
+        board.GetLayerName(layers[0]!),
+        board.GetLayerName(layers[1]!),
+      );
     } else if (layers.length === 3) {
-      layerDesc = `${board.GetLayerName(layers[0]!)}, ${board.GetLayerName(layers[1]!)} and ${board.GetLayerName(layers[2]!)}`;
+      layerDesc = wxFormat(
+        _('%s, %s and %s'),
+        board.GetLayerName(layers[0]!),
+        board.GetLayerName(layers[1]!),
+        board.GetLayerName(layers[2]!),
+      );
     } else if (layers.length > 3) {
       layerDesc = `${board.GetLayerName(layers[0]!)}, ${board.GetLayerName(layers[1]!)} and ${layers.length - 2} more`;
     }
@@ -602,8 +612,8 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
       if (source.value !== '') {
         aList.push(
           new MSG_PANEL_ITEM(
-            `Min Clearance: ${frame.MessageTextFromValue(clearance)}`,
-            `(from ${source.value})`,
+            wxFormat(_('Min Clearance: %s'), frame.MessageTextFromValue(clearance)),
+            wxFormat(_('(from %s)'), source.value),
           ),
         );
       }
@@ -1966,21 +1976,30 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     if (layers.length === 1) {
       layerDesc = `on ${board.GetLayerName(layers[0]!)}`;
     } else if (layers.length === 2) {
-      layerDesc = `on ${board.GetLayerName(layers[0]!)} and ${board.GetLayerName(layers[1]!)}`;
+      layerDesc = wxFormat(
+        _('on %s and %s'),
+        board.GetLayerName(layers[0]!),
+        board.GetLayerName(layers[1]!),
+      );
     } else if (layers.length === 3) {
-      layerDesc = `on ${board.GetLayerName(layers[0]!)}, ${board.GetLayerName(layers[1]!)} and ${board.GetLayerName(layers[2]!)}`;
+      layerDesc = wxFormat(
+        _('on %s, %s and %s'),
+        board.GetLayerName(layers[0]!),
+        board.GetLayerName(layers[1]!),
+        board.GetLayerName(layers[2]!),
+      );
     } else if (layers.length > 3) {
       layerDesc = `on ${board.GetLayerName(layers[0]!)}, ${board.GetLayerName(layers[1]!)} and ${layers.length - 2} more`;
     }
 
     if (this.GetIsRuleArea()) {
       if (this.GetZoneName() === '') {
-        return `Rule Area ${layerDesc}`;
+        return wxFormat(_('Rule Area %s'), layerDesc);
       } else {
-        return `Rule area '${this.GetZoneName()}' ${layerDesc}`;
+        return wxFormat(_("Rule area '%s' %s"), this.GetZoneName(), layerDesc);
       }
     } else if (this.IsTeardropArea()) {
-      return `Teardrop ${this.GetNetnameMsg()} ${layerDesc}`;
+      return wxFormat(_('Teardrop %s %s'), this.GetNetnameMsg(), layerDesc);
     } else {
       if (this.GetZoneName() === '') {
         return `Zone ${this.GetNetnameMsg()} ${layerDesc}, priority ${this.GetAssignedPriority()}`;

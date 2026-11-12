@@ -39,6 +39,8 @@
  */
 
 import { findProjectFile, projectRoot, type ProjectFile } from '@ziroeda/common/project_paths.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `PROJECT_VAR_NAME` (include/project.h:41), as it is written in a path. */
 export const PROJECT_VAR_REF = '${KIPRJMOD}';
@@ -93,7 +95,7 @@ export function equFilePathFor(chosenPath: string, files: readonly ProjectFile[]
 
 /** `_( "File '%s' already exists in list." )` (dialog_config_equfiles.cpp:250). */
 export function equFileExistsMessage(path: string): string {
-  return `File '${path}' already exists in list.`;
+  return wxFormat(wxGetTranslation("File '%s' already exists in list."), path);
 }
 
 /** What a list edit leaves behind: the rows, and which of them are selected. */

@@ -170,6 +170,7 @@ import {
   DialogPositionRelativeModeless,
 } from './dialogs/dialog_position_relative.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `fpedit.json` as this window reads it.
@@ -1085,7 +1086,7 @@ export function FootprintEditFrame({
     if (aName === '') return null;
 
     if (store.HasLibrary(aName)) {
-      DisplayErrorMessage(`Library ${aName} already exists.`);
+      DisplayErrorMessage(wxFormat(_('Library %s already exists.'), aName));
       return null;
     }
 
@@ -1097,7 +1098,7 @@ export function FootprintEditFrame({
       if (!manager || !table || table.IsReadOnly()) return null;
 
       if (wxDirExists(libPath)) {
-        DisplayErrorMessage(`Library ${libPath} already exists.`);
+        DisplayErrorMessage(wxFormat(_('Library %s already exists.'), libPath));
         return null;
       }
 

@@ -589,16 +589,24 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       // CreateLibrary fails on an existing path.
       if (wxFileExists(fn.value) && !wxRemoveFile(fn.value)) {
         DisplayErrorMessage(
-          `Could not overwrite the library file '${fn.value}'.\n` +
-            'Make sure you have write permissions and try again.',
+          wxFormat(
+            _(
+              "Could not overwrite the library file '%s'.\nMake sure you have write permissions and try again.",
+            ),
+            fn.value,
+          ),
         );
         return '';
       }
 
       if (!this.m_libMgr.CreateLibrary(fn.value, scope)) {
         DisplayErrorMessage(
-          `Could not create the library file '${fn.value}'.\n` +
-            'Make sure you have write permissions and try again.',
+          wxFormat(
+            _(
+              "Could not create the library file '%s'.\nMake sure you have write permissions and try again.",
+            ),
+            fn.value,
+          ),
         );
         return '';
       }
@@ -1259,8 +1267,10 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       });
     } else if (this.IsSymbolAlias()) {
       msgs.push(
-        `Symbol ${unescapeString(aSymbolName)} is a derived symbol. Symbol graphics will not be ` +
-          'editable.',
+        wxFormat(
+          _('Symbol %s is a derived symbol. Symbol graphics will not be editable.'),
+          unescapeString(aSymbolName),
+        ),
       );
 
       // Don't assume the parent symbol shared pointer is still valid.

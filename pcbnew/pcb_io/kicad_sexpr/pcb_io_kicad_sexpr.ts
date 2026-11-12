@@ -168,6 +168,8 @@ import {
   SEXPR_BOARD_FILE_VERSION,
 } from './pcb_io_kicad_sexpr_parser.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `GetMajorMinorVersion()`: the `generator_version` a 10.0.x build writes. */
 export const MAJOR_MINOR_VERSION = '10.0';
@@ -349,10 +351,14 @@ export class FP_CACHE {
     this.m_cache_timestamp = 0;
 
     if (!wxDirExists(this.m_lib_raw_path) && !wxMkdir(this.m_lib_raw_path))
-      THROW_IO_ERROR(`Cannot create footprint library '${this.m_lib_raw_path}'.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Cannot create footprint library '%s'."), this.m_lib_raw_path),
+      );
 
     if (!wxIsDirWritable(this.m_lib_raw_path))
-      THROW_IO_ERROR(`Footprint library '${this.m_lib_raw_path}' is read only.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Footprint library '%s' is read only."), this.m_lib_raw_path),
+      );
 
     for (const fpCacheEntry of this.m_footprints.values()) {
       const footprint = fpCacheEntry.GetFootprint();
@@ -373,7 +379,7 @@ export class FP_CACHE {
       this.m_owner.Format(footprint);
 
       if (!wxWriteFileSync(fileName, new TextEncoder().encode(formatter.Finish())))
-        THROW_IO_ERROR(`Error writing file '${fileName}'.`);
+        THROW_IO_ERROR(wxFormat(wxGetTranslation("Error writing file '%s'."), fileName));
 
       this.m_cache_timestamp += wxFileModificationTime(fileName);
     }
@@ -392,7 +398,10 @@ export class FP_CACHE {
 
     const entries = wxDirEnumerate(this.m_lib_raw_path);
 
-    if (!entries) THROW_IO_ERROR(`Footprint library '${this.m_lib_raw_path}' not found.`);
+    if (!entries)
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Footprint library '%s' not found."), this.m_lib_raw_path),
+      );
 
     const files = entries.filter(
       (e) => !e.isDir && e.name.toLowerCase().endsWith(`.${KiCadFootprintFileExtension}`),
@@ -441,7 +450,13 @@ export class FP_CACHE {
     const entry = this.m_footprints.get(aFootprintName);
 
     if (!entry) {
-      THROW_IO_ERROR(`Library '${this.m_lib_raw_path}' has no footprint '${aFootprintName}'.`);
+      THROW_IO_ERROR(
+        wxFormat(
+          wxGetTranslation("Library '%s' has no footprint '%s'."),
+          this.m_lib_raw_path,
+          aFootprintName,
+        ),
+      );
     }
 
     // Remove the footprint from the cache and delete the footprint file from the library.
@@ -543,7 +558,8 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
     try {
       this.validateCache(aLibPath);
 
-      if (!wxDirExists(aLibPath)) THROW_IO_ERROR(`Footprint library '${aLibPath}' not found.`);
+      if (!wxDirExists(aLibPath))
+        THROW_IO_ERROR(wxFormat(wxGetTranslation("Footprint library '%s' not found."), aLibPath));
     } catch (ioe) {
       if (!(ioe instanceof IO_ERROR)) throw ioe;
 
@@ -650,7 +666,7 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
         return;
       }
 
-      THROW_IO_ERROR(`Library '${libPath}' is read only.`);
+      THROW_IO_ERROR(wxFormat(wxGetTranslation("Library '%s' is read only."), libPath));
     }
 
     // The map key used by the cache and the on-disk filename base.
@@ -668,7 +684,9 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
     const fullPath = `${libPath}/${fullName}`;
 
     if (wxFileExists(fullPath) && !wxIsFileWritable(fullPath))
-      THROW_IO_ERROR(`Insufficient permissions to delete '${fullPath}'.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Insufficient permissions to delete '%s'."), fullPath),
+      );
 
     if (cache.GetFootprints().has(footprintName)) {
       cache.GetFootprints().delete(footprintName);
@@ -698,7 +716,8 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
 
     this.validateCache(aLibraryPath);
 
-    if (!this.m_cache!.IsWritable()) THROW_IO_ERROR(`Library '${aLibraryPath}' is read only.`);
+    if (!this.m_cache!.IsWritable())
+      THROW_IO_ERROR(wxFormat(wxGetTranslation("Library '%s' is read only."), aLibraryPath));
 
     this.m_cache!.Remove(aFootprintName);
   }
@@ -714,7 +733,9 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
   /** `CreateLibrary( aLibraryPath )`: an empty `.pretty` folder. */
   override CreateLibrary(aLibraryPath: string, aProperties: PCB_IO_PROPERTIES | null = null): void {
     if (wxDirExists(aLibraryPath))
-      THROW_IO_ERROR(`Cannot overwrite library path '${aLibraryPath}'.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Cannot overwrite library path '%s'."), aLibraryPath),
+      );
 
     this.init(aProperties);
 
@@ -731,12 +752,16 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
     if (!wxDirExists(aLibraryPath)) return false;
 
     if (!wxIsDirWritable(aLibraryPath))
-      THROW_IO_ERROR(`Insufficient permissions to delete folder '${aLibraryPath}'.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Insufficient permissions to delete folder '%s'."), aLibraryPath),
+      );
 
     const entries = wxDirEnumerate(aLibraryPath) ?? [];
 
     if (entries.some((e) => e.isDir))
-      THROW_IO_ERROR(`Library folder '${aLibraryPath}' has unexpected sub-folders.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Library folder '%s' has unexpected sub-folders."), aLibraryPath),
+      );
 
     // All the footprint files must be deleted before the directory can be deleted.
     for (const e of entries) {
@@ -750,7 +775,9 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
 
     // `wxRmdir`: a folder a mount only knew through its files is gone with them already.
     if (wxDirExists(aLibraryPath) && !wxRemoveDirTree(aLibraryPath))
-      THROW_IO_ERROR(`Footprint library '${aLibraryPath}' cannot be deleted.`);
+      THROW_IO_ERROR(
+        wxFormat(wxGetTranslation("Footprint library '%s' cannot be deleted."), aLibraryPath),
+      );
 
     if (this.m_cache && !this.m_cache.IsPath(aLibraryPath)) this.m_cache = null;
 
@@ -1946,7 +1973,9 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
           return 'custom';
 
         default:
-          throw new Error(`unknown pad type: ${aPad.GetShape(aLayer)}`); // THROW_IO_ERROR
+          throw new Error(
+            wxFormat(wxGetTranslation('unknown pad type: %d'), aPad.GetShape(aLayer)),
+          ); // THROW_IO_ERROR
       }
     };
 
@@ -2830,7 +2859,7 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
           break;
 
         default:
-          throw new Error(`unknown via type ${via.GetViaType()}`); // THROW_IO_ERROR
+          throw new Error(wxFormat(wxGetTranslation('unknown via type %d'), via.GetViaType())); // THROW_IO_ERROR
       }
 
       this.m_out.Print(
@@ -3146,7 +3175,12 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
           break;
 
         default:
-          throw new Error(`unknown zone corner smoothing type ${aZone.GetCornerSmoothingType()}`); // THROW_IO_ERROR
+          throw new Error(
+            wxFormat(
+              wxGetTranslation('unknown zone corner smoothing type %d'),
+              aZone.GetCornerSmoothingType(),
+            ),
+          ); // THROW_IO_ERROR
       }
 
       if (aZone.GetCornerRadius() !== 0)

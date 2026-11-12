@@ -46,6 +46,7 @@ import { DIALOG_EXPORT_2581_BASE } from './dialog_export_2581_base.js';
 import type { BOARD } from '../board.js';
 import { PCB_IO_IPC2581 } from '../pcb_io/ipc2581/pcb_io_ipc2581.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface Props {
   board: BOARD;
@@ -121,7 +122,7 @@ export function GenerateFile(
     if (!(e instanceof IO_ERROR)) throw e;
 
     aReporter?.Report(
-      `Error generating IPC-2581 file '${aJob.m_filename}'.\n${e.What()}`,
+      wxFormat(_("Error generating IPC-2581 file '%s'.\n%s"), aJob.m_filename, e.What()),
       RPT_SEVERITY_ERROR,
     );
     return false;

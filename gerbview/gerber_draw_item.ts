@@ -43,6 +43,7 @@ import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `GBR_BASIC_SHAPE_TYPE` (`gerber_draw_item.h:50-61`), `m_ShapeType`. */
 export enum GBR_BASIC_SHAPE_TYPE {
@@ -671,7 +672,7 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
       if (this.m_AperFunction.length === 0) text = _('No attribute');
       else text = this.m_AperFunction;
     } else {
-      msg = `D Code ${this.m_DCode}`;
+      msg = wxFormat(_('D Code %d'), this.m_DCode);
       const apertDescr = this.GetDcodeDescr();
 
       if (!apertDescr || apertDescr.m_AperFunction.length === 0) text = _('No attribute');
@@ -738,11 +739,18 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
 
     if (this.m_netAttributes.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_PAD) {
       if (this.m_netAttributes.m_PadPinFunction.IsEmpty()) {
-        cmp_pad_msg = `Cmp: ${this.m_netAttributes.m_Cmpref}  Pad: ${this.m_netAttributes.m_Padname.GetValue()}`;
+        cmp_pad_msg = wxFormat(
+          _('Cmp: %s  Pad: %s'),
+          this.m_netAttributes.m_Cmpref,
+          this.m_netAttributes.m_Padname.GetValue(),
+        );
       } else {
         cmp_pad_msg =
-          `Cmp: ${this.m_netAttributes.m_Cmpref}  Pad: ${this.m_netAttributes.m_Padname.GetValue()}` +
-          `  Fct ${this.m_netAttributes.m_PadPinFunction.GetValue()}`;
+          wxFormat(
+            _('Cmp: %s  Pad: %s'),
+            this.m_netAttributes.m_Cmpref,
+            this.m_netAttributes.m_Padname.GetValue(),
+          ) + `  Fct ${this.m_netAttributes.m_PadPinFunction.GetValue()}`;
       }
     } else if (this.m_netAttributes.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_CMP) {
       cmp_pad_msg = _('Cmp:');

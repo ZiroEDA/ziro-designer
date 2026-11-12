@@ -82,6 +82,7 @@ import {
 import { type BoardFinish, edgeConnectorOf } from './panel_board_finish.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** An additional dielectric sublayer (BOARD_STACKUP_ITEM's DIELECTRIC_PRMS
  *  entries past index 0, the `addsublayer` groups of the file format). */
@@ -134,7 +135,7 @@ function stackupItemToWindow(item: BOARD_STACKUP_ITEM): StackupLayer {
   const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
   const isDielectric = item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC;
   const layerName = isDielectric
-    ? `Dielectric ${item.GetDielectricLayerId()}`
+    ? wxFormat(wxGetTranslation('Dielectric %d'), item.GetDielectricLayerId())
     : (STACKUP_DISPLAY_NAME[LSET.Name(item.GetBrdLayerId())] ?? LSET.Name(item.GetBrdLayerId()));
   const row: StackupLayer = {
     name: layerName,
@@ -532,7 +533,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
         items.push(
           n > 1
             ? `Layer 'Dielectric ${dielIdOf(i)}' (sublayer ${si + 1}/${n})`
-            : `Dielectric ${dielIdOf(i)}`,
+            : wxFormat(wxGetTranslation('Dielectric %d'), dielIdOf(i)),
         );
         targets.push({ layer: i, sub: si });
       }
@@ -632,8 +633,8 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
     setAdjust({
       title:
         minThickness === 0
-          ? `Enter board thickness in ${unitLabelText(units).trim()}:`
-          : `Enter expected board thickness (min value ${minText}):`,
+          ? wxFormat(wxGetTranslation('Enter board thickness in %s:'), unitLabelText(units).trim())
+          : wxFormat(wxGetTranslation('Enter expected board thickness (min value %s):'), minText),
       minThickness,
       minText,
       candidates,
@@ -647,7 +648,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
     const target = parseUnitValue(aText, units, pcbIUScale);
     if (!Number.isFinite(target)) return;
     if (target < a.minThickness) {
-      messageBox(`Value too small (min value ${a.minText}).`);
+      messageBox(wxFormat(wxGetTranslation('Value too small (min value %s).'), a.minText));
       return;
     }
     if (a.candidates === 0) {

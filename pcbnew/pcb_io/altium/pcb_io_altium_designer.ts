@@ -32,7 +32,7 @@ import type { KIID } from '@ziroeda/common/kiid.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';
-import { wxCmpNoCase } from '@ziroeda/wx/wxstring.js';
+import { wxCmpNoCase, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { BOARD } from '../../board.js';
 import type { FOOTPRINT } from '../../footprint.js';
 import {
@@ -44,6 +44,7 @@ import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.j
 import { ALTIUM_PCB, ALTIUM_PCB_DIR } from './altium_pcb.js';
 import { ALTIUM_PCB_COMPOUND_FILE } from './altium_pcb_compound_file.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function ApplyAltiumProjectVariantsToBoard(
   aBoard: BOARD,
@@ -192,7 +193,7 @@ export function loadAltiumBoard(
 ): void {
   const data = aReadFile(aFileName);
 
-  if (!data) throw new IO_ERROR(`Cannot open file '${aFileName}'.`);
+  if (!data) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'."), aFileName));
 
   const altiumPcbFile = new ALTIUM_PCB_COMPOUND_FILE(data);
 
@@ -363,7 +364,7 @@ export class PCB_IO_ALTIUM_DESIGNER extends PCB_IO {
 
       const data = this.m_readFile(aLibraryPath);
 
-      if (!data) throw new IO_ERROR(`Cannot open file '${aLibraryPath}'.`);
+      if (!data) throw new IO_ERROR(wxFormat(_("Cannot open file '%s'."), aLibraryPath));
 
       if (aLibraryPath.toLowerCase().endsWith('.pcblib')) {
         libFiles.m_Files.push(new ALTIUM_PCB_COMPOUND_FILE(data));
@@ -406,7 +407,7 @@ export class PCB_IO_ALTIUM_DESIGNER extends PCB_IO {
         const libraryData = altiumLibFile.FindStream(streamName);
 
         if (libraryData === null) {
-          throw new IO_ERROR(`File not found: '${FormatPath(streamName)}'.`);
+          throw new IO_ERROR(wxFormat(_("File not found: '%s'."), FormatPath(streamName)));
         }
 
         const parser = new ALTIUM_BINARY_PARSER(altiumLibFile, libraryData);
@@ -471,7 +472,7 @@ export class PCB_IO_ALTIUM_DESIGNER extends PCB_IO {
 
     const cache = this.m_fplibFiles.get(aLibraryPath);
 
-    if (!cache) throw new IO_ERROR(`No footprints in library '${aLibraryPath}'`);
+    if (!cache) throw new IO_ERROR(wxFormat(_("No footprints in library '%s'"), aLibraryPath));
 
     try {
       for (const altiumLibFile of cache.m_Files) {
@@ -497,7 +498,9 @@ export class PCB_IO_ALTIUM_DESIGNER extends PCB_IO {
       throw exception;
     }
 
-    throw new IO_ERROR(`Footprint '${aFootprintName}' not found in '${aLibraryPath}'.`);
+    throw new IO_ERROR(
+      wxFormat(_("Footprint '%s' not found in '%s'."), aFootprintName, aLibraryPath),
+    );
   }
 
   override GetImportedCachedLibraryFootprints(): FOOTPRINT[] {

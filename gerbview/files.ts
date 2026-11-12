@@ -52,6 +52,7 @@ import { GERBER_FILE_IMAGE_LIST, GERBER_ORDER_ENUM } from './gerber_file_image_l
 import { type GERBVIEW_FRAME, NO_AVAILABLE_LAYERS } from './gerbview_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The file types `LoadListOfGerberAndDrillFiles` switches on (`aFileType`):
@@ -439,7 +440,7 @@ export async function unarchiveFiles(
 
   if (!entries) {
     if (aReporter) {
-      msg = `Zip file '${aFullFileName}' cannot be opened.`;
+      msg = wxFormat(_("Zip file '%s' cannot be opened."), aFullFileName);
       aReporter.Report(msg, RPT_SEVERITY_ERROR);
     }
 
@@ -469,7 +470,7 @@ export async function unarchiveFiles(
     if (curr_ext === 'gbrjob') {
       //We cannot read a gerber job file as a gerber plot file: skip it
       if (aReporter) {
-        msg = `Skipped file '${fname}' (gerber job file).`;
+        msg = wxFormat(_("Skipped file '%s' (gerber job file)."), fname);
         aReporter.Report(msg, RPT_SEVERITY_WARNING);
       }
 
@@ -503,7 +504,7 @@ export async function unarchiveFiles(
       success = false;
 
       if (aReporter) {
-        msg = `<b>Unable to create temporary file '${unzipped_tempfile}'.</b>`;
+        msg = wxFormat(_("<b>Unable to create temporary file '%s'.</b>"), unzipped_tempfile);
         aReporter.Report(msg, RPT_SEVERITY_ERROR);
       }
     }
@@ -519,7 +520,7 @@ export async function unarchiveFiles(
         // If we have no way to know what layer it is, just guess
         order = GERBER_ORDER_ENUM.GERBER_TOP_COPPER;
       } else if (aReporter) {
-        msg = `Skipped file '${fname}' (unknown type).`;
+        msg = wxFormat(_("Skipped file '%s' (unknown type)."), fname);
         aReporter.Report(msg, RPT_SEVERITY_WARNING);
       }
     }
@@ -548,7 +549,7 @@ export async function unarchiveFiles(
       success = false;
 
       if (aReporter) {
-        msg = `<b>unzipped file ${unzipped_tempfile} read error</b>`;
+        msg = wxFormat(_('<b>unzipped file %s read error</b>'), unzipped_tempfile);
         aReporter.Report(msg, RPT_SEVERITY_ERROR);
       }
     } else {

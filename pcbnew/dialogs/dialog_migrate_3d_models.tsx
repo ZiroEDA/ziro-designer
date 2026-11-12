@@ -35,6 +35,7 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { PROJECT_PCB } from '../project_pcb.js';
 import { DIALOG_MIGRATE_3D_MODELS_BASE } from './dialog_migrate_3d_models_base.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** Where the app serves the hosted library's catalogue. */
 export const HOSTED_3D_CATALOG_URL = '/models3d_catalog.json';
@@ -535,7 +536,10 @@ export async function MigrateWrlModelsOnLoad(
 
     const msg =
       unresolved === 1
-        ? `${unresolved} WRL 3D model could not be matched to an equivalent STEP model.`
+        ? wxFormat(
+            wxGetTranslation('%d WRL 3D model could not be matched to an equivalent STEP model.'),
+            unresolved,
+          )
         : `${unresolved} WRL 3D models could not be matched to equivalent STEP models.`;
 
     infoBar.RemoveAllButtons();

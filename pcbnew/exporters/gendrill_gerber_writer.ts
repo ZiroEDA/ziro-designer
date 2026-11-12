@@ -37,6 +37,7 @@ import {
   ZEROS_FMT,
 } from './gendrill_writer_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // set to 1 to use flashed oblong holes, 0 to draw them by a line (route holes).
 // WARNING: currently ( gerber-layer-format-specification-revision-2023-08 ),
@@ -121,14 +122,17 @@ export class GERBER_WRITER extends GENDRILL_WRITER_BASE {
         const result = this.createDrillFile(fullFilename, isNonPlated, span);
 
         if (result < 0) {
-          aReporter?.report(`Failed to create file '${fullFilename}'.`, RPT_SEVERITY_ERROR);
+          aReporter?.report(
+            wxFormat(_("Failed to create file '%s'."), fullFilename),
+            RPT_SEVERITY_ERROR,
+          );
           success = false;
           break;
         }
 
         wroteDrillFile = true;
 
-        aReporter?.report(`Created file '${fullFilename}'.`, RPT_SEVERITY_ACTION);
+        aReporter?.report(wxFormat(_("Created file '%s'."), fullFilename), RPT_SEVERITY_ACTION);
 
         if (wroteDrillFile && span.m_IsBackdrill) {
           if (!this.writeBackdrillLayerPairFile(aPlotDirectory, aReporter, span)) {
@@ -165,11 +169,14 @@ export class GERBER_WRITER extends GENDRILL_WRITER_BASE {
 
         if (this.createProtectionFile(fullFilename, feature, span.Pair()) < 0) {
           if (aReporter) {
-            aReporter.report(`Failed to create file '${fullFilename}'.`, RPT_SEVERITY_ERROR);
+            aReporter.report(
+              wxFormat(_("Failed to create file '%s'."), fullFilename),
+              RPT_SEVERITY_ERROR,
+            );
             success = false;
           }
         } else {
-          aReporter?.report(`Created file '${fullFilename}'.`, RPT_SEVERITY_ACTION);
+          aReporter?.report(wxFormat(_("Created file '%s'."), fullFilename), RPT_SEVERITY_ACTION);
         }
       }
     }
@@ -519,12 +526,15 @@ export class GERBER_WRITER extends GENDRILL_WRITER_BASE {
     const fullFilename = joinPath(aPlotDirectory, this.getBackdrillLayerPairFileName(aSpan));
 
     if (this.createDrillFile(fullFilename, true, aSpan) < 0) {
-      aReporter?.report(`Failed to create file '${fullFilename}'.`, RPT_SEVERITY_ERROR);
+      aReporter?.report(
+        wxFormat(_("Failed to create file '%s'."), fullFilename),
+        RPT_SEVERITY_ERROR,
+      );
 
       return false;
     }
 
-    aReporter?.report(`Created file '${fullFilename}'.`, RPT_SEVERITY_ACTION);
+    aReporter?.report(wxFormat(_("Created file '%s'."), fullFilename), RPT_SEVERITY_ACTION);
 
     return true;
   }

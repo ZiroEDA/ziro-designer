@@ -25,7 +25,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { LINE_READER } from '@ziroeda/common/richio.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
-import { wxCmpNoCase } from '@ziroeda/wx/wxstring.js';
+import { wxCmpNoCase, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { IGNORE_PARENT_GROUP } from '@ziroeda/common/eda_item.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import {
@@ -51,6 +51,7 @@ import { VIATYPE } from '../../pcb_track_types.js';
 import { ZONE } from '../../zone.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FILEEXT::GedaPcbFootprintLibFileExtension`. */
 const GedaPcbFootprintLibFileExtension = 'fp';
@@ -73,7 +74,8 @@ function parseGedaInt(aValue: string, aScalar: number): number {
   // the prefix and leaves `value` alone only when nothing converts.
   value = ToCDouble(aValue, value);
 
-  if (value === DBL_MAX) throw new IO_ERROR(`Cannot convert '${aValue}' to an integer.`);
+  if (value === DBL_MAX)
+    throw new IO_ERROR(wxFormat(_("Cannot convert '%s' to an integer."), aValue));
 
   return KiROUND(value * aScalar);
 }
@@ -323,7 +325,8 @@ class GPCB_FPL_CACHE {
   Load(): void {
     const files = this.m_owner.ListDirectory(this.m_lib_path);
 
-    if (files === null) throw new IO_ERROR(`Footprint library '${this.m_lib_path}' not found.`);
+    if (files === null)
+      throw new IO_ERROR(wxFormat(_("Footprint library '%s' not found."), this.m_lib_path));
 
     let cacheErrorMsg = '';
 
@@ -388,10 +391,10 @@ class GPCB_FPL_CACHE {
      *   Element ("Desc" "Name" TX TY TDir TScale TNFlags)
      */
     if (wxCmpNoCase(parameters[0] ?? '', 'Element') !== 0)
-      parseError(`Unknown token '${parameters[0] ?? ''}'`);
+      parseError(wxFormat(_("Unknown token '%s'"), parameters[0] ?? ''));
 
     if (paramCnt < 10 || paramCnt > 14)
-      parseError(`Element token contains ${paramCnt} parameters.`);
+      parseError(wxFormat(_('Element token contains %d parameters.'), paramCnt));
 
     // Test symbol after "Element": if [ units = 0.01 mils, and if ( units = 1 mil
     if (parameters[1] === '(') conv_unit = OLD_GPCB_UNIT_CONV;
@@ -789,7 +792,7 @@ export class PCB_IO_GEDA extends PCB_IO {
     if (this.m_listDir(aLibraryPath) === null) {
       if (aBestEfforts) return;
 
-      throw new IO_ERROR(`Footprint library '${aLibraryPath}' not found.`);
+      throw new IO_ERROR(wxFormat(_("Footprint library '%s' not found."), aLibraryPath));
     }
 
     this.init(aProperties);
@@ -846,7 +849,8 @@ export class PCB_IO_GEDA extends PCB_IO {
     this.init(aProperties);
     this.validateCache(aLibraryPath);
 
-    if (!this.m_cache!.IsWritable()) throw new IO_ERROR(`Library '${aLibraryPath}' is read only.`);
+    if (!this.m_cache!.IsWritable())
+      throw new IO_ERROR(wxFormat(_("Library '%s' is read only."), aLibraryPath));
   }
 
   override DeleteLibrary(_aLibraryPath: string): boolean {
@@ -962,7 +966,9 @@ export class PCB_IO_GEDA extends PCB_IO {
 
     // Via[X Y Thickness Clearance Mask Drill "Name" SFlags]
     if (paramCnt < 10)
-      throw new IO_ERROR(`Via token contains ${paramCnt} parameters, expected at least 10.`);
+      throw new IO_ERROR(
+        wxFormat(_('Via token contains %d parameters, expected at least 10.'), paramCnt),
+      );
 
     const via = new PCB_VIA(board);
 
@@ -992,7 +998,7 @@ export class PCB_IO_GEDA extends PCB_IO {
     const footprint = new FOOTPRINT(this.m_board);
 
     if (paramCnt < 10 || paramCnt > 14)
-      throw new IO_ERROR(`Element token contains ${paramCnt} parameters.`);
+      throw new IO_ERROR(wxFormat(_('Element token contains %d parameters.'), paramCnt));
 
     let descIdx: number;
     let nameIdx: number;

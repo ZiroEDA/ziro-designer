@@ -66,6 +66,7 @@ import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
 import { PAD_ATTRIB } from '../padstack.js';
 import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * What BOARD_INSPECTION_TOOL asks of `PCB_EDIT_FRAME` beyond PCB_BASE_EDIT_FRAME.
@@ -410,7 +411,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         constraint = drcEngine.EvalRules(DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT, a, b, layer, r);
 
         r.report('');
-        r.report(`Resolved max uncoupled length: ${reportMax(str, constraint)}.`);
+        r.report(wxFormat(_('Resolved max uncoupled length: %s.'), reportMax(str, constraint)));
         break;
       }
 
@@ -424,7 +425,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved height constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved height constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -444,7 +449,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved thickness constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved thickness constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -458,7 +467,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved width constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved width constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -472,7 +485,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved angle constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved angle constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -492,7 +509,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved segment length constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved segment length constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -511,7 +532,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         );
 
         r.report('');
-        r.report(`Resolved min connection width: ${reportMin(str, constraint)}.`);
+        r.report(wxFormat(_('Resolved min connection width: %s.'), reportMin(str, constraint)));
         break;
 
       case PCB_DRC_CODE.DRCE_VIA_DIAMETER:
@@ -524,7 +545,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved diameter constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved diameter constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -538,7 +563,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved annular width constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved annular width constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -553,7 +582,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved hole size constraints: min ${reportMin(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved hole size constraints: min %s; max %s.'),
+            reportMin(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
         break;
 
@@ -578,7 +611,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           clearanceStr = str(clearance);
 
           r.report('');
-          r.report(`Resolved min clearance: ${clearanceStr}.`);
+          r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         }
 
         r.report('');
@@ -603,7 +636,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           r.report(_("No 'physical_hole_clearance' constraints defined."));
         } else {
           r.report('');
-          r.report(`Resolved min clearance: ${clearanceStr}.`);
+          r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         }
 
         break;
@@ -625,7 +658,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         clearanceStr = str(clearance);
 
         r.report('');
-        r.report(`Resolved min clearance: ${clearanceStr}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         break;
 
       case PCB_DRC_CODE.DRCE_EDGE_CLEARANCE:
@@ -645,7 +678,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         clearanceStr = str(clearance);
 
         r.report('');
-        r.report(`Resolved min clearance: ${clearanceStr}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         break;
 
       case PCB_DRC_CODE.DRCE_CLEARANCE:
@@ -686,7 +719,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           clearanceStr = str(clearance);
 
           r.report('');
-          r.report(`Resolved min clearance: ${clearanceStr}.`);
+          r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         }
 
         r.report('');
@@ -709,7 +742,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           r.report(_("No 'physical_clearance' constraints defined."));
         } else {
           r.report('');
-          r.report(`Resolved min clearance: ${clearanceStr}.`);
+          r.report(wxFormat(_('Resolved min clearance: %s.'), clearanceStr));
         }
 
         break;
@@ -1085,7 +1118,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved thermal relief gap: ${str(gap)}.`);
+        r.report(wxFormat(_('Resolved thermal relief gap: %s.'), str(gap)));
 
         r.report('');
         r.report('');
@@ -1103,7 +1136,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved spoke width: ${str(width)}.`);
+        r.report(wxFormat(_('Resolved spoke width: %s.'), str(width)));
 
         r.report('');
         r.report('');
@@ -1121,7 +1154,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min spoke count: ${minSpokes}.`);
+        r.report(wxFormat(_('Resolved min spoke count: %d.'), minSpokes));
       } else if (constraint.m_ZoneConnection === ZONE_CONNECTION.NONE) {
         r.report('');
         r.report('');
@@ -1129,7 +1162,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         clearance = zone.GetLocalClearance()!;
         r.report('');
-        r.report(`Zone clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Zone clearance: %s.'), str(clearance)));
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
@@ -1144,8 +1177,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
           r.report('');
           r.report(
-            `Overridden by larger physical clearance from ${EscapeHTML(constraint.GetName())};` +
-              `clearance: ${str(clearance)}.`,
+            wxFormat(
+              _('Overridden by larger physical clearance from %s;clearance: %s.'),
+              EscapeHTML(constraint.GetName()),
+              str(clearance),
+            ),
           );
         }
 
@@ -1163,8 +1199,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
             r.report('');
             r.report(
-              'Overridden by larger physical hole clearance ' +
-                `from ${EscapeHTML(constraint.GetName())}; clearance: ${str(clearance)}.`,
+              wxFormat(
+                _('Overridden by larger physical hole clearance from %s; clearance: %s.'),
+                EscapeHTML(constraint.GetName()),
+                str(clearance),
+              ),
             );
           }
         }
@@ -1172,7 +1211,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
       } else {
         r.report('');
         r.report('');
@@ -1181,7 +1220,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(0)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(0)));
       }
 
       (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
@@ -1214,9 +1253,11 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (constraint.IsNull()) {
           rep.report(_('Min clearance is 0.'));
         } else if (clearance < 0) {
-          rep.report(`Resolved clearance: ${str(clearance)}; clearance will not be tested.`);
+          rep.report(
+            wxFormat(_('Resolved clearance: %s; clearance will not be tested.'), str(clearance)),
+          );
         } else {
-          rep.report(`Resolved min clearance: ${str(clearance)}.`);
+          rep.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
         }
       };
 
@@ -1294,8 +1335,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report(
-          `Resolved gap constraints: min ${reportMin(str, constraint)}; ` +
-            `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+          wxFormat(
+            _('Resolved gap constraints: min %s; opt %s; max %s.'),
+            reportMin(str, constraint),
+            reportOpt(str, constraint),
+            reportMax(str, constraint),
+          ),
         );
 
         r.report('');
@@ -1322,7 +1367,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           );
 
           r.report('');
-          r.report(`Resolved max uncoupled length: ${reportMax(str, constraint)}.`);
+          r.report(wxFormat(_('Resolved max uncoupled length: %s.'), reportMax(str, constraint)));
         }
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
@@ -1344,7 +1389,10 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       if (aItem.IsOnLayer(correspondingMask)) return true;
 
       if (aItem.IsTented(correspondingMask) && aItem.IsOnLayer(correspondingCopper)) {
-        aWarning.value = `Note: ${this.getItemDescription(aItem)} is tented; clearance will only be applied to holes.`;
+        aWarning.value = wxFormat(
+          _('Note: %s is tented; clearance will only be applied to holes.'),
+          this.getItemDescription(aItem),
+        );
         return true;
       }
 
@@ -1376,7 +1424,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         if (warning.value !== '') r.report(warning.value);
 
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
       }
@@ -1402,7 +1450,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
       }
@@ -1435,7 +1483,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
       }
@@ -1464,7 +1512,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
       }
@@ -1498,7 +1546,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (compileError) this.reportCompileError(r);
 
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
 
         (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
       }
@@ -1548,11 +1596,14 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (constraint.IsNull()) {
           r.report('');
           r.report(
-            `No 'physical_clearance' constraints in effect on ${board.GetLayerName(layer)}.`,
+            wxFormat(
+              _("No 'physical_clearance' constraints in effect on %s."),
+              board.GetLayerName(layer),
+            ),
           );
         } else {
           r.report('');
-          r.report(`Resolved min clearance: ${str(clearance)}.`);
+          r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
         }
 
         r.report('');
@@ -1599,7 +1650,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         r.report(_("No 'physical_hole_clearance' constraints defined."));
       } else {
         r.report('');
-        r.report(`Resolved min clearance: ${str(clearance)}.`);
+        r.report(wxFormat(_('Resolved min clearance: %s.'), str(clearance)));
       }
     }
 
@@ -1686,8 +1737,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved width constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved width constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.Flush();
@@ -1710,8 +1765,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved diameter constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved diameter constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.Flush();
@@ -1732,8 +1791,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved annular width constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved annular width constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.Flush();
@@ -1758,8 +1821,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved hole size constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved hole size constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.Flush();
@@ -1786,7 +1853,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       if (compileError) this.reportCompileError(r);
 
       r.report('');
-      r.report(`Resolved solder mask expansion: ${reportOpt(str, constraint)}.`);
+      r.report(wxFormat(_('Resolved solder mask expansion: %s.'), reportOpt(str, constraint)));
 
       r.Flush();
     }
@@ -1812,7 +1879,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       if (compileError) this.reportCompileError(r);
 
       r.report('');
-      r.report(`Resolved solder paste absolute clearance: ${reportOpt(str, constraint)}.`);
+      r.report(
+        wxFormat(_('Resolved solder paste absolute clearance: %s.'), reportOpt(str, constraint)),
+      );
 
       this.reportHeader(
         _('Solder paste relative clearance resolution for:'),
@@ -1835,7 +1904,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       r.report('');
       r.report('');
       r.report('');
-      r.report(`Resolved solder paste relative clearance: ${reportOpt(str, constraint)}.`);
+      r.report(
+        wxFormat(_('Resolved solder paste relative clearance: %s.'), reportOpt(str, constraint)),
+      );
 
       r.Flush();
     }
@@ -1860,8 +1931,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved height constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved height constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.report('');
@@ -1881,8 +1956,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.report('');
       r.report(
-        `Resolved thickness constraints: min ${reportMin(str, constraint)}; ` +
-          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        wxFormat(
+          _('Resolved thickness constraints: min %s; opt %s; max %s.'),
+          reportMin(str, constraint),
+          reportOpt(str, constraint),
+          reportMax(str, constraint),
+        ),
       );
 
       r.Flush();

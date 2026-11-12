@@ -8,6 +8,8 @@
  */
 
 import { PARSE_ERROR } from './dsnlexer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { PARSE_ERROR };
 
@@ -84,19 +86,20 @@ export class FUTURE_FORMAT_ERROR extends PARSE_ERROR {
 
     const init = (): string => {
       if (requiredGenerator === '') {
-        return (
-          'KiCad was unable to open this file because it was created with a more ' +
-          'recent version than the one you are running.\n\n' +
-          `To open it you will need to upgrade KiCad to a version dated ${requiredVersion} or ` +
-          'later.'
+        return wxFormat(
+          _(
+            'KiCad was unable to open this file because it was created with a more recent version than the one you are running.\n\nTo open it you will need to upgrade KiCad to a version dated %s or later.',
+          ),
+          requiredVersion,
         );
       }
 
-      return (
-        'KiCad was unable to open this file because it was created with a more ' +
-        'recent version than the one you are running.\n\n' +
-        `To open it you will need to upgrade KiCad to version ${requiredGenerator} or ` +
-        `later (file format dated ${requiredVersion} or later).`
+      return wxFormat(
+        _(
+          'KiCad was unable to open this file because it was created with a more recent version than the one you are running.\n\nTo open it you will need to upgrade KiCad to version %s or later (file format dated %s or later).',
+        ),
+        requiredGenerator,
+        requiredVersion,
       );
     };
 

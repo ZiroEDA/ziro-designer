@@ -115,6 +115,7 @@ import {
 // Register the generators the board file can name.
 import '../../generators/pcb_tuning_pattern.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `SEXPR_BOARD_FILE_VERSION` (pcb_io_kicad_sexpr.h): the version this build writes. */
 export const SEXPR_BOARD_FILE_VERSION = 20260206;
@@ -324,7 +325,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
   parseInt(aExpected: string): number {
     const tok = this.NextTok();
 
-    if (!DSNLEXER.IsNumber(tok)) this.throwParse(`need a number for '${aExpected}'`);
+    if (!DSNLEXER.IsNumber(tok)) this.throwParse(wxFormat(_("need a number for '%s'"), aExpected));
 
     return Number.parseInt(this.CurText(), 10);
   }
@@ -448,7 +449,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     // User input shouldn't give wx asserts, so check manually and throw a proper
     // error instead
     if (day <= 0 || month <= 0 || month > 12 || day > new Date(year, month, 0).getDate()) {
-      this.throwParse(`Cannot interpret date code ${this.m_requiredVersion}`);
+      this.throwParse(wxFormat(_('Cannot interpret date code %d'), this.m_requiredVersion));
     }
 
     // wxDateTime::FormatDate(): the locale's short date; ISO here.
@@ -1080,7 +1081,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         break;
 
       default:
-        this.throwParse(`Unknown token '${this.CurText()}'`);
+        this.throwParse(wxFormat(_("Unknown token '%s'"), this.CurText()));
     }
 
     // const std::vector<wxString>* embeddedFonts = item->GetEmbeddedFiles()->UpdateFontFiles();
@@ -1345,7 +1346,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         }
 
         default:
-          this.throwParse(`Unknown token '${this.CurText()}'`);
+          this.throwParse(wxFormat(_("Unknown token '%s'"), this.CurText()));
       }
     }
 
@@ -1502,7 +1503,9 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         const gen: PCB_GENERATOR | null = mgr.CreateFromType(genInfo.genType);
 
         if (!gen) {
-          throw new IO_ERROR(`Cannot create generated object of type '${genInfo.genType}'`);
+          throw new IO_ERROR(
+            wxFormat(_("Cannot create generated object of type '%s'"), genInfo.genType),
+          );
         }
 
         group = gen;
@@ -1628,7 +1631,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     const pageType = this.CurText();
 
     if (!pageInfo.SetType(pageType)) {
-      this.throwParse(`Page type '${pageType}' is not valid.`);
+      this.throwParse(wxFormat(_("Page type '%s' is not valid."), pageType));
     }
 
     if (pageType === 'User') {
@@ -2087,7 +2090,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     // We need at least 2 copper layers and there must be an even number of them.
     if (copperLayerCount < 2 || copperLayerCount % 2 !== 0) {
-      this.throwParse(`${copperLayerCount} is not a valid layer count`);
+      this.throwParse(wxFormat(_('%d is not a valid layer count'), copperLayerCount));
     }
 
     if (this.m_preserveDestinationStackup) {

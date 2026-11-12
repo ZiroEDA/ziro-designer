@@ -363,7 +363,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                 value={Math.round(opacity[key as keyof ObjectOpacity] * 100)}
                 min={0}
                 max={100}
-                title={`Set opacity of ${label.toLowerCase()}`}
+                title={wxFormat(wxGetTranslation('Set opacity of %s'), label.toLowerCase())}
                 onChange={(v) => onOpacity(key as keyof ObjectOpacity, v / 100)}
               />
             )}

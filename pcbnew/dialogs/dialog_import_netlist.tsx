@@ -45,6 +45,7 @@ import { type ChooserFilter, WxFileDialog } from '@ziroeda/wx/filedlg.js';
 import { DIALOG_IMPORT_NETLIST_BASE } from './dialog_import_netlist_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
 export const NETLIST_FILE_FILTER: ChooserFilter = {
@@ -84,7 +85,7 @@ export function netlistHeadLines(
 ): ReportLine[] {
   return [
     {
-      message: `Reading netlist file '${aNetlistFileName}'.\n`,
+      message: wxFormat(_("Reading netlist file '%s'.\n"), aNetlistFileName),
       severity: RPT_SEVERITY_INFO,
       location: 'head',
     },

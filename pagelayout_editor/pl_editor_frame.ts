@@ -603,13 +603,13 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
 
     switch (this.GetUserUnits()) {
       case 'in':
-        gridformatter = (n) => `grid ${n.toFixed(3)}`;
+        gridformatter = (n) => wxFormat(_('grid %s'), n.toFixed(3));
         break;
       case 'mm':
-        gridformatter = (n) => `grid ${n.toFixed(4)}`;
+        gridformatter = (n) => wxFormat(_('grid %s'), n.toFixed(4));
         break;
       default:
-        gridformatter = (n) => `grid ${n.toFixed(6)}`;
+        gridformatter = (n) => wxFormat(_('grid %s'), n.toFixed(6));
         break;
     }
 

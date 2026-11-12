@@ -42,6 +42,7 @@ import { NETINFO_LIST } from '../netinfo_list.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One row of the netlist, `D356_RECORD`. */
 export interface D356Record {
@@ -387,8 +388,8 @@ export async function BOARD_EDITOR_CONTROL_GenD356File(aFrame: GEN_D356_FRAME): 
   settings.doNotExportUnconnectedPads = doNotExportUnconnectedPads;
 
   if (aFrame.WriteTextFile(dlg.path, writer.Write()))
-    void DisplayInfoMessage(`IPC-D-356 netlist file created:\n'${dlg.path}'.`);
-  else DisplayErrorMessage(`Failed to create file '${dlg.path}'.`);
+    void DisplayInfoMessage(wxFormat(_("IPC-D-356 netlist file created:\n'%s'."), dlg.path));
+  else DisplayErrorMessage(wxFormat(_("Failed to create file '%s'."), dlg.path));
 
   return 0;
 }

@@ -7,6 +7,8 @@
  * through SCH_EDIT_FRAME::saveSchematicFile (files-io.cpp:989-1081).
  */
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureFileExtension, KICAD_SCHEMATIC_FILE_EXTENSION } from '@ziroeda/common';
@@ -53,7 +55,9 @@ describe('EnsureFileExtension (common/common.cpp:662-678)', () => {
 
 describe('the status message (files-io.cpp:1073)', () => {
   it("is _( \"File '%s' saved.\" ) with upstream's straight quotes", () => {
-    expect(savedFileMessage('power.kicad_sch')).toBe("File 'power.kicad_sch' saved.");
+    expect(savedFileMessage('power.kicad_sch')).toBe(
+      wxFormat(_("File '%s' saved."), 'power.kicad_sch'),
+    );
   });
 });
 

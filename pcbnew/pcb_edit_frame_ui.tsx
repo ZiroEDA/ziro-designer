@@ -525,6 +525,7 @@ import {
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -3265,7 +3266,7 @@ export function PcbEditor({
     // `Loading %s...` (pcb_io_kicad_sexpr.cpp:3144) is the loader's first
     // Report(); the gauge stays at 0 because the parse is one call with no
     // checkpoint() to move it.
-    setLoading({ message: `Loading ${fileName}...`, value: 0 });
+    setLoading({ message: wxFormat(wxGetTranslation('Loading %s...'), fileName), value: 0 });
     const id = setTimeout(async () => {
       // Claimed only once the read actually starts: a frame hidden again
       // inside these 30 ms cancels the timer, and must read when next shown.
@@ -4288,13 +4289,16 @@ export function PcbEditor({
         loaded = readNetlistText(text);
       } catch (e) {
         DisplayErrorMessage(
-          `Error loading netlist.\n${e instanceof Error ? e.message : String(e)}`,
+          wxFormat(
+            wxGetTranslation('Error loading netlist.\n%s'),
+            e instanceof Error ? e.message : String(e),
+          ),
         );
         return null;
       }
 
       if (!loaded) {
-        DisplayErrorMessage(`Cannot open netlist file '${name}'.`);
+        DisplayErrorMessage(wxFormat(wxGetTranslation("Cannot open netlist file '%s'."), name));
         return null;
       }
 

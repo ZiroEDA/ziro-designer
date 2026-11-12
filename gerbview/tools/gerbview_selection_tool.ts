@@ -41,6 +41,7 @@ import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
 import { GERBVIEW_SELECTION } from './gerbview_selection.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The "Highlight" submenu: for a single selected item, the component, net,
@@ -70,13 +71,15 @@ class HIGHLIGHT_MENU extends ACTION_MENU {
         net_attr.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_CMP
       ) {
         const menuEntry = this.Add(GERBVIEW_ACTIONS.highlightComponent);
-        menuEntry.SetItemLabel(`Highlight Items of Component '${net_attr.m_Cmpref}'`);
+        menuEntry.SetItemLabel(wxFormat(_("Highlight Items of Component '%s'"), net_attr.m_Cmpref));
         addSeparator = true;
       }
 
       if (net_attr.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_NET) {
         const menuEntry = this.Add(GERBVIEW_ACTIONS.highlightNet);
-        menuEntry.SetItemLabel(`Highlight Items of Net '${UnescapeString(net_attr.m_Netname)}'`);
+        menuEntry.SetItemLabel(
+          wxFormat(_("Highlight Items of Net '%s'"), UnescapeString(net_attr.m_Netname)),
+        );
         addSeparator = true;
       }
 
@@ -84,13 +87,15 @@ class HIGHLIGHT_MENU extends ACTION_MENU {
 
       if (apertDescr && apertDescr.m_AperFunction !== '') {
         const menuEntry = this.Add(GERBVIEW_ACTIONS.highlightAttribute);
-        menuEntry.SetItemLabel(`Highlight Aperture Type '${apertDescr.m_AperFunction}'`);
+        menuEntry.SetItemLabel(
+          wxFormat(_("Highlight Aperture Type '%s'"), apertDescr.m_AperFunction),
+        );
         addSeparator = true;
       }
 
       if (apertDescr) {
         const menuEntry = this.Add(GERBVIEW_ACTIONS.highlightDCode);
-        menuEntry.SetItemLabel(`Highlight DCode D${apertDescr.m_Num_Dcode}`);
+        menuEntry.SetItemLabel(wxFormat(_('Highlight DCode D%d'), apertDescr.m_Num_Dcode));
         addSeparator = true;
       }
     }

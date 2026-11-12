@@ -101,6 +101,7 @@ import {
 } from './allegro_pcb_structs.js';
 import type { FILE_STREAM } from './allegro_stream.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `%#010x` / `%#010zx`. */
 const hex010 = (v: number): string =>
@@ -2308,10 +2309,12 @@ export class PARSER {
       verStr = verStr.replace(/[ \t\r\n\f\v]+$/, '');
 
       THROW_IO_ERROR(
-        `This file was created with ${verStr}, which uses a binary format that ` +
-          'predates Allegro 16.0 and is not supported by this importer.\n\n' +
-          'To import this design, open it in Cadence Allegro PCB Editor ' +
-          'version 16.0 or later and re-save, then import the resulting file.',
+        wxFormat(
+          _(
+            'This file was created with %s, which uses a binary format that predates Allegro 16.0 and is not supported by this importer.\n\nTo import this design, open it in Cadence Allegro PCB Editor version 16.0 or later and re-save, then import the resulting file.',
+          ),
+          verStr,
+        ),
       );
     }
 

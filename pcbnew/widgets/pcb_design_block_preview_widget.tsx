@@ -26,6 +26,8 @@ import type { BOARD } from '../board.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import { ParseBoard } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCB_DRAW_PANEL_GAL } from '../pcb_draw_panel_gal.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `DisplayDesignBlock`'s load: the block's board, or null when it has none or
@@ -47,7 +49,10 @@ export function loadDesignBlockBoard(
   } catch (e) {
     if (!(e instanceof IO_ERROR)) throw e;
 
-    aOnError?.(`Error loading board file:\n${aDesignBlock.GetBoardFile()}`, e.message);
+    aOnError?.(
+      wxFormat(_('Error loading board file:\n%s'), aDesignBlock.GetBoardFile()),
+      e.message,
+    );
     return null;
   }
 }

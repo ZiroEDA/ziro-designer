@@ -113,6 +113,7 @@ import type {
   Viewer3dRenderOptions,
 } from './viewer3d_types.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -962,7 +963,9 @@ export function mount3DViewer(
       const polys = built.layers[layer];
       if (!polys || polys.length === 0) continue;
       // create_scene.cpp:825, the BOARD's name for the layer
-      report(`Load OpenGL layer ${board.GetLayerName(pcbLayerIdOf(layer))}`);
+      report(
+        wxFormat(wxGetTranslation('Load OpenGL layer %s'), board.GetLayerName(pcbLayerIdOf(layer))),
+      );
       if (layer === 'F.Mask' || layer === 'B.Mask') continue; // special case below
       const [zTop, zBot] = zOf(layer);
       const p = polys3d(polys);
@@ -1251,7 +1254,12 @@ export function mount3DViewer(
       ready: components.ready.then(() => {
         if (placeholder) return;
         reloadsPending--;
-        report(`Reload time ${((performance.now() - startReloadTime) / 1000).toFixed(3)} s`);
+        report(
+          wxFormat(
+            wxGetTranslation('Reload time %.3f s'),
+            ((performance.now() - startReloadTime) / 1000).toFixed(3),
+          ),
+        );
       }),
       dispose: () => {
         components.dispose();
@@ -2092,7 +2100,10 @@ export function mount3DViewer(
     const ms = performance.now() - t0;
     if (moving && reloadsPending === 0 && Math.abs(ms - lastRenderMs) >= 1) {
       lastRenderMs = ms;
-      status = { ...status, activity: `Last render time ${ms.toFixed(0)} ms` };
+      status = {
+        ...status,
+        activity: wxFormat(wxGetTranslation('Last render time %.0f ms'), ms.toFixed(0)),
+      };
       pushStatus();
     }
   };

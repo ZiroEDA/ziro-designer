@@ -972,8 +972,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       if (
         libMgr.IsSymbolModified(libId.GetLibItemName(), libId.GetLibNickname()) &&
         !(await IsOK(
-          `The symbol '${libId.GetUniStringLibItemName()}' has been modified.\n` +
-            'Do you want to remove it from the library?',
+          wxFormat(
+            _("The symbol '%s' has been modified.\nDo you want to remove it from the library?"),
+            libId.GetUniStringLibItemName(),
+          ),
         ))
       ) {
         continue;
@@ -1146,8 +1148,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
       if (libMgr.IsLibraryReadOnly(newLib)) {
         await this.wxMessageBox(
-          `Library '${newLib}' is read-only. Choose a different library to save the symbol ` +
-            `'${unescapeString(newName)}' to.`,
+          wxFormat(
+            _("Library '%s' is read-only. Choose a different library to save the symbol '%s' to."),
+            newLib,
+            unescapeString(newName),
+          ),
         );
         return wxID_CANCEL;
       }
@@ -1165,16 +1170,22 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
       if (inAncestry) {
         await this.wxMessageBox(
-          `Symbol '${symbolName}' cannot replace another symbol '${unescapeString(newName)}' ` +
-            'that it descends from',
+          wxFormat(
+            _("Symbol '%s' cannot replace another symbol '%s' that it descends from"),
+            symbolName,
+            unescapeString(newName),
+          ),
         );
         return wxID_CANCEL;
       }
 
       if (inDescendents) {
         await this.wxMessageBox(
-          `Symbol '${symbolName}' cannot replace another symbol '${unescapeString(newName)}' ` +
-            'that is a descendent of it.',
+          wxFormat(
+            _("Symbol '%s' cannot replace another symbol '%s' that is a descendent of it."),
+            symbolName,
+            unescapeString(newName),
+          ),
         );
         return wxID_CANCEL;
       }
@@ -1189,9 +1200,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
       if (conflicts.length === 1 && conflicts[0] === newName) {
         // The simplest case is when the symbol itself has a conflict
-        const msg =
-          `Symbol '${unescapeString(newName)}' already exists in library '${newLib}'. ` +
-          'Do you want to overwrite it?';
+        const msg = wxFormat(
+          _("Symbol '%s' already exists in library '%s'. Do you want to overwrite it?"),
+          unescapeString(newName),
+          newLib,
+        );
 
         return (await this.ShowKiDialog({
           caption: _('Confirmation'),

@@ -27,6 +27,7 @@ import {
 import type { PrefsContext, PrefsTransferPrompt } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `PANEL_EESCHEMA_DISPLAY_OPTIONS::ResetPanel`
@@ -256,7 +257,10 @@ export function transferTemplateFieldnamesPage(
     caption: 'Warning',
     message:
       padded.length === 1
-        ? `The field name '${padded[0]}' contains trailing and/or leading white space.`
+        ? wxFormat(
+            _("The field name '%s' contains trailing and/or leading white space."),
+            padded[0]!,
+          )
         : `${padded.length} field names contain trailing and/or leading white space.`,
     extendedMessage:
       'This may result in what appears to be duplicate field names but are actually unique ' +

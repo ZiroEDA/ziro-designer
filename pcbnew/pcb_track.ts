@@ -123,6 +123,7 @@ import {
 } from './pcb_track_types.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export * from './pcb_track_types.js';
 
@@ -609,8 +610,8 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
 
     aList.push(
       new MSG_PANEL_ITEM(
-        `Min Clearance: ${frame.MessageTextFromValue(clearance)}`,
-        `(from ${source.value})`,
+        wxFormat(_('Min Clearance: %s'), frame.MessageTextFromValue(clearance)),
+        wxFormat(_('(from %s)'), source.value),
       ),
     );
 
@@ -618,7 +619,12 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
     msg = frame.MessageTextFromMinOptMax(constraintValue);
 
     if (msg !== '') {
-      aList.push(new MSG_PANEL_ITEM(`Width Constraints: ${msg}`, `(from ${source.value})`));
+      aList.push(
+        new MSG_PANEL_ITEM(
+          wxFormat(_('Width Constraints: %s'), msg),
+          wxFormat(_('(from %s)'), source.value),
+        ),
+      );
     }
   }
 
@@ -2165,8 +2171,8 @@ export class PCB_VIA extends PCB_TRACK {
 
     aList.push(
       new MSG_PANEL_ITEM(
-        `Min Clearance: ${frame.MessageTextFromValue(clearance)}`,
-        `(from ${source.value})`,
+        wxFormat(_('Min Clearance: %s'), frame.MessageTextFromValue(clearance)),
+        wxFormat(_('(from %s)'), source.value),
       ),
     );
 
@@ -2174,8 +2180,8 @@ export class PCB_VIA extends PCB_TRACK {
 
     aList.push(
       new MSG_PANEL_ITEM(
-        `Min Annular Width: ${frame.MessageTextFromValue(minAnnulus)}`,
-        `(from ${source.value})`,
+        wxFormat(_('Min Annular Width: %s'), frame.MessageTextFromValue(minAnnulus)),
+        wxFormat(_('(from %s)'), source.value),
       ),
     );
   }
@@ -2226,16 +2232,16 @@ export class PCB_VIA extends PCB_TRACK {
 
     switch (this.GetViaType()) {
       case VIATYPE.BLIND:
-        formatStr = (net, layers) => `Blind via ${net} on ${layers}`;
+        formatStr = (net, layers) => wxFormat(_('Blind via %s on %s'), net, layers);
         break;
       case VIATYPE.BURIED:
-        formatStr = (net, layers) => `Buried via ${net} on ${layers}`;
+        formatStr = (net, layers) => wxFormat(_('Buried via %s on %s'), net, layers);
         break;
       case VIATYPE.MICROVIA:
-        formatStr = (net, layers) => `Micro via ${net} on ${layers}`;
+        formatStr = (net, layers) => wxFormat(_('Micro via %s on %s'), net, layers);
         break;
       default:
-        formatStr = (net, layers) => `Via ${net} on ${layers}`;
+        formatStr = (net, layers) => wxFormat(_('Via %s on %s'), net, layers);
         break;
     }
 

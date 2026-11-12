@@ -16,6 +16,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { GERBER_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_gerber_writer.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
@@ -121,7 +122,7 @@ describe('the report', () => {
     writer.SetOptions({ x: 0, y: 0 });
     writer.CreateDrillandMapFilesSet('out', true, false, false, reporter as never);
 
-    expect(lines).toContain("Created file 'out/gerber_oracle-PTH-drl.gbr'.");
+    expect(lines).toContain(wxFormat(_("Created file '%s'."), 'out/gerber_oracle-PTH-drl.gbr'));
     expect(lines.at(-1)).toBe(_('Done.'));
   });
 });

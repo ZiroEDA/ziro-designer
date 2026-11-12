@@ -56,6 +56,7 @@ import {
   menuSeparator,
 } from '@ziroeda/common/tool/conditional_menu.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * What the tree selection is, which is all four of `Init`'s conditions
@@ -259,8 +260,12 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
         // footprint not in a library. But add a warning to let them know
         // they didn't quite get what they wanted.
         frame.ShowInfoBarWarning(
-          `The footprint could not be added to the selected library ('${libraryName}'). ` +
-            'This library is read-only.',
+          wxFormat(
+            _(
+              "The footprint could not be added to the selected library ('%s'). This library is read-only.",
+            ),
+            libraryName,
+          ),
           false,
         );
         // And the footprint will need to be saved manually
@@ -484,7 +489,11 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
           // If no change, accept it without prompting
           if (oldName !== newName && adapter?.FootprintExists(libraryName, newName)) {
-            const msg = `Footprint '${newName}' already exists in library '${libraryName}'.`;
+            const msg = wxFormat(
+              _("Footprint '%s' already exists in library '%s'."),
+              newName,
+              libraryName,
+            );
 
             const answer = await frame.AskKiDialog({
               caption: _('Confirmation'),
@@ -798,13 +807,13 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
     if (duplicates) {
       errors += duplicates;
-      details += `${duplicates} duplicate IDs replaced.\n`;
+      details += wxFormat(_('%d duplicate IDs replaced.\n'), duplicates);
     }
 
     if (errors) {
       this.m_frame!.OnModify();
 
-      const msg = `${errors} potential problems repaired.`;
+      const msg = wxFormat(_('%d potential problems repaired.'), errors);
       void DisplayInfoMessage(msg, details);
     } else {
       void DisplayInfoMessage(_('No footprint problems found.'));

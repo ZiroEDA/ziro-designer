@@ -20,6 +20,7 @@ import { CHAR_PTR, FILE, LINE_BUFFER, NUL, StrPurge, isdigit } from './libc.js';
 import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `GERBER_FILE_IMAGE::TestFileIsRS274`: "Original function derived from
@@ -235,7 +236,7 @@ export async function Read_GERBER_File(
   );
 
   if (!success) {
-    msg = `File '${GERBER_FullFileName}' not found`;
+    msg = wxFormat(_("File '%s' not found"), GERBER_FullFileName);
     this.Host().InfoBarError(msg);
     return false;
   }

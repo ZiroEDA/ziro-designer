@@ -44,6 +44,7 @@ import {
 import { GetStandardColors } from '../board_stackup_manager/stackup_predefined_prms.js';
 import { splitFileName } from './gendrill_writer_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // A helper enum to handle sides of some layers (silk, mask)
 export enum ONSIDE {
@@ -173,9 +174,15 @@ export class GERBER_JOBFILE_WRITER {
     const success = this.WriteJSONJobFile(aFullFilename);
 
     if (!success) {
-      this.m_reporter?.report(`Failed to create file '${aFullFilename}'.`, RPT_SEVERITY_ERROR);
+      this.m_reporter?.report(
+        wxFormat(_("Failed to create file '%s'."), aFullFilename),
+        RPT_SEVERITY_ERROR,
+      );
     } else {
-      this.m_reporter?.report(`Created Gerber job file '${aFullFilename}'.`, RPT_SEVERITY_ACTION);
+      this.m_reporter?.report(
+        wxFormat(_("Created Gerber job file '%s'."), aFullFilename),
+        RPT_SEVERITY_ACTION,
+      );
     }
 
     return success;

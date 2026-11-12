@@ -37,6 +37,7 @@ import { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 function isBoardItem(a: unknown): a is BOARD_ITEM {
   return (
@@ -227,7 +228,7 @@ export class PCB_TABLECELL extends PCB_TEXTBOX {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `Table cell ${this.GetAddr()}`;
+    return wxFormat(_('Table cell %s'), this.GetAddr());
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {

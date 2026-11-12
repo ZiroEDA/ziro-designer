@@ -73,6 +73,8 @@ import { viaPushoutForce } from './pns_via.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { routeShortest } from './pns_walkaround.js';
 import { arcShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `VIA_HANDLE{}`, whose only initialised member is `valid = false`. */
 function invalidViaHandle(): ViaHandle {
@@ -300,7 +302,7 @@ export class PnsDragger extends PnsDragAlgo {
       const limit = 180 - PNS_MAX_TANGENT_ANGLE_DEVIATION_DEG;
 
       this.mRouter.setFailureReason(
-        `Unable to drag arc tracks of ${limit.toFixed(1)} degrees or greater.`,
+        wxFormat(_('Unable to drag arc tracks of %.1f degrees or greater.'), limit.toFixed(1)),
       );
 
       return false;

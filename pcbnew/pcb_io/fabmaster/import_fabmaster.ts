@@ -79,6 +79,7 @@ import { ZONE } from '../../zone.js';
 import { AutoAssignZonePriorities } from '../../zone_utils.js';
 import { ZONE_CONNECTION } from '../../zones.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 type single_row = string[];
 
@@ -758,7 +759,7 @@ export class FABMASTER {
       if (eraseUnderscores(header[i]!) === aStr) return i;
     }
 
-    throw new IO_ERROR(`Could not find column label ${aStr}.`);
+    throw new IO_ERROR(wxFormat(_('Could not find column label %s.'), aStr));
   }
 
   private getLayer(aLayerName: string): PCB_LAYER_ID {

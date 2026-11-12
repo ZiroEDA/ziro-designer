@@ -115,6 +115,8 @@ import { PCB_TEXT } from '../../pcb_text.js';
 import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../../pcb_track.js';
 import { TEARDROP_TYPE } from '../../teardrop/teardrop_parameters.js';
 import { ZONE } from '../../zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const QUERY_MODEL_UUID_KEY = 'JLC_3DModel_Q';
 const MODEL_SIZE_KEY = 'JLC_3D_Size';
@@ -247,7 +249,8 @@ export class PCB_IO_EASYEDAPRO_PARSER {
   }
 
   static Convert(aValue: string): number {
-    if (!ToCDoubleOk(aValue)) throw new IO_ERROR(`Failed to parse value: '${aValue}'`);
+    if (!ToCDoubleOk(aValue))
+      throw new IO_ERROR(wxFormat(_("Failed to parse value: '%s'"), aValue));
 
     return strtodPrefix(aValue, 0)!.value;
   }

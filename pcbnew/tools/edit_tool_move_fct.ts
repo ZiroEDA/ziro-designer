@@ -53,6 +53,7 @@ import { PCB_ACTIONS } from './pcb_actions.js';
 import { IsZoneFillAction } from './pcb_picker_tool.js';
 import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `std::numeric_limits<int>::max()`. */
 const INT_MAX = 2147483647;
@@ -70,7 +71,10 @@ function PromptConnectedPadDecision(
 
   const uniquePads = [...new Set(aPads)];
 
-  const msg = `${uniquePads.length} unselected pad(s) are connected to these nets. How do you want to proceed?`;
+  const msg = wxFormat(
+    _('%zu unselected pad(s) are connected to these nets. How do you want to proceed?'),
+    uniquePads.length,
+  );
 
   let details =
     'Connected tracks, vias, and other non-zone copper items will still swap nets' +
@@ -795,7 +799,7 @@ export class EDIT_TOOL_MOVE_FCT {
       } else if (item.Type() === KICAD_T.PCB_PAD_T) {
         const pad = item as unknown as PAD;
         const fp = pad.GetParentFootprint()!;
-        msg = `${fp.GetReference()} pad ${pad.GetNumber()}`;
+        msg = wxFormat(_('%s pad %s'), fp.GetReference(), pad.GetNumber());
       } else {
         msg = item.GetTypeDesc().toLowerCase();
       }

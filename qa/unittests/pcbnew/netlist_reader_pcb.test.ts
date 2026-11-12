@@ -7,6 +7,8 @@
  * legacy_netlist_reader.cpp (PCB_COMPONENTs out), netlist.cpp LoadFootprints.
  */
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { COMPONENT, NETLIST } from '@ziroeda/common/netlist_reader/netlist.js';
 import { Reporter, RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
@@ -87,7 +89,7 @@ describe('LoadFootprints (PCB_EDIT_FRAME)', () => {
     const rep = new Reporter();
     LoadFootprints(frame(), nl, rep);
     expect(rep.count(RPT_SEVERITY_ERROR)).toBe(1);
-    expect(rep.lines[0]!.message).toBe('No footprint defined for symbol R2.');
+    expect(rep.lines[0]!.message).toBe(wxFormat(_('No footprint defined for symbol %s.'), 'R2'));
     const r1 = nl.GetComponentByReference('R1') as PCB_COMPONENT;
     expect(r1.GetFootprint()?.GetFPIDAsString()).toBe('R_0805');
   });
@@ -97,7 +99,11 @@ describe('LoadFootprints (PCB_EDIT_FRAME)', () => {
     const rep = new Reporter();
     LoadFootprints(frame({ loadFootprint: () => null }), nl, rep);
     expect(rep.lines.map((l) => l.message)).toContain(
-      "R1 footprint 'R_0805' not found in any libraries in the footprint library table.",
+      wxFormat(
+        _("%s footprint '%s' not found in any libraries in the footprint library table."),
+        'R1',
+        'R_0805',
+      ),
     );
   });
 

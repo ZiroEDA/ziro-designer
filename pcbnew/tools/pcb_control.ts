@@ -114,6 +114,7 @@ import type { PCB_SHAPE } from '../pcb_shape.js';
 import { PCB_DISPLAY_OPTIONS } from '../pcb_painter.js';
 import { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `HITTEST_THRESHOLD_PIXELS` (pcb_control.cpp:817). */
 // It'd be nice to share the min/max with the DIALOG_COLOR_PICKER, but those are
@@ -1464,7 +1465,10 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
         if (msg !== '')
           msgItems.push(
-            new MSG_PANEL_ITEM(`DP Gap Constraints: ${msg}`, `(from ${constraint.GetName()})`),
+            new MSG_PANEL_ITEM(
+              wxFormat(_('DP Gap Constraints: %s'), msg),
+              wxFormat(_('(from %s)'), constraint.GetName()),
+            ),
           );
 
         constraint = drcEngine.EvalRules(
@@ -1477,7 +1481,10 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
         if (constraint.Value().HasMax()) {
           msg = units.MessageTextFromValue(constraint.Value().Max());
           msgItems.push(
-            new MSG_PANEL_ITEM(`DP Max Uncoupled-length: ${msg}`, `(from ${constraint.GetName()})`),
+            new MSG_PANEL_ITEM(
+              wxFormat(_('DP Max Uncoupled-length: %s'), msg),
+              wxFormat(_('(from %s)'), constraint.GetName()),
+            ),
           );
         }
       }
@@ -2146,7 +2153,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     if (!designBlock) {
       editFrame.ShowInfoBarError(
-        `Could not find design block ${selectedLibId.GetUniStringLibId()}.`,
+        wxFormat(_('Could not find design block %s.'), selectedLibId.GetUniStringLibId()),
         true,
       );
       return 1;
@@ -2415,7 +2422,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     }
 
     if (applied > 0) {
-      sharedCommit.Push(`Apply design block layout to ${applied} group(s)`);
+      sharedCommit.Push(wxFormat(_('Apply design block layout to %d group(s)'), applied));
 
       if (netlessCopperPlaced)
         editFrame.ShowInfoBarMsg(
@@ -2427,12 +2434,19 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     if (skippedNoLink > 0 || failures.length > 0 || linkedGroups.length > 1) {
       const messages: string[] = [
-        `Applied design block layout to ${applied} of ${linkedGroups.length} group(s).`,
+        wxFormat(
+          _('Applied design block layout to %d of %d group(s).'),
+          applied,
+          linkedGroups.length,
+        ),
       ];
 
       if (skippedNoLink > 0)
         messages.push(
-          `Skipped ${skippedNoLink} selected item(s) that are not groups linked to a design block.`,
+          wxFormat(
+            _('Skipped %d selected item(s) that are not groups linked to a design block.'),
+            skippedNoLink,
+          ),
         );
 
       if (failures.length > 0) {
@@ -2478,14 +2492,20 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     if (!designBlock) {
       editFrame.ShowInfoBarWarning(
-        `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`,
+        wxFormat(
+          _('Could not find design block %s.'),
+          group.GetDesignBlockLibId().GetUniStringLibId(),
+        ),
       );
       return 1;
     }
 
     if (designBlock.GetBoardFile() === '') {
       editFrame.ShowInfoBarWarning(
-        `Design block ${group.GetDesignBlockLibId().GetUniStringLibId()} does not have a board file.`,
+        wxFormat(
+          _('Design block %s does not have a board file.'),
+          group.GetDesignBlockLibId().GetUniStringLibId(),
+        ),
       );
       return 1;
     }
@@ -2527,7 +2547,10 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     if (!pane || !designBlock) {
       editFrame.ShowInfoBarWarning(
-        `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`,
+        wxFormat(
+          _('Could not find design block %s.'),
+          group.GetDesignBlockLibId().GetUniStringLibId(),
+        ),
       );
       return 1;
     }

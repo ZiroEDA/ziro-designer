@@ -94,7 +94,7 @@ import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { ReplaceIllegalFileNameChars, UnescapeHTML } from '@ziroeda/common/string_utils.js';
 import { wxXmlDocumentLoad, wxXmlParseError, type wxXmlNode } from '@ziroeda/wx/xml.js';
-import { wxCmp, wxCmpNoCase } from '@ziroeda/wx/wxstring.js';
+import { wxCmp, wxCmpNoCase, wxFormat } from '@ziroeda/wx/wxstring.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { RECT_CHAMFER_ALL } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
@@ -495,7 +495,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
 
     try {
       if (this.m_progressReporter) {
-        this.m_progressReporter.Report(`Loading ${aFileName}...`);
+        this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
         if (!this.m_progressReporter.KeepRefreshing())
           throw new IO_ERROR(_('File import canceled by user.'));
@@ -512,7 +512,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
       } catch (e) {
         if (!(e instanceof wxXmlParseError)) throw e;
 
-        throw new IO_ERROR(`Unable to read file '${aFileName}'`);
+        throw new IO_ERROR(wxFormat(_("Unable to read file '%s'"), aFileName));
       }
 
       this.m_min_trace = INT_MAX;
@@ -1196,7 +1196,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
       // add the templating FOOTPRINT to the FOOTPRINT template factory "m_templates"
       if (this.m_templates.has(key)) {
         const lib = aLibName !== null ? aLibName : this.m_lib_path;
-        const emsg = `<package> '${pack_ref}' duplicated in <library> '${lib}'`;
+        const emsg = wxFormat(_("<package> '%s' duplicated in <library> '%s'"), pack_ref, lib);
         throw new IO_ERROR(emsg);
       }
 
@@ -1273,7 +1273,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
       const it = this.m_templates.get(pkg_key);
 
       if (it === undefined) {
-        const emsg = `No '${e.package}' package in library '${e.library}'.`;
+        const emsg = wxFormat(_("No '%s' package in library '%s'."), e.package, e.library);
         throw new IO_ERROR(emsg);
       }
 
@@ -1987,8 +1987,10 @@ export class PCB_IO_EAGLE extends PCB_IO {
       const fileName = this.m_lib_path.substring(this.m_lib_path.lastIndexOf('/') + 1);
 
       if (this.m_board)
-        this.wxLogError(`Invalid zero-sized pad ignored in\nfile: ${this.m_board.GetFileName()}`);
-      else this.wxLogError(`Invalid zero-sized pad ignored in\nfile: ${fileName}`);
+        this.wxLogError(
+          wxFormat(_('Invalid zero-sized pad ignored in\nfile: %s'), this.m_board.GetFileName()),
+        );
+      else this.wxLogError(wxFormat(_('Invalid zero-sized pad ignored in\nfile: %s'), fileName));
     }
   }
 
@@ -2945,7 +2947,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
         // Load the document
         const data = this.m_readFile(aLibPath);
 
-        if (!data) throw new IO_ERROR(`Unable to read file '${aLibPath}'.`);
+        if (!data) throw new IO_ERROR(wxFormat(_("Unable to read file '%s'."), aLibPath));
 
         let doc: wxXmlNode;
 
@@ -2954,7 +2956,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
         } catch (e) {
           if (!(e instanceof wxXmlParseError)) throw e;
 
-          throw new IO_ERROR(`Unable to read file '${aLibPath}'.`);
+          throw new IO_ERROR(wxFormat(_("Unable to read file '%s'."), aLibPath));
         }
 
         const drawing = MapChildren(doc).get('drawing') ?? null;

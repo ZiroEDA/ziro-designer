@@ -50,6 +50,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import type { DRC_CONSTRAINT } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 function findClosestOutlineGap(
   aBoard: BOARD,
@@ -186,7 +187,7 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
       const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_INVALID_OUTLINE)!;
 
       if (itemA && itemB && usedGap) {
-        drcItem.SetErrorDetail(`${msg} (gap ${this.MessageTextFromValue(gap)})`);
+        drcItem.SetErrorDetail(wxFormat(_('%s (gap %s)'), msg, this.MessageTextFromValue(gap)));
       } else {
         drcItem.SetErrorDetail(msg);
       }
@@ -299,7 +300,7 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
 
       if (badLayer !== UNDEFINED_LAYER) {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_DISABLED_LAYER_ITEM)!;
-        drcItem.SetErrorDetail(`(layer ${LayerName(badLayer)})`);
+        drcItem.SetErrorDetail(wxFormat(_('(layer %s)'), LayerName(badLayer)));
         drcItem.SetItems(item);
 
         this.reportViolation(drcItem, item.GetPosition(), UNDEFINED_LAYER);

@@ -30,6 +30,7 @@ import {
   ParseFootprintFile,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FOOTPRINT_EDIT_FRAME`'s `footprint_libraries_utils.cpp` half, mixed into that class by `footprint_edit_frame.ts`. */
 export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
@@ -140,13 +141,13 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
     if (!adapter?.GetRow(nickname)) return false;
 
     if (!(adapter.IsFootprintLibWritable?.(nickname) ?? false)) {
-      const msg = `Library '${nickname}' is read only.`;
+      const msg = wxFormat(_("Library '%s' is read only."), nickname);
       this.ShowInfoBarError(msg);
       return false;
     }
 
     // Confirmation
-    const msg = `Delete footprint '${fpname}' from library '${nickname}'?`;
+    const msg = wxFormat(_("Delete footprint '%s' from library '%s'?"), fpname, nickname);
 
     if (aConfirm && !(await IsOK(msg))) return false;
 
@@ -159,7 +160,7 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
       return false;
     }
 
-    this.SetStatusText(`Footprint '${fpname}' deleted from library '${nickname}'`);
+    this.SetStatusText(wxFormat(_("Footprint '%s' deleted from library '%s'"), fpname, nickname));
 
     return true;
   }
@@ -234,7 +235,7 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
         footprintExists = adapter.FootprintExists(newLib, newName);
 
         if (footprintExists) {
-          const msg = `Footprint ${newName} already exists in ${newLib}.`;
+          const msg = wxFormat(_('Footprint %s already exists in %s.'), newName, newLib);
 
           // KIDIALOG errorDlg( this, msg, _( "Confirmation" ), wxOK | wxCANCEL | wxICON_WARNING );
           // errorDlg.SetOKLabel( _( "Overwrite" ) );
@@ -267,8 +268,8 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
     aFootprint.SetLink(niluuid);
 
     const msg = footprintExists
-      ? `Footprint '${footprintName}' replaced in '${libraryName}'`
-      : `Footprint '${footprintName}' added to '${libraryName}'`;
+      ? wxFormat(_("Footprint '%s' replaced in '%s'"), footprintName, libraryName)
+      : wxFormat(_("Footprint '%s' added to '%s'"), footprintName, libraryName);
 
     this.SetStatusText(msg);
     this.UpdateTitle();
@@ -363,7 +364,7 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
 
         if (!footprint) {
           DisplayErrorMessage(
-            `Unable to load footprint '${footprintName.value}' from '${file.path}'`,
+            wxFormat(_("Unable to load footprint '%s' from '%s'"), footprintName.value, file.path),
           );
           return null;
         }
@@ -431,10 +432,10 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
     }
 
     if (!this.WriteTextFile(path, prettyData)) {
-      DisplayErrorMessage(`Insufficient permissions to write file '${path}'.`);
+      DisplayErrorMessage(wxFormat(_("Insufficient permissions to write file '%s'."), path));
       return;
     }
 
-    await DisplayInfoMessage(`Footprint exported to file '${path}'.`);
+    await DisplayInfoMessage(wxFormat(_("Footprint exported to file '%s'."), path));
   }
 }

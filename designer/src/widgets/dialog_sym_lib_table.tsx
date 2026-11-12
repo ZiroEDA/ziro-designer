@@ -56,6 +56,7 @@ import { USER_DIRS } from '../fs/chooser_places.js';
 import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { PANEL_SYM_LIB_TABLE_BASE } from '@ziroeda/eeschema/dialogs/panel_sym_lib_table_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 interface Props {
   /**
    * The open project's files (`.kicad_sym`, the table, the `.kicad_pro`); null with no project open, which shows the
@@ -170,7 +171,7 @@ export function DialogSymLibTable({
 
         // SYMBOL_EDIT_FRAME::AddLibraryFile's refusal of a name already taken.
         if (accountFileExists(path)) {
-          DisplayErrorMessage(`Library '${libName}' already exists.`);
+          DisplayErrorMessage(wxFormat(_("Library '%s' already exists."), libName));
           continue;
         }
 
@@ -243,8 +244,12 @@ export function DialogSymLibTable({
 
       if (!wxWriteFileSync(path, new TextEncoder().encode(text)))
         DisplayErrorMessage(
-          `Could not create the library file '${path}'.\n` +
-            'Make sure you have write permissions and try again.',
+          wxFormat(
+            _(
+              "Could not create the library file '%s'.\nMake sure you have write permissions and try again.",
+            ),
+            path,
+          ),
         );
     }
   };
@@ -272,12 +277,14 @@ export function DialogSymLibTable({
         if (row.Type() === 'KiCad' && isAccountLibrary(row.URI()))
           return accountFileExists(row.URI())
             ? LIB_LOADED
-            : libNotFound(`Library '${row.URI()}' not found.`);
+            : libNotFound(wxFormat(_("Library '%s' not found."), row.URI()));
 
         if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
 
         // SCH_IO_KICAD_SEXPR_LIB_CACHE::Load: "Library '%s' not found."
-        return rowFile(row) ? LIB_LOADED : libNotFound(`Library '${row.URI()}' not found.`);
+        return rowFile(row)
+          ? LIB_LOADED
+          : libNotFound(wxFormat(_("Library '%s' not found."), row.URI()));
       }}
       nestedTableExists={(row) =>
         isProjectRelative(row.URI())

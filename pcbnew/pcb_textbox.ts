@@ -84,6 +84,7 @@ import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // `Replace`, `Similarity` and `Compare` are overloaded across the bases in C++; the class
 // carries its own forms, so the merged interface leaves the EDA_TEXT ones out.
@@ -768,7 +769,11 @@ export class PCB_TEXTBOX extends PCB_SHAPE {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return `PCB text box '${aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText())}' on ${this.GetLayerName()}`;
+    return wxFormat(
+      _("PCB text box '%s' on %s"),
+      aFull ? this.GetShownText(false) : KIUI_EllipsizeMenuText(this.GetText()),
+      this.GetLayerName(),
+    );
   }
 
   override GetMenuImage(): string {

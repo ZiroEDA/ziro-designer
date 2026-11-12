@@ -168,6 +168,8 @@ import {
   VIACODE,
   type VIACODE_ID,
 } from './cadstar_pcb_archive_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const INT_MAX = 2147483647;
 const PCB_IU_PER_MM = pcbIUScale.IU_PER_MM;
@@ -593,7 +595,7 @@ export class CADSTAR_PCB_ARCHIVE_LOADER extends CADSTAR_PCB_ARCHIVE_PARSER {
         case LAYER_TYPE.ASSCOMPCOPP:
         case LAYER_TYPE.NOLAYER:
           //Shouldn't be here if CPA file is correctly parsed and not corrupt
-          throw new IO_ERROR(`Unexpected layer '${curLayer.Name}' in layer stack.`);
+          throw new IO_ERROR(wxFormat(_("Unexpected layer '%s' in layer stack."), curLayer.Name));
 
         case LAYER_TYPE.JUMPERLAYER:
         case LAYER_TYPE.ELEC:
@@ -1218,7 +1220,11 @@ export class CADSTAR_PCB_ARCHIVE_LOADER extends CADSTAR_PCB_ARCHIVE_PARSER {
     // size_t: a negative id wraps to a huge index
     if (!(index >= 0 && index < aFootprint.Pads().length)) {
       throw new IO_ERROR(
-        `Unable to find pad index '${aCadstarPadID}' in footprint '${aFootprint.GetReference()}'.`,
+        wxFormat(
+          _("Unable to find pad index '%d' in footprint '%s'."),
+          aCadstarPadID,
+          aFootprint.GetReference(),
+        ),
       );
     }
 
@@ -1244,7 +1250,9 @@ export class CADSTAR_PCB_ARCHIVE_LOADER extends CADSTAR_PCB_ARCHIVE_PARSER {
     for (const csGroup of this.Layout.Groups.values()) {
       if (csGroup.GroupID !== '') {
         if (!this.m_groupMap.has(csGroup.ID)) {
-          throw new IO_ERROR(`Unable to find group ID ${csGroup.ID} in the group definitions.`);
+          throw new IO_ERROR(
+            wxFormat(_('Unable to find group ID %s in the group definitions.'), csGroup.ID),
+          );
         } else {
           const kiCadGroup = this.m_groupMap.at(csGroup.ID);
           const parentGroup = this.m_groupMap.at(csGroup.GroupID);
@@ -1486,7 +1494,11 @@ export class CADSTAR_PCB_ARCHIVE_LOADER extends CADSTAR_PCB_ARCHIVE_PARSER {
 
       if (!libFootprint) {
         throw new IO_ERROR(
-          `Unable to find component '${comp.Name}' in the library (Symdef ID: '${comp.SymdefID}')`,
+          wxFormat(
+            _("Unable to find component '%s' in the library (Symdef ID: '%s')"),
+            comp.Name,
+            comp.SymdefID,
+          ),
         );
       }
 
@@ -1585,7 +1597,10 @@ export class CADSTAR_PCB_ARCHIVE_LOADER extends CADSTAR_PCB_ARCHIVE_PARSER {
 
       if (!docSymDefinition) {
         throw new IO_ERROR(
-          `Unable to find documentation symbol in the library (Symdef ID: '${docSymInstance.SymdefID}')`,
+          wxFormat(
+            _("Unable to find documentation symbol in the library (Symdef ID: '%s')"),
+            docSymInstance.SymdefID,
+          ),
         );
       }
 

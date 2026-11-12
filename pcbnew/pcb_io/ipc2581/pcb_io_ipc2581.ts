@@ -87,6 +87,7 @@ import type { ZONE } from '../../zone.js';
 import { PCB_IO, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { auxLayerType, surfaceFinishType } from './ipc2581_types.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 type wxXmlNode = XNODE;
 
@@ -1476,7 +1477,10 @@ export class PCB_IO_IPC2581 extends PCB_IO {
 
       if (!this.m_footprint_dict.has(hash)) {
         this.Report(
-          `Footprint ${fp.GetFPID().GetLibItemName()} not found in dictionary; BOM data may be incomplete.`,
+          wxFormat(
+            _('Footprint %s not found in dictionary; BOM data may be incomplete.'),
+            fp.GetFPID().GetLibItemName(),
+          ),
           RPT_SEVERITY_WARNING,
         );
         continue;
@@ -1500,7 +1504,10 @@ export class PCB_IO_IPC2581 extends PCB_IO {
         entry.m_OEMDesignRef = oem;
       } else {
         this.Report(
-          `Component "${fp.GetFPID().GetLibItemName()}" missing OEM reference; BOM entry will be skipped.`,
+          wxFormat(
+            _('Component "%s" missing OEM reference; BOM entry will be skipped.'),
+            fp.GetFPID().GetLibItemName(),
+          ),
           RPT_SEVERITY_WARNING,
         );
       }

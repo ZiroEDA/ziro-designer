@@ -37,6 +37,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
 import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `static wxString lastComponentName`, in `SelectFootprintFromLibrary`. */
 let s_lastComponentName = '';
@@ -236,7 +237,7 @@ export class FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN {
 
     for (const footprint of aPcb.Footprints()) listnames.push(footprint.GetReference());
 
-    const msg = `Footprints [${listnames.length} items]`;
+    const msg = wxFormat(_('Footprints [%u items]'), listnames.length);
     const headers = [_('Footprint')];
 
     // Conversion from wxArrayString to vector of ArrayString

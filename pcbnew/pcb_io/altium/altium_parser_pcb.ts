@@ -17,6 +17,8 @@ import { THROW_IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { ToULong } from '@ziroeda/libc/stdlib.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { ALTIUM_BINARY_PARSER };
 
@@ -604,7 +606,7 @@ export function altium_layer_from_name(aName: string): ALTIUM_LAYER {
     if (val.ok) return ALTIUM_LAYER.V7_MECHANICAL_BASE + val.value;
   }
 
-  wxLogError(`Unknown mapping of the Altium layer '${aName}'.`);
+  wxLogError(wxFormat(_("Unknown mapping of the Altium layer '%s'."), aName));
   return ALTIUM_LAYER.UNKNOWN;
 }
 
@@ -661,7 +663,7 @@ export function altium_mechkind_from_name(aName: string): ALTIUM_MECHKIND {
   if (it !== undefined) {
     return it;
   } else {
-    wxLogError(`Unknown mapping of the Altium layer kind '${aName}'.`);
+    wxLogError(wxFormat(_("Unknown mapping of the Altium layer kind '%s'."), aName));
     return ALTIUM_MECHKIND.UNKNOWN;
   }
 }
@@ -699,7 +701,7 @@ function ReadAltiumModeFromProperties(aProps: ALTIUM_PROPS, aKey: string): ALTIU
   else if (mode === 'Rule') return ALTIUM_MODE.RULE;
   else if (mode === 'Manual') return ALTIUM_MODE.MANUAL;
 
-  wxLogError(`Unknown Mode string: '${mode}'.`);
+  wxLogError(wxFormat(_("Unknown Mode string: '%s'."), mode));
   return ALTIUM_MODE.UNKNOWN;
 }
 
@@ -717,7 +719,7 @@ function ReadAltiumRecordFromProperties(aProps: ALTIUM_PROPS, aKey: string): ALT
     return ALTIUM_RECORD.REGION;
   else if (record === 'Model') return ALTIUM_RECORD.MODEL;
 
-  wxLogError(`Unknown Record name string: '${record}'.`);
+  wxLogError(wxFormat(_("Unknown Record name string: '%s'."), record));
   return ALTIUM_RECORD.UNKNOWN;
 }
 
@@ -729,7 +731,7 @@ function ReadAltiumExtendedPrimitiveInformationTypeFromProperties(
 
   if (parsedType === 'Mask') return AEXTENDED_PRIMITIVE_INFORMATION_TYPE.MASK;
 
-  wxLogError(`Unknown Extended Primitive Information type: '${parsedType}'.`);
+  wxLogError(wxFormat(_("Unknown Extended Primitive Information type: '%s'."), parsedType));
   return AEXTENDED_PRIMITIVE_INFORMATION_TYPE.UNKNOWN;
 }
 
@@ -1868,7 +1870,9 @@ export class APAD6 {
       for (let i = 0; i < sizeAndShape.cornerradius.length; i++)
         sizeAndShape.cornerradius[i] = aReader.ReadUint8();
     } else if (subrecord6 !== 0) {
-      wxLogError(`Pads6 stream has unexpected length for subrecord 6: ${subrecord6}.`);
+      wxLogError(
+        wxFormat(_('Pads6 stream has unexpected length for subrecord 6: %d.'), subrecord6),
+      );
     }
 
     this.layer = altium_versioned_layer(this.layer_v6, this.layer_v7);

@@ -10,6 +10,8 @@ import {
 } from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
 const F = fileURLToPath(new URL('../../data/pcbnew/resave/ecc83-pp.kicad_pcb', import.meta.url));
@@ -54,7 +56,7 @@ describe('Update PCB deleting a footprint', () => {
     updater.SetLookupByTimestamp(true);
     updater.UpdateNetlist(netlist);
     const messages = rep.lines.map((l) => l.message);
-    expect(messages).toContain(`Removed unused footprint ${first}.`);
+    expect(messages).toContain(wxFormat(_('Removed unused footprint %s.'), first));
     expect(messages.filter((m) => m.includes('not found in'))).toEqual([]);
     expect(updater.GetErrorCount()).toBe(0);
     expect(kb.Footprints()).toHaveLength(count - 1);

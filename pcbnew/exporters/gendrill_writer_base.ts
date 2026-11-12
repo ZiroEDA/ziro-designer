@@ -67,6 +67,8 @@ import { PCB_SHAPE } from '../pcb_shape.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { AddGerberX2Header } from '../pcbplot.js';
 import { BRDITEMS_PLOTTER } from '../plot_brditems_plotter.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // holes can have an attribute in Excellon drill files, similar to attributes
 // in Gerber X2 format
@@ -883,12 +885,15 @@ export abstract class GENDRILL_WRITER_BASE {
         const success = this.genDrillMapFile(fullfilename, this.m_mapFileFmt);
 
         if (!success) {
-          aReporter?.report(`Failed to create file '${fullfilename}'.`, RPT_SEVERITY_ERROR);
+          aReporter?.report(
+            wxFormat(_("Failed to create file '%s'."), fullfilename),
+            RPT_SEVERITY_ERROR,
+          );
 
           return false;
         }
 
-        aReporter?.report(`Created file '${fullfilename}'.`, RPT_SEVERITY_ACTION);
+        aReporter?.report(wxFormat(_("Created file '%s'."), fullfilename), RPT_SEVERITY_ACTION);
       }
     }
 

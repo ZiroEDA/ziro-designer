@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js'; // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `pcbnew/component_classes/component_class.h` + `.cpp`. */
@@ -48,9 +49,18 @@ export class COMPONENT_CLASS {
     let name = '';
 
     if (this.m_constituentClasses.length === 2) {
-      name = `${this.m_constituentClasses[0]!.GetName()} and ${this.m_constituentClasses[1]!.GetName()}`;
+      name = wxFormat(
+        _('%s and %s'),
+        this.m_constituentClasses[0]!.GetName(),
+        this.m_constituentClasses[1]!.GetName(),
+      );
     } else if (this.m_constituentClasses.length === 3) {
-      name = `${this.m_constituentClasses[0]!.GetName()}, ${this.m_constituentClasses[1]!.GetName()} and ${this.m_constituentClasses[2]!.GetName()}`;
+      name = wxFormat(
+        _('%s, %s and %s'),
+        this.m_constituentClasses[0]!.GetName(),
+        this.m_constituentClasses[1]!.GetName(),
+        this.m_constituentClasses[2]!.GetName(),
+      );
     } else if (this.m_constituentClasses.length > 3) {
       name = `${this.m_constituentClasses[0]!.GetName()}, ${this.m_constituentClasses[1]!.GetName()} and ${this.m_constituentClasses.length - 2} more`;
     }

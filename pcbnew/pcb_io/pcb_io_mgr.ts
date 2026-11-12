@@ -19,6 +19,8 @@
 import { KICTL_KICAD_ONLY, KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import type { IO_FILE_DESC } from '@ziroeda/common/io/io_base.js';
 import type { PCB_IO } from './pcb_io.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export enum PCB_FILE_T {
   PCB_FILE_UNKNOWN = 0, ///< 0 is not a legal menu id on Mac
@@ -102,7 +104,7 @@ export const PCB_IO_MGR = {
       if (plugin.m_type === aType) return plugin.m_name;
     }
 
-    return `UNKNOWN (${aType})`;
+    return wxFormat(_('UNKNOWN (%d)'), aType);
   },
 
   /** Return the #PCB_FILE_T from the corresponding plugin type name: "kicad", "legacy", etc. */

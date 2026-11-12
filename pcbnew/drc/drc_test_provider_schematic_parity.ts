@@ -26,6 +26,7 @@ import { wxMatches } from '../pcbexpr_evaluator.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `LIB_ID::GetUniStringLibId()` of a netlist component's "Library:Footprint" string. */
 const uniStringLibId = (aFpid: string): string => {
@@ -75,7 +76,11 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
 
       if (footprint === null) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_MISSING_FOOTPRINT)) {
-          const msg = `Missing footprint ${component.GetReference()} (${component.GetValue()})`;
+          const msg = wxFormat(
+            _('Missing footprint %s (%s)'),
+            component.GetReference(),
+            component.GetValue(),
+          );
 
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_MISSING_FOOTPRINT)!;
 
@@ -89,7 +94,11 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
         ) {
           // wxString::Format( _( "Value (%s) doesn't match symbol value (%s)" ), reference, value, symbolValue ):
           // the reference is the extra argument the format string never consumes.
-          const msg = `Value (${footprint.GetReference()}) doesn't match symbol value (${footprint.GetValue()})`;
+          const msg = wxFormat(
+            _("Value (%s) doesn't match symbol value (%s)"),
+            footprint.GetReference(),
+            footprint.GetValue(),
+          );
 
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY)!;
           drcItem.SetErrorMessage(msg);
@@ -101,7 +110,11 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
           uniStringLibId(component.GetFPID()) !== footprint.GetFPID().GetUniStringLibId() &&
           !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY)
         ) {
-          const msg = `${footprint.GetFPID().GetUniStringLibId()} doesn't match footprint given by symbol (${uniStringLibId(component.GetFPID())})`;
+          const msg = wxFormat(
+            _("%s doesn't match footprint given by symbol (%s)"),
+            footprint.GetFPID().GetUniStringLibId(),
+            uniStringLibId(component.GetFPID()),
+          );
 
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY)!;
           drcItem.SetErrorMessage(msg);
@@ -123,7 +136,11 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
           }
 
           if (!found) {
-            const msg = `${footprint.GetFPID().GetUniStringLibId()} doesn't match symbol's footprint filters (${component.GetFootprintFilters().join(' ')})`;
+            const msg = wxFormat(
+              _("%s doesn't match symbol's footprint filters (%s)"),
+              footprint.GetFPID().GetUniStringLibId(),
+              component.GetFootprintFilters().join(' '),
+            );
 
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_FOOTPRINT_FILTERS)!;
             drcItem.SetErrorMessage(msg);
@@ -185,13 +202,18 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
 
             if (it === undefined) {
               fieldsMatch = false;
-              mismatchDetail = `Missing symbol field '${name}' in footprint`;
+              mismatchDetail = wxFormat(_("Missing symbol field '%s' in footprint"), name);
               break;
             }
 
             if (it !== value) {
               fieldsMatch = false;
-              mismatchDetail = `Field '${name}' differs (PCB: '${it}', Schematic: '${value}')`;
+              mismatchDetail = wxFormat(
+                _("Field '%s' differs (PCB: '%s', Schematic: '%s')"),
+                name,
+                it,
+                value,
+              );
               break;
             }
           }
@@ -221,7 +243,7 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
             drcItem.SetItems(pad);
             this.reportViolation(drcItem, footprint.GetPosition(), UNDEFINED_LAYER);
           } else if (pcb_netname === '' && sch_net.netName !== '') {
-            const msg = `Pad missing net given by schematic (${sch_net.netName})`;
+            const msg = wxFormat(_('Pad missing net given by schematic (%s)'), sch_net.netName);
 
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_NET_CONFLICT)!;
             drcItem.SetErrorMessage(msg);
@@ -232,7 +254,11 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
             !(pcb_netname.startsWith('unconnected-') && pcb_netname.startsWith(sch_net.netName)) &&
             !(pad.IsNoConnectPad() && pcb_netname.startsWith(`${sch_net.netName}_`))
           ) {
-            const msg = `Pad net (${pcb_netname}) doesn't match net given by schematic (${sch_net.netName})`;
+            const msg = wxFormat(
+              _("Pad net (%s) doesn't match net given by schematic (%s)"),
+              pcb_netname,
+              sch_net.netName,
+            );
 
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_NET_CONFLICT)!;
             drcItem.SetErrorMessage(msg);
@@ -255,7 +281,7 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
               msg = `${sch_net.pinName} (${sch_net.netName})`;
             }
 
-            msg = `No pad found for pin ${msg} in schematic`;
+            msg = wxFormat(_('No pad found for pin %s in schematic'), msg);
 
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_NET_CONFLICT)!;
             drcItem.SetErrorMessage(msg);

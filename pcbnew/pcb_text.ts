@@ -88,6 +88,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface PCB_TEXT_KNOCKOUT_CACHE_DATA {
   text: string;
@@ -588,10 +589,10 @@ export class PCB_TEXT extends BOARD_ITEM {
 
     if (parentFP) {
       const ref = parentFP.GetReference();
-      return `Footprint text of ${ref} (${content})`;
+      return wxFormat(_('Footprint text of %s (%s)'), ref, content);
     }
 
-    return `PCB text '${content}' on ${this.GetLayerName()}`;
+    return wxFormat(_("PCB text '%s' on %s"), content, this.GetLayerName());
   }
 
   override GetMenuImage(): string {

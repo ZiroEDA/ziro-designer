@@ -155,6 +155,7 @@ import {
 } from './altium_parser_pcb.js';
 import type { ALTIUM_PCB_COMPOUND_FILE } from './altium_pcb_compound_file.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const {
   UNDEFINED_LAYER,
@@ -630,7 +631,10 @@ export class ALTIUM_PCB {
         const numOfRecords = reader.ReadUint32();
 
         if (reader.HasParsingError()) {
-          this.report(`'${FormatPath(mappedFile)}' was not parsed correctly.`, RPT_SEVERITY_ERROR);
+          this.report(
+            wxFormat(_("'%s' was not parsed correctly."), FormatPath(mappedFile)),
+            RPT_SEVERITY_ERROR,
+          );
 
           continue;
         }
@@ -638,7 +642,10 @@ export class ALTIUM_PCB {
         this.m_totalCount += numOfRecords;
 
         if (reader.GetRemainingBytes() !== 0) {
-          this.report(`'${FormatPath(mappedFile)}' was not fully parsed.`, RPT_SEVERITY_ERROR);
+          this.report(
+            wxFormat(_("'%s' was not fully parsed."), FormatPath(mappedFile)),
+            RPT_SEVERITY_ERROR,
+          );
 
           continue;
         }
@@ -683,7 +690,11 @@ export class ALTIUM_PCB {
         fp(altiumPcbFile, file);
       } else if (isRequired) {
         this.report(
-          `File not found: '${FormatPath(mappedFile)}' for directory '${ALTIUM_PCB_DIR[directory]}'.`,
+          wxFormat(
+            _("File not found: '%s' for directory '%s'."),
+            FormatPath(mappedFile),
+            ALTIUM_PCB_DIR[directory],
+          ),
           RPT_SEVERITY_ERROR,
         );
       }
@@ -799,7 +810,7 @@ export class ALTIUM_PCB {
     const libStream = altiumLibFile.FindStream(libStreamName);
 
     if (libStream === null) {
-      THROW_IO_ERROR(`File not found: '${FormatPath(libStreamName)}'.`);
+      THROW_IO_ERROR(wxFormat(_("File not found: '%s'."), FormatPath(libStreamName)));
     }
 
     const libParser = new ALTIUM_BINARY_PARSER(altiumLibFile, libStream);
@@ -812,14 +823,14 @@ export class ALTIUM_PCB {
     const [fpDirName, footprintStream] = altiumLibFile.FindLibFootprintDirName(aFootprintName);
 
     if (fpDirName === '') {
-      THROW_IO_ERROR(`Footprint directory not found: '${aFootprintName}'.`);
+      THROW_IO_ERROR(wxFormat(_("Footprint directory not found: '%s'."), aFootprintName));
     }
 
     const streamName = [fpDirName, 'Data'];
     const footprintData = altiumLibFile.FindStream(footprintStream, ['Data']);
 
     if (footprintData === null) {
-      THROW_IO_ERROR(`File not found: '${FormatPath(streamName)}'.`);
+      THROW_IO_ERROR(wxFormat(_("File not found: '%s'."), FormatPath(streamName)));
     }
 
     const parser = new ALTIUM_BINARY_PARSER(altiumLibFile, footprintData);
@@ -840,7 +851,10 @@ export class ALTIUM_PCB {
       const description = ALTIUM_PROPS_UTILS.ReadString(parameterProperties, 'DESCRIPTION', '');
       footprint.SetLibDescription(description);
     } else {
-      this.report(`File not found: '${FormatPath(parametersStreamName)}'.`, RPT_SEVERITY_ERROR);
+      this.report(
+        wxFormat(_("File not found: '%s'."), FormatPath(parametersStreamName)),
+        RPT_SEVERITY_ERROR,
+      );
 
       footprint.SetLibDescription('');
     }
@@ -912,7 +926,7 @@ export class ALTIUM_PCB {
           break;
         }
         default:
-          THROW_IO_ERROR(`Record of unknown type: '${recordtype}'.`);
+          THROW_IO_ERROR(wxFormat(_("Record of unknown type: '%d'."), recordtype));
       }
     }
 
@@ -1308,7 +1322,7 @@ export class ALTIUM_PCB {
         // Layer mapping handler returned UNDEFINED_LAYER - skip this layer
         // This can happen for layers that don't have a KiCad equivalent
         this.report(
-          `Layer '${name}' could not be mapped and will be skipped.`,
+          wxFormat(_("Layer '%s' could not be mapped and will be skipped."), name),
           RPT_SEVERITY_WARNING,
         );
 
@@ -1497,7 +1511,12 @@ export class ALTIUM_PCB {
           // Name conflict, happens in some unknown circumstances
           // unique_ptr will delete nc on this code path
           this.report(
-            `More than one Altium netclass with name '${elem.name}' found. Only the first one will be imported.`,
+            wxFormat(
+              _(
+                "More than one Altium netclass with name '%s' found. Only the first one will be imported.",
+              ),
+              elem.name,
+            ),
             RPT_SEVERITY_ERROR,
           );
         } else {
@@ -1767,7 +1786,12 @@ export class ALTIUM_PCB {
 
     if (klayer === UNDEFINED_LAYER) {
       this.report(
-        `Dimension found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+        wxFormat(
+          _(
+            'Dimension found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+          ),
+          aElem.layer,
+        ),
         RPT_SEVERITY_INFO,
       );
 
@@ -1866,7 +1890,12 @@ export class ALTIUM_PCB {
 
     if (klayer === UNDEFINED_LAYER) {
       this.report(
-        `Dimension found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+        wxFormat(
+          _(
+            'Dimension found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+          ),
+          aElem.layer,
+        ),
         RPT_SEVERITY_INFO,
       );
 
@@ -1941,7 +1970,12 @@ export class ALTIUM_PCB {
 
     if (klayer === UNDEFINED_LAYER) {
       this.report(
-        `Dimension found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+        wxFormat(
+          _(
+            'Dimension found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+          ),
+          aElem.layer,
+        ),
         RPT_SEVERITY_ERROR,
       );
 
@@ -2025,7 +2059,12 @@ export class ALTIUM_PCB {
 
     if (klayer === UNDEFINED_LAYER) {
       this.report(
-        `Dimension found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+        wxFormat(
+          _(
+            'Dimension found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+          ),
+          aElem.layer,
+        ),
         RPT_SEVERITY_INFO,
       );
 
@@ -2049,7 +2088,12 @@ export class ALTIUM_PCB {
 
     if (klayer === UNDEFINED_LAYER) {
       this.report(
-        `Dimension found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+        wxFormat(
+          _(
+            'Dimension found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+          ),
+          aElem.layer,
+        ),
         RPT_SEVERITY_INFO,
       );
 
@@ -2112,7 +2156,7 @@ export class ALTIUM_PCB {
           break;
         default:
           this.report(
-            `Ignored dimension of kind ${elem.kind} (not yet supported).`,
+            wxFormat(_('Ignored dimension of kind %d (not yet supported).'), elem.kind),
             RPT_SEVERITY_INFO,
           );
           break;
@@ -2155,7 +2199,7 @@ export class ALTIUM_PCB {
 
       if (stepEntry === null) {
         this.report(
-          `File not found: '${FormatPath(stepPath)}'. 3D-model not imported.`,
+          wxFormat(_("File not found: '%s'. 3D-model not imported."), FormatPath(stepPath)),
           RPT_SEVERITY_ERROR,
         );
 
@@ -2273,7 +2317,7 @@ export class ALTIUM_PCB {
 
       if (outline.OutlineCount() !== 1) {
         this.report(
-          `Polygon outline count is ${outline.OutlineCount()}, expected 1.`,
+          wxFormat(_('Polygon outline count is %d, expected 1.'), outline.OutlineCount()),
           RPT_SEVERITY_ERROR,
         );
       }
@@ -2568,7 +2612,12 @@ export class ALTIUM_PCB {
 
       if (klayer === UNDEFINED_LAYER) {
         this.report(
-          `Dashed outline found on an Altium layer (${aElem.layer}) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.`,
+          wxFormat(
+            _(
+              'Dashed outline found on an Altium layer (%d) with no KiCad equivalent. It has been moved to KiCad layer Eco1_User.',
+            ),
+            aElem.layer,
+          ),
           RPT_SEVERITY_ERROR,
         );
 
@@ -2601,7 +2650,7 @@ export class ALTIUM_PCB {
       }
     } else {
       this.report(
-        `Ignored polygon shape of kind ${aElem.kind} (not yet supported).`,
+        wxFormat(_('Ignored polygon shape of kind %d (not yet supported).'), aElem.kind),
         RPT_SEVERITY_ERROR,
       );
     }
@@ -3338,12 +3387,23 @@ export class ALTIUM_PCB {
         // TODO: I assume other values are possible as well?
         if (this.m_footprintName !== '') {
           this.report(
-            `Error loading library '${this.m_library}':\nFootprint ${this.m_footprintName} pad ${aElem.name} is not marked as multilayer, but is a TH pad.`,
+            wxFormat(
+              _(
+                "Error loading library '%s':\nFootprint %s pad %s is not marked as multilayer, but is a TH pad.",
+              ),
+              this.m_library,
+              this.m_footprintName,
+              aElem.name,
+            ),
             RPT_SEVERITY_ERROR,
           );
         } else {
           this.report(
-            `Footprint ${aFootprint.GetReference()} pad ${aElem.name} is not marked as multilayer, but is a TH pad.`,
+            wxFormat(
+              _('Footprint %s pad %s is not marked as multilayer, but is a TH pad.'),
+              aFootprint.GetReference(),
+              aElem.name,
+            ),
             RPT_SEVERITY_ERROR,
           );
         }
@@ -3454,8 +3514,17 @@ export class ALTIUM_PCB {
         default:
           this.report(
             this.m_footprintName !== ''
-              ? `Error loading library '${this.m_library}':\nFootprint ${this.m_footprintName} pad ${aElem.name} uses an unknown pad shape.`
-              : `Footprint ${aFootprint.GetReference()} pad ${aElem.name} uses an unknown pad shape.`,
+              ? wxFormat(
+                  _("Error loading library '%s':\nFootprint %s pad %s uses an unknown pad shape."),
+                  this.m_library,
+                  this.m_footprintName,
+                  aElem.name,
+                )
+              : wxFormat(
+                  _('Footprint %s pad %s uses an unknown pad shape.'),
+                  aFootprint.GetReference(),
+                  aElem.name,
+                ),
             RPT_SEVERITY_DEBUG,
           );
           break;
@@ -3582,21 +3651,21 @@ export class ALTIUM_PCB {
   private HelperParsePad6NonCopper(aElem: APAD6, aLayer: PCB_LAYER_ID, aShape: PCB_SHAPE): void {
     if (aElem.net !== ALTIUM_NET_UNCONNECTED) {
       this.report(
-        `Non-copper pad ${aElem.name} is connected to a net, which is not supported.`,
+        wxFormat(_('Non-copper pad %s is connected to a net, which is not supported.'), aElem.name),
         RPT_SEVERITY_DEBUG,
       );
     }
 
     if (aElem.holesize !== 0) {
       this.report(
-        `Non-copper pad ${aElem.name} has a hole, which is not supported.`,
+        wxFormat(_('Non-copper pad %s has a hole, which is not supported.'), aElem.name),
         RPT_SEVERITY_DEBUG,
       );
     }
 
     if (aElem.padmode !== ALTIUM_PAD_MODE.SIMPLE) {
       this.report(
-        `Non-copper pad ${aElem.name} has a complex pad stack (not yet supported).`,
+        wxFormat(_('Non-copper pad %s has a complex pad stack (not yet supported).'), aElem.name),
         RPT_SEVERITY_DEBUG,
       );
     }
@@ -3731,7 +3800,10 @@ export class ALTIUM_PCB {
       }
 
       default:
-        this.report(`Non-copper pad ${aElem.name} uses an unknown pad shape.`, RPT_SEVERITY_DEBUG);
+        this.report(
+          wxFormat(_('Non-copper pad %s uses an unknown pad shape.'), aElem.name),
+          RPT_SEVERITY_DEBUG,
+        );
 
         break;
     }
@@ -4182,7 +4254,7 @@ export class ALTIUM_PCB {
     }
 
     if (created > 0) {
-      this.report(`Imported ${created} length-tuning pattern(s).`, RPT_SEVERITY_INFO);
+      this.report(wxFormat(_('Imported %d length-tuning pattern(s).'), created), RPT_SEVERITY_INFO);
     }
   }
 
@@ -4438,7 +4510,7 @@ export class ALTIUM_PCB {
         break;
       default:
         this.report(
-          `Unknown textbox justification ${justification}, aText ${aElem.text}`,
+          wxFormat(_('Unknown textbox justification %d, aText %s'), justification, aElem.text),
           RPT_SEVERITY_DEBUG,
         );
 

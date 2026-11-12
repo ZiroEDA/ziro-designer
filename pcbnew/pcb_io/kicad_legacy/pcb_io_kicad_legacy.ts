@@ -90,6 +90,7 @@ import { ZONE_CONNECTION } from '../../zones.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const FOOTPRINT_LIBRARY_HEADER = 'PCBNEW-LibModule-V1';
 export const FOOTPRINT_LIBRARY_HEADER_CNT = 18;
@@ -704,7 +705,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
     if (this.m_progressReporter) {
       this.m_lineCount = 0;
 
-      this.m_progressReporter.Report(`Loading ${aFileName}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
       if (!this.m_progressReporter.KeepRefreshing())
         throw new IO_ERROR(_('Open canceled by user.'));
@@ -1204,7 +1205,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
     }
 
     throw new IO_ERROR(
-      `Missing '$EndMODULE' for MODULE '${aFootprint.GetFPID().GetLibItemName()}'.`,
+      wxFormat(_("Missing '$EndMODULE' for MODULE '%s'."), aFootprint.GetFPID().GetLibItemName()),
     );
   }
 
@@ -1340,7 +1341,9 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
         if (pad.GetSizeX() > 0 && pad.GetSizeY() > 0) {
           aFootprint.Add(pad);
         } else {
-          this.Report(`Invalid zero-sized pad ignored in\nfile: ${this.m_reader!.GetSource()}`);
+          this.Report(
+            wxFormat(_('Invalid zero-sized pad ignored in\nfile: %s'), this.m_reader!.GetSource()),
+          );
         }
 
         return; // preferred exit
@@ -1958,7 +1961,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
         if (ns.HasNetclass(nc.GetName())) {
           // Must have been a name conflict, this is a bad board file.
           // User may have done a hand edit to the file.
-          this.m_error = `Duplicate NETCLASS name '${nc.GetName()}'.`;
+          this.m_error = wxFormat(_("Duplicate NETCLASS name '%s'."), nc.GetName());
           throw new IO_ERROR(this.m_error);
         } else {
           ns.SetNetclass(nc.GetName(), nc);
@@ -2025,7 +2028,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
         const hopt = strtok_r(line, r.end, st);
 
         if (hopt === null) {
-          this.m_error = `Bad ZAux for CZONE_CONTAINER '${zc.GetNetname()}'`;
+          this.m_error = wxFormat(_("Bad ZAux for CZONE_CONTAINER '%s'"), zc.GetNetname());
           throw new IO_ERROR(this.m_error);
         }
 
@@ -2041,7 +2044,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
             outline_hatch = ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_FULL;
             break;
           default:
-            this.m_error = `Bad ZAux for CZONE_CONTAINER '${zc.GetNetname()}'`;
+            this.m_error = wxFormat(_("Bad ZAux for CZONE_CONTAINER '%s'"), zc.GetNetname());
             throw new IO_ERROR(this.m_error);
         }
 
@@ -2052,7 +2055,7 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
         const cornerRadius = this.biuParse(line, smoothing.end).v;
 
         if (smoothing.v >= ZONE_SETTINGS.SMOOTHING_LAST || smoothing.v < 0) {
-          this.m_error = `Bad ZSmoothing for CZONE_CONTAINER '${zc.GetNetname()}'`;
+          this.m_error = wxFormat(_("Bad ZSmoothing for CZONE_CONTAINER '%s'"), zc.GetNetname());
           throw new IO_ERROR(this.m_error);
         }
 
@@ -2132,7 +2135,10 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
             popt = ZONE_CONNECTION.NONE;
             break;
           default:
-            this.m_error = `Bad ZClearance padoption for CZONE_CONTAINER '${zc.GetNetname()}'`;
+            this.m_error = wxFormat(
+              _("Bad ZClearance padoption for CZONE_CONTAINER '%s'"),
+              zc.GetNetname(),
+            );
             throw new IO_ERROR(this.m_error);
         }
 
@@ -2386,10 +2392,10 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
     // ReadAndVerifyHeader
     let line = reader.ReadLine();
 
-    if (!line) throw new IO_ERROR(`File '${aCache.m_lib_path}' is empty.`);
+    if (!line) throw new IO_ERROR(wxFormat(_("File '%s' is empty."), aCache.m_lib_path));
 
     if (!TESTLINE(line, 'PCBNEW-LibModule-V1'))
-      throw new IO_ERROR(`File '${aCache.m_lib_path}' is not a legacy library.`);
+      throw new IO_ERROR(wxFormat(_("File '%s' is not a legacy library."), aCache.m_lib_path));
 
     for (line = reader.ReadLine(); line !== null; line = reader.ReadLine()) {
       if (TESTLINE(line, 'Units')) {

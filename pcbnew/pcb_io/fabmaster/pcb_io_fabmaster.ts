@@ -13,6 +13,7 @@ import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.j
 import { FABMASTER } from './import_fabmaster.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class PCB_IO_FABMASTER extends PCB_IO {
   private readonly m_fabmaster = new FABMASTER();
@@ -97,7 +98,7 @@ export class PCB_IO_FABMASTER extends PCB_IO {
     if (!aAppendToMe) board.SetFileName(aFileName);
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Loading ${aFileName}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
       if (!this.m_progressReporter.KeepRefreshing())
         throw new IO_ERROR(_('File import canceled by user.'));

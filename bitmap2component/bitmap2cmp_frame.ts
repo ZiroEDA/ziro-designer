@@ -50,6 +50,7 @@ import {
 } from './bitmap2component.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The window's services: the panel's, plus the frame's own dialogs and bars. */
 export interface BITMAP2CMP_FRAME_UI extends BITMAP2CMP_PANEL_UI {
@@ -241,7 +242,7 @@ export class BITMAP2CMP_FRAME extends KIWAY_PLAYER {
     this.m_panel.ExportToBuffer(buffer, aSpec.format);
 
     if (!this.m_ui.SaveFile(aSpec.title, aSpec.filters(), name, buffer.value))
-      this.m_ui.MessageBox(`File '${name}' could not be created.`);
+      this.m_ui.MessageBox(wxFormat(_("File '%s' could not be created."), name));
   }
 
   /** Generate a file suitable to be copied into a drawing sheet (.kicad_wks) file */

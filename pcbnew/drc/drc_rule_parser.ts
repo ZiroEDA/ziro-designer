@@ -40,6 +40,7 @@ import {
 } from './drc_rule.js';
 import { DRC_RULE_CONDITION } from './drc_rule_condition.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export const DRC_RULE_FILE_VERSION = 20200610;
 
@@ -68,11 +69,17 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     const [first, rest] = beforeFirstBar(aMessage);
 
     if (this.m_reporter) {
-      const msg = `ERROR: <a href='${this.CurLineNumber()}:${this.CurOffset() + aOffset}'>${first}</a>${rest}`;
+      const msg = wxFormat(
+        _("ERROR: <a href='%d:%d'>%s</a>%s"),
+        this.CurLineNumber(),
+        this.CurOffset() + aOffset,
+        first,
+        rest,
+      );
 
       this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
     } else {
-      const msg = `ERROR: ${first}${rest}`;
+      const msg = wxFormat(_('ERROR: %s%s'), first, rest);
 
       throw new PARSE_ERROR(
         msg,
@@ -86,7 +93,11 @@ export class DRC_RULES_PARSER extends DSNLEXER {
 
   private reportDeprecation(oldToken: string, newToken: string): void {
     if (this.m_reporter) {
-      const msg = `The '${oldToken}' keyword has been deprecated.  Please use '${newToken}' instead.`;
+      const msg = wxFormat(
+        _("The '%s' keyword has been deprecated.  Please use '%s' instead."),
+        oldToken,
+        newToken,
+      );
 
       this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
     }
@@ -117,7 +128,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     let msg: string;
 
     if (this.CurText().startsWith('${')) msg = _('Unresolved text variable.');
-    else msg = `Unrecognized item '${this.CurText()}'.| Expected ${expectedTokens}.`;
+    else msg = wxFormat(_("Unrecognized item '%s'.| Expected %s."), this.CurText(), expectedTokens);
 
     this.reportError(msg);
     this.parseUnknown();
@@ -288,7 +299,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
             rule.m_Condition = new DRC_RULE_CONDITION(this.CurText());
 
             if (!rule.m_Condition.Compile(this.m_reporter, this.CurLineNumber(), this.CurOffset()))
-              this.reportError(`Could not parse expression '${this.CurText()}'.`);
+              this.reportError(wxFormat(_("Could not parse expression '%s'."), this.CurText()));
 
             if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
@@ -351,7 +362,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
             condition = new DRC_RULE_CONDITION(this.CurText());
 
             if (!condition.Compile(this.m_reporter, this.CurLineNumber(), this.CurOffset()))
-              this.reportError(`Could not parse expression '${this.CurText()}'.`);
+              this.reportError(wxFormat(_("Could not parse expression '%s'."), this.CurText()));
 
             if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
@@ -561,7 +572,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     }
 
     if (aRule.FindConstraint(c.m_Type)) {
-      msg = `Rule already has a '${this.CurText()}' constraint.`;
+      msg = wxFormat(_("Rule already has a '%s' constraint."), this.CurText());
       this.reportError(msg);
     }
 
@@ -802,11 +813,17 @@ export class DRC_RULES_PARSER extends DSNLEXER {
       const [first, rest] = beforeFirstBar(message);
 
       if (this.m_reporter) {
-        const msg = `ERROR: <a href='${this.CurLineNumber()}:${aOffset + offset}'>${first}</a>${rest}`;
+        const msg = wxFormat(
+          _("ERROR: <a href='%d:%d'>%s</a>%s"),
+          this.CurLineNumber(),
+          aOffset + offset,
+          first,
+          rest,
+        );
 
         this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
       } else {
-        const msg = `ERROR: ${first}${rest}`;
+        const msg = wxFormat(_('ERROR: %s%s'), first, rest);
 
         throw new PARSE_ERROR(
           msg,
@@ -859,7 +876,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
 
       if (!retVal.any()) {
         if (!this.checkUnresolvedTextVariable())
-          this.reportError(`Unrecognized layer '${layerName}'.`);
+          this.reportError(wxFormat(_("Unrecognized layer '%s'."), layerName));
 
         retVal.set(LAYER.Rescue);
       }

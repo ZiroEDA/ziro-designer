@@ -13,6 +13,7 @@ import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export async function Clear_DrawLayers(this: GERBVIEW_FRAME, query: boolean): Promise<boolean> {
   if (this.GetGerberLayout() === null) return false;
@@ -42,7 +43,7 @@ export async function Clear_DrawLayers(this: GERBVIEW_FRAME, query: boolean): Pr
 
 export async function Erase_Current_DrawLayer(this: GERBVIEW_FRAME, query: boolean): Promise<void> {
   const layer = this.GetActiveLayer();
-  const msg = `Clear layer ${layer + 1}?`;
+  const msg = wxFormat(_('Clear layer %d?'), layer + 1);
 
   if (query && !(await IsOK(msg))) return;
 

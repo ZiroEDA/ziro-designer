@@ -60,6 +60,7 @@ import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.
 import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `drill_M_code_t`. */
 export enum drill_M_code_t {
@@ -546,7 +547,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
     }
 
     if (!cmd) {
-      this.AddMessageToList(`Unknown Excellon command &lt;${text.rest()}&gt;`);
+      this.AddMessageToList(wxFormat(_('Unknown Excellon command &lt;%s&gt;'), text.rest()));
       while (text.c() !== NUL) text.inc();
 
       return false;
@@ -738,7 +739,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
     // Read tool shape
     if (aText.c() === NUL) this.AddMessageToList(_('Tool definition shape not found'));
     else if (aText.c() !== 'C')
-      this.AddMessageToList(`Tool definition '${aText.c()}' not supported`);
+      this.AddMessageToList(wxFormat(_("Tool definition '%c' not supported"), aText.c()));
     if (aText.c() !== NUL) aText.inc();
 
     //read tool diameter:
@@ -808,7 +809,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
 
           tool = this.GetDCODE(this.m_Current_Tool);
           if (!tool) {
-            this.AddMessageToList(`Tool ${this.m_Current_Tool} not defined`);
+            this.AddMessageToList(wxFormat(_('Tool %d not defined'), this.m_Current_Tool));
             return false;
           }
 
@@ -872,7 +873,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
     const tool = this.GetDCODE(this.m_Current_Tool);
 
     if (!tool) {
-      this.AddMessageToList(`Tool ${this.m_Current_Tool} not defined`);
+      this.AddMessageToList(wxFormat(_('Tool %d not defined'), this.m_Current_Tool));
       return false;
     }
 
@@ -1042,7 +1043,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
 
       default:
         // DRILL_G_UNKNOWN
-        this.AddMessageToList(`Unknown Excellon G Code: &lt;${gcmd}&gt;`);
+        this.AddMessageToList(wxFormat(_('Unknown Excellon G Code: &lt;%s&gt;'), gcmd));
 
         while (text.c() !== NUL) text.inc();
 
@@ -1185,7 +1186,7 @@ export async function Read_EXCELLON_File(
   );
 
   if (!success) {
-    msg = `File ${aFullFileName} not found.`;
+    msg = wxFormat(_('File %s not found.'), aFullFileName);
     this.Host().InfoBarError(msg);
     return false;
   }

@@ -100,6 +100,7 @@ import {
 import './gerbview_frame.css';
 import '@ziroeda/common/widgets/shell.css';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The layers manager's starting width: `.BestSize( m_LayersManager->GetBestSize() )`
@@ -720,7 +721,9 @@ export function GerbviewFrameWindow({
 
     const chrome = rowEl.getBoundingClientRect().width - nameEl.getBoundingClientRect().width;
     const widths = layerInfos.map((l) => ctx.measureText(l.name).width);
-    const smallest = ctx.measureText(`Graphic layer ${GERBER_DRAWLAYERS_COUNT + 1}`).width;
+    const smallest = ctx.measureText(
+      wxFormat(_('Graphic layer %d'), GERBER_DRAWLAYERS_COUNT + 1),
+    ).width;
     const want = layersPaneWidth(widths, smallest, chrome);
 
     setDockMin((m) => (m === want ? m : want));

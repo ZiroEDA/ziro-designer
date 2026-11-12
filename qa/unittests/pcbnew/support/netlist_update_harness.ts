@@ -19,6 +19,23 @@ import {
 import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { TEST_PCB_FRAME } from './test_pcb_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
+
+/** A printf format as a whole-line pattern: each `%s` is any run of characters. */
+const formatPattern = (aFormat: string): RegExp =>
+  new RegExp(
+    `^${aFormat
+      .split('%s')
+      .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('.+?')}$`,
+  );
+
+const NEW_FOOTPRINT: readonly (() => RegExp)[] = [
+  "Add %s (footprint '%s').",
+  "Added %s (footprint '%s').",
+  "Change %s footprint from '%s' to '%s'.",
+  "Changed %s footprint from '%s' to '%s'.",
+].map((f) => () => formatPattern(_(f)));
 
 /** The board editor frame's half the updater asks for, as PCB_EDIT_FRAME's. */
 class UPDATE_FRAME extends TEST_PCB_FRAME {
@@ -115,8 +132,10 @@ export function runLiveUpdate(
       addedFootprints: updater.GetAddedFootprints().map((fp) => kb.Footprints().indexOf(fp)),
       errorCount: updater.GetErrorCount(),
       warningCount: updater.GetWarningCount(),
+      // The four reports a new footprint makes (board_netlist_updater.cpp), in the language
+      // the run is in: counted by their translated formats, never by English.
       newFootprintCount: reporter.lines.filter((l) =>
-        /^(Add|Added) \S+ \(footprint|^(Change|Changed) \S+ footprint from/.test(l.message),
+        NEW_FOOTPRINT.some((re) => re().test(l.message)),
       ).length,
     },
   };

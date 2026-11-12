@@ -50,6 +50,7 @@ import {
 import type { PCB_VIA } from './pcb_track.js';
 import type { ZONE } from './zone.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `PTR_PTR_CACHE_KEY` lookup in a nested Map. */
 function cacheGet2<A extends object, B extends object, V>(
@@ -138,7 +139,8 @@ function fromToFunc(aCtx: CONTEXT, self: VAR_REF | null): boolean {
   return true;
 }
 
-const MISSING_LAYER_ARG = (f: string): string => `Missing layer name argument to ${f}.`;
+const MISSING_LAYER_ARG = (f: string): string =>
+  wxFormat(_('Missing layer name argument to %s.'), f);
 
 function existsOnLayerFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const vref = self as PCBEXPR_VAR_REF | null;
@@ -179,7 +181,7 @@ function existsOnLayerFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
       }
 
       if (!anyMatch) {
-        aCtx.ReportError(`Unrecognized layer '${layerName}'`);
+        aCtx.ReportError(wxFormat(_("Unrecognized layer '%s'"), layerName));
       }
 
       return 0.0;
@@ -319,7 +321,7 @@ function searchFootprintsNearItem(
 }
 
 const MISSING_FP_ARG = (f: string): string =>
-  `Missing footprint argument (A, B, or reference designator) to ${f}.`;
+  wxFormat(_('Missing footprint argument (A, B, or reference designator) to %s.'), f);
 
 function intersectsCourtyardFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const context = aCtx as PCBEXPR_CONTEXT;
@@ -653,7 +655,7 @@ class SCOPED_LAYERSET {
 }
 
 const MISSING_AREA_ARG = (f: string): string =>
-  `Missing rule-area argument (A, B, or rule-area name) to ${f}.`;
+  wxFormat(_('Missing rule-area argument (A, B, or rule-area name) to %s.'), f);
 
 function intersectsAreaFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const context = aCtx as PCBEXPR_CONTEXT;
@@ -840,7 +842,8 @@ function enclosedByAreaFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   });
 }
 
-const MISSING_GROUP_ARG = (f: string): string => `Missing group name argument to ${f}.`;
+const MISSING_GROUP_ARG = (f: string): string =>
+  wxFormat(_('Missing group name argument to %s.'), f);
 
 function memberOfGroupFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const arg = aCtx.Pop();
@@ -876,7 +879,8 @@ function memberOfGroupFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   });
 }
 
-const MISSING_SHEET_ARG = (f: string): string => `Missing sheet name argument to ${f}.`;
+const MISSING_SHEET_ARG = (f: string): string =>
+  wxFormat(_('Missing sheet name argument to %s.'), f);
 
 function memberOfSheetFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const arg = aCtx.Pop();
@@ -970,7 +974,7 @@ function memberOfSheetOrChildrenFunc(aCtx: CONTEXT, self: VAR_REF | null): void 
 }
 
 const MISSING_REF_ARG = (f: string): string =>
-  `Missing footprint argument (reference designator) to ${f}.`;
+  wxFormat(_('Missing footprint argument (reference designator) to %s.'), f);
 
 function memberOfFootprintFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const arg = aCtx.Pop();
@@ -1094,7 +1098,8 @@ function asConnected(aItem: BOARD_ITEM | null): BOARD_CONNECTED_ITEM | null {
   return aItem && aItem.IsConnected() ? (aItem as BOARD_CONNECTED_ITEM) : null;
 }
 
-const MISSING_DP_ARG = (f: string): string => `Missing diff-pair name argument to ${f}.`;
+const MISSING_DP_ARG = (f: string): string =>
+  wxFormat(_('Missing diff-pair name argument to %s.'), f);
 
 function inDiffPairFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
   const argv = aCtx.Pop();

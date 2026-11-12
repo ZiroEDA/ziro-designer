@@ -123,6 +123,7 @@ import {
   PANEL_ASSIGN_COMPONENT_CLASSES,
 } from './panel_assign_component_classes.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * What DIALOG_BOARD_SETUP's pages hold while it is shown: each panel's own
@@ -505,8 +506,10 @@ export function DialogBoardSetup({
     if (!pro) {
       // `LoadProject( projectFn )` failed.
       DisplayErrorMessage(
-        'Error importing settings from board:\n' +
-          `Associated project file ${pcb.name.replace(/\.kicad_pcb$/i, '.kicad_pro')} could not be loaded`,
+        wxFormat(
+          _('Error importing settings from board:\nAssociated project file %s could not be loaded'),
+          pcb.name.replace(/\.kicad_pcb$/i, '.kicad_pro'),
+        ),
       );
       return;
     }
@@ -523,7 +526,7 @@ export function DialogBoardSetup({
       other = BoardSetupToWindow(otherBoard, otherProject, dru?.text ?? '');
     } catch (e) {
       DisplayErrorMessage(
-        `Error loading board file:\n${pcb.name}`,
+        wxFormat(_('Error loading board file:\n%s'), pcb.name),
         e instanceof Error ? e.message : '',
       );
       return;
@@ -533,10 +536,13 @@ export function DialogBoardSetup({
     // which ShowModal() never returns, so the import goes on whichever button is pressed.
     if (opts.layers && other.physicalStackup.copperCount < v.physicalStackup.copperCount) {
       await ShowKicadMessageDialog({
-        message:
-          'Imported settings have fewer copper layers than the current board ' +
-          `(${other.physicalStackup.copperCount} instead of ${v.physicalStackup.copperCount}).\n\n` +
-          'Continue and delete the extra inner copper layers from the current board?',
+        message: wxFormat(
+          _(
+            'Imported settings have fewer copper layers than the current board (%i instead of %i).\n\nContinue and delete the extra inner copper layers from the current board?',
+          ),
+          other.physicalStackup.copperCount,
+          v.physicalStackup.copperCount,
+        ),
         caption: _('Inner Layers to Be Deleted'),
         style: wxICON_WARNING | wxYES | wxNO | wxNO_DEFAULT,
       });

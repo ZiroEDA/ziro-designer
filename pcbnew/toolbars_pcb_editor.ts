@@ -16,6 +16,7 @@ import { type EdaUnits, pcbIUScale, toUserUnit, unitLabelText } from '@ziroeda/c
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -448,7 +449,11 @@ export function TrackWidthSelectBoxContent(
   for (let ii = 1; ii < aSettings.m_TrackWidthList.length; ii++) {
     const size = aSettings.m_TrackWidthList[ii]!;
     items.push(
-      `Track: ${ComboBoxUnits(primaryUnit, size)} (${ComboBoxUnits(secondaryUnit, size)})`,
+      wxFormat(
+        _('Track: %s (%s)'),
+        ComboBoxUnits(primaryUnit, size),
+        ComboBoxUnits(secondaryUnit, size),
+      ),
     );
   }
 
@@ -492,7 +497,7 @@ export function ViaSizeSelectBoxContent(
       secStr = ComboBoxUnits(secondaryUnit, diam, true);
     }
 
-    items.push(`Via: ${priStr} (${secStr})`);
+    items.push(wxFormat(_('Via: %s (%s)'), priStr, secStr));
   }
 
   if (aShowEdit) {

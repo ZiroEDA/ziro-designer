@@ -128,6 +128,7 @@ import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // `class FOOTPRINT : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
@@ -1440,7 +1441,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
    */
   GetLocalClearance(aSource?: OutStr | null): number | undefined {
     if (aSource !== undefined && this.m_clearance !== undefined && aSource)
-      aSource.value = `footprint ${this.GetReference()}`;
+      aSource.value = wxFormat(_('footprint %s'), this.GetReference());
 
     return this.m_clearance;
   }
@@ -1561,7 +1562,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
   GetZoneConnectionOverrides(aSource: OutStr | null): ZONE_CONNECTION {
     if (this.m_zoneConnection !== ZONE_CONNECTION.INHERITED && aSource)
-      aSource.value = `footprint ${this.GetReference()}`;
+      aSource.value = wxFormat(_('footprint %s'), this.GetReference());
 
     return this.m_zoneConnection;
   }
@@ -1971,10 +1972,10 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
       switch (likelyAttr) {
         case FP_THROUGH_HOLE:
-          msg = `(expected 'Through hole'; actual '${this.GetTypeName()}')`;
+          msg = wxFormat(_("(expected 'Through hole'; actual '%s')"), this.GetTypeName());
           break;
         case FP_SMD:
-          msg = `(expected 'SMD'; actual '${this.GetTypeName()}')`;
+          msg = wxFormat(_("(expected 'SMD'; actual '%s')"), this.GetTypeName());
           break;
       }
 
@@ -2190,10 +2191,10 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       const pad = this.FindPadByNumber(padNumber);
 
       if (!pad) {
-        msg = `(net-tie pad group contains unknown pad number ${padNumber})`;
+        msg = wxFormat(_('(net-tie pad group contains unknown pad number %s)'), padNumber);
         aErrorHandler(msg);
       } else if (padNumbers.has(pad.GetNumber())) {
-        msg = `(pad ${padNumber} appears in more than one net-tie pad group)`;
+        msg = wxFormat(_('(pad %s appears in more than one net-tie pad group)'), padNumber);
         aErrorHandler(msg);
       } else {
         padNumbers.add(pad.GetNumber());
@@ -2603,7 +2604,10 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       aList.push(new MSG_PANEL_ITEM(_('Pads'), `${padCount}`));
 
       aList.push(
-        new MSG_PANEL_ITEM(`Doc: ${this.GetLibDescription()}`, `Keywords: ${this.GetKeywords()}`),
+        new MSG_PANEL_ITEM(
+          wxFormat(_('Doc: %s'), this.GetLibDescription()),
+          wxFormat(_('Keywords: %s'), this.GetKeywords()),
+        ),
       );
 
       return;
@@ -2657,12 +2661,15 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
       );
     }
 
-    msg = `Footprint: ${this.m_fpid.GetUniStringLibId()}`;
-    msg2 = `3D-Shape: ${this.m_3D_Drawings.length === 0 ? _('<none>') : this.m_3D_Drawings[0]!.m_Filename}`;
+    msg = wxFormat(_('Footprint: %s'), this.m_fpid.GetUniStringLibId());
+    msg2 = wxFormat(
+      _('3D-Shape: %s'),
+      this.m_3D_Drawings.length === 0 ? _('<none>') : this.m_3D_Drawings[0]!.m_Filename,
+    );
     aList.push(new MSG_PANEL_ITEM(msg, msg2));
 
-    msg = `Doc: ${this.m_libDescription}`;
-    msg2 = `Keywords: ${this.m_keywords}`;
+    msg = wxFormat(_('Doc: %s'), this.m_libDescription);
+    msg2 = wxFormat(_('Keywords: %s'), this.m_keywords);
     aList.push(new MSG_PANEL_ITEM(msg, msg2));
   }
 
@@ -3788,7 +3795,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
     if (reference === '') reference = _('<no reference designator>');
 
-    return `Footprint ${reference}`;
+    return wxFormat(_('Footprint %s'), reference);
   }
 
   override DisambiguateItemDescription(

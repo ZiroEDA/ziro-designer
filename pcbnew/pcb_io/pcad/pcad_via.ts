@@ -22,6 +22,7 @@ import {
   TrimRight,
 } from './pcad2kicad_common.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export class PCAD_VIA extends PCAD_PAD {
   constructor(aCallbacks: PCAD_CALLBACKS, aBoard: BOARD) {
@@ -76,7 +77,7 @@ export class PCAD_VIA extends PCAD_PAD {
       lNode = lNode.GetNext();
     }
 
-    if (!lNode) throw new IO_ERROR(`Unable to find viaStyleDef ${this.m_Name.text}.`);
+    if (!lNode) throw new IO_ERROR(wxFormat(_('Unable to find viaStyleDef %s.'), this.m_Name.text));
 
     const tNode = lNode;
     lNode = FindNode(tNode, 'holeDiam');

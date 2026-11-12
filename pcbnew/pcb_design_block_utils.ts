@@ -37,6 +37,7 @@ import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { FormatBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCB_GROUP } from './pcb_group.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 let s_tempCounter = 0;
 
@@ -60,7 +61,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     return this.GetDesignBlockPane()!
       .Dialogs()
       .OKOrCancel(
-        `Design block '${aNewName}' already exists in library '${aLibname}'.`,
+        wxFormat(_("Design block '%s' already exists in library '%s'."), aNewName, aLibname),
         _('Overwrite existing design block?'),
         _('Overwrite'),
       );
@@ -71,7 +72,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     return this.GetDesignBlockPane()!
       .Dialogs()
       .OKOrCancel(
-        `Design block '${aLibId.GetUniStringLibItemName()}' already has a layout.`,
+        wxFormat(_("Design block '%s' already has a layout."), aLibId.GetUniStringLibItemName()),
         _('Overwrite existing layout?'),
         _('Overwrite'),
       );
@@ -95,7 +96,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
         if (!aHeadless)
           this.GetDesignBlockPane()!
             .Dialogs()
-            .DisplayError(`Insufficient permissions to write file '${aFileName}'.`);
+            .DisplayError(wxFormat(_("Insufficient permissions to write file '%s'."), aFileName));
 
         return false;
       }
@@ -105,7 +106,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
       if (!aHeadless)
         this.GetDesignBlockPane()!
           .Dialogs()
-          .DisplayError(`Error saving board file '${aFileName}'.\n${e.message}`);
+          .DisplayError(wxFormat(_("Error saving board file '%s'.\n%s"), aFileName, e.message));
 
       return false;
     }
@@ -192,7 +193,9 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     }
 
     if (!blk) {
-      dialogs.DisplayError(`Design block '${aLibId.GetUniStringLibItemName()}' does not exist.`);
+      dialogs.DisplayError(
+        wxFormat(_("Design block '%s' does not exist."), aLibId.GetUniStringLibItemName()),
+      );
       return false;
     }
 
@@ -451,7 +454,9 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     }
 
     if (!blk) {
-      dialogs.DisplayError(`Design block '${aLibId.GetUniStringLibItemName()}' does not exist.`);
+      dialogs.DisplayError(
+        wxFormat(_("Design block '%s' does not exist."), aLibId.GetUniStringLibItemName()),
+      );
       return false;
     }
 

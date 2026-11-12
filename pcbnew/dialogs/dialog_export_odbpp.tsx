@@ -36,6 +36,7 @@ import type { BOARD } from '../board.js';
 import { PCB_IO_ODBPP } from '../pcb_io/odbpp/pcb_io_odbpp.js';
 import { DIALOG_EXPORT_ODBPP_BASE } from './dialog_export_odbpp_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What the dialog hands BOARD_EDITOR_CONTROL::GenerateODBPPFiles on OK. */
 export interface ODBPP_DIALOG_RESULT {
@@ -113,12 +114,18 @@ export async function GenerateODBPPFiles(
 
   if (outputIsSingleFile) {
     if (aOutput.fileExists(outputPath)) {
-      const msg = `Output files '${outputPath}' already exists. Do you want to overwrite it?`;
+      const msg = wxFormat(
+        _("Output files '%s' already exists. Do you want to overwrite it?"),
+        outputPath,
+      );
 
       if (!(await aOutput.confirmOverwrite(msg))) return;
     }
   } else if (folder !== '' && aOutput.fileExists(`${folder}/matrix/matrix`)) {
-    const msg = `Output directory '${outputPath}' already exists and is not empty. Do you want to overwrite it?`;
+    const msg = wxFormat(
+      _("Output directory '%s' already exists and is not empty. Do you want to overwrite it?"),
+      outputPath,
+    );
 
     if (!(await aOutput.confirmOverwrite(msg))) return;
   }
@@ -138,7 +145,7 @@ export async function GenerateODBPPFiles(
     if (!(e instanceof IO_ERROR)) throw e;
 
     aReporter?.Report(
-      `Error generating ODBPP files '${outputPath}'.\n${e.What()}`,
+      wxFormat(_("Error generating ODBPP files '%s'.\n%s"), outputPath, e.What()),
       RPT_SEVERITY_ERROR,
     );
     return;

@@ -54,6 +54,8 @@ export {
   SetHosted3DCatalog,
 } from './3d_cache/3d_cache.js';
 import { stepFaceMaterial, type SMaterial, type Vec3 } from './gl_fixed_function.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const VRML_UNIT_MM = 2.54; // legacy VRML model unit = 0.1 inch (WRL2BASE)
 
@@ -263,7 +265,7 @@ export function mountComponents(
   const inFlight = new Set<string>();
   const reportInFlight = (): void => {
     const next = inFlight.values().next();
-    if (!next.done) report?.(`Loading ${next.value}...`);
+    if (!next.done) report?.(wxFormat(_('Loading %s...'), next.value));
   };
 
   const loadUrl = (url: string): Promise<THREE.Object3D | null> =>
@@ -334,7 +336,7 @@ export function mountComponents(
       // "Loading %s..." for every shown model, before it is resolved (create_scene.cpp:1663-
       // 1670): one that is not found is named too.
       const fullName = model.m_Filename.slice(model.m_Filename.lastIndexOf('/') + 1);
-      report?.(`Loading ${fullName}...`);
+      report?.(wxFormat(_('Loading %s...'), fullName));
       // S3D_CACHE::load -> ResolvePath( aModelFile, aBasePath, aEmbeddedFilesStack ).
       // The footprint's library path is not known here; nor are embedded files
       // (the plain board view does not carry them).

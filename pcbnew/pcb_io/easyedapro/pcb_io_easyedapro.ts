@@ -58,6 +58,7 @@ import {
 } from './pcb_io_easyedapro_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface PRJ_DATA {
   m_Footprints: FOOTPRINT_MAP;
@@ -127,7 +128,7 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
   private data(aPath: string): Uint8Array {
     const d = this.m_readFile(aPath);
 
-    if (!d) throw new IO_ERROR(`Cannot read ZIP archive '${aPath}'`);
+    if (!d) throw new IO_ERROR(wxFormat(_("Cannot read ZIP archive '%s'"), aPath));
 
     return d;
   }
@@ -178,7 +179,7 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
     if (!aAppendToMe) board.SetFileName(aFileName);
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report(`Loading ${aFileName}...`);
+      this.m_progressReporter.Report(wxFormat(_('Loading %s...'), aFileName));
 
       if (!this.m_progressReporter.KeepRefreshing())
         throw new IO_ERROR(_('File import canceled by user.'));
@@ -431,7 +432,9 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
       footprint = parser.ParseFootprint(null, '', lines);
 
       if (!footprint)
-        throw new IO_ERROR(`Cannot load footprint '${aFootprintName}' from '${aLibraryPath}'`);
+        throw new IO_ERROR(
+          wxFormat(_("Cannot load footprint '%s' from '%s'"), aFootprintName, aLibraryPath),
+        );
 
       finish(footprint);
     } else if (libFname.ext === 'elibz' || libFname.ext === 'epro' || libFname.ext === 'zip') {
@@ -455,7 +458,9 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
       }
 
       if (fpUuid === '')
-        throw new IO_ERROR(`Footprint '${aFootprintName}' not found in project '${aLibraryPath}'`);
+        throw new IO_ERROR(
+          wxFormat(_("Footprint '%s' not found in project '%s'"), aFootprintName, aLibraryPath),
+        );
 
       IterateZipFiles(zipData, aLibraryPath, (name, baseName, zip) => {
         if (!name.endsWith('.efoo')) return EASY_IT_CONTINUE;
@@ -467,7 +472,9 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
         footprint = parser.ParseFootprint(project, fpUuid, lines);
 
         if (!footprint)
-          throw new IO_ERROR(`Cannot load footprint '${aFootprintName}' from '${aLibraryPath}'`);
+          throw new IO_ERROR(
+            wxFormat(_("Cannot load footprint '%s' from '%s'"), aFootprintName, aLibraryPath),
+          );
 
         finish(footprint);
 

@@ -49,10 +49,12 @@ import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
 import type { PL_EDITOR_FRAME, PL_FILES_IO_ID } from './pl_editor_frame.js';
 import { PlDataModel } from './pl_data_model.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `_( "File '%s' loaded" )` — Open Recent only (files.cpp:82). */
 export function dsFileLoadedMsg(path: string): string {
-  return `File '${path}' loaded`;
+  return wxFormat(_("File '%s' loaded"), path);
 }
 
 /**
@@ -60,12 +62,12 @@ export function dsFileLoadedMsg(path: string): string {
  * (:179). Upstream really does report a save after an open.
  */
 export function dsFileSavedMsg(path: string): string {
-  return `File '${path}' saved.`;
+  return wxFormat(_("File '%s' saved."), path);
 }
 
 /** `_( "File '%s' inserted" )` — Append (files.cpp:152). No full stop. */
 export function dsFileInsertedMsg(path: string): string {
-  return `File '${path}' inserted`;
+  return wxFormat(_("File '%s' inserted"), path);
 }
 
 /**
@@ -74,17 +76,17 @@ export function dsFileInsertedMsg(path: string): string {
  * quotes, and "file" trails it.
  */
 export function dsUnableToLoadMsg(path: string): string {
-  return `Unable to load ${path} file`;
+  return wxFormat(_('Unable to load %s file'), path);
 }
 
 /** `_( "Unable to write '%s'." )` — a failed Save (files.cpp:189). */
 export function dsUnableToWriteMsg(path: string): string {
-  return `Unable to write '${path}'.`;
+  return wxFormat(_("Unable to write '%s'."), path);
 }
 
 /** `_( "Failed to create file '%s'." )` — a failed Save As (files.cpp:224). */
 export function dsFailedToCreateMsg(path: string): string {
-  return `Failed to create file '${path}'.`;
+  return wxFormat(_("Failed to create file '%s'."), path);
 }
 
 /**
@@ -97,7 +99,7 @@ export function dsFailedToCreateMsg(path: string): string {
  * driving it: `qa/probes/pl_e2e/README.md`.
  */
 export function dsErrorLoadingMsg(path: string): string {
-  return `Error loading drawing sheet '${path}'.`;
+  return wxFormat(_("Error loading drawing sheet '%s'."), path);
 }
 
 /**

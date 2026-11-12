@@ -68,6 +68,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EDA_GROUP mixin)
 export interface PCB_GROUP extends EDA_GROUP {}
@@ -410,7 +411,8 @@ export class PCB_GROUP extends BOARD_ITEM {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    if (this.m_name.length === 0) return `Unnamed Group, ${this.m_items.size} members`;
+    if (this.m_name.length === 0)
+      return wxFormat(_('Unnamed Group, %zu members'), this.m_items.size);
     else return `Group '${this.m_name}', ${this.m_items.size} members`;
   }
 

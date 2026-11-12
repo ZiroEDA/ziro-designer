@@ -62,6 +62,7 @@ import {
 import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { DIALOG_GEN_FOOTPRINT_POSITION_BASE } from './dialog_gen_footprint_position_file_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface Props {
   board: BOARD;
@@ -192,15 +193,21 @@ export function DialogGenFootprintPosition({
 
     if (fpcount < 0) {
       // As upstream: the front's message names the board path, not the file.
-      report(`Failed to create file '${shown(`${base}.kicad_pcb`)}'.`, RPT_SEVERITY_ERROR);
+      report(
+        wxFormat(_("Failed to create file '%s'."), shown(`${base}.kicad_pcb`)),
+        RPT_SEVERITY_ERROR,
+      );
       return;
     }
 
     emitBytes(filename, written.get(filename)!, 'application/vnd.gerber');
 
-    report(`Front (top side) placement file: '${shown(filename)}'.`, RPT_SEVERITY_ACTION);
+    report(
+      wxFormat(_("Front (top side) placement file: '%s'."), shown(filename)),
+      RPT_SEVERITY_ACTION,
+    );
 
-    report(`Component count: ${fpcount}.`, RPT_SEVERITY_INFO);
+    report(wxFormat(_('Component count: %d.'), fpcount), RPT_SEVERITY_INFO);
 
     // Create the Back or Bottom side placement file
     let fullcount = fpcount;
@@ -216,19 +223,22 @@ export function DialogGenFootprintPosition({
     );
 
     if (fpcount < 0) {
-      report(`Failed to create file '${shown(filename)}'.`, RPT_SEVERITY_ERROR);
+      report(wxFormat(_("Failed to create file '%s'."), shown(filename)), RPT_SEVERITY_ERROR);
       return;
     }
 
     emitBytes(filename, written.get(filename)!, 'application/vnd.gerber');
 
     // Display results
-    report(`Back (bottom side) placement file: '${shown(filename)}'.`, RPT_SEVERITY_ACTION);
+    report(
+      wxFormat(_("Back (bottom side) placement file: '%s'."), shown(filename)),
+      RPT_SEVERITY_ACTION,
+    );
 
-    report(`Component count: ${fpcount}.`, RPT_SEVERITY_INFO);
+    report(wxFormat(_('Component count: %d.'), fpcount), RPT_SEVERITY_INFO);
 
     fullcount += fpcount;
-    report(`Full component count: ${fullcount}.`, RPT_SEVERITY_INFO);
+    report(wxFormat(_('Full component count: %d.'), fullcount), RPT_SEVERITY_INFO);
 
     report(_('Done.'), RPT_SEVERITY_INFO);
   };
@@ -280,7 +290,7 @@ export function DialogGenFootprintPosition({
       `${singleFile ? _('Placement') : 'Front (top side) placement'} file: '${dir ? `${dir}/` : ''}${name1}'.`,
       RPT_SEVERITY_ACTION,
     );
-    report(`Component count: ${first.GetFootprintCount()}.`, RPT_SEVERITY_INFO);
+    report(wxFormat(_('Component count: %d.'), first.GetFootprintCount()), RPT_SEVERITY_INFO);
 
     if (singleFile) {
       report(_('Done.'), RPT_SEVERITY_INFO);
@@ -295,9 +305,12 @@ export function DialogGenFootprintPosition({
       `Back (bottom side) placement file: '${dir ? `${dir}/` : ''}${name2}'.`,
       RPT_SEVERITY_ACTION,
     );
-    report(`Component count: ${second.GetFootprintCount()}.`, RPT_SEVERITY_INFO);
+    report(wxFormat(_('Component count: %d.'), second.GetFootprintCount()), RPT_SEVERITY_INFO);
     report(
-      `Full component count: ${first.GetFootprintCount() + second.GetFootprintCount()}.`,
+      wxFormat(
+        _('Full component count: %d.'),
+        first.GetFootprintCount() + second.GetFootprintCount(),
+      ),
       RPT_SEVERITY_INFO,
     );
     report(_('Done.'), RPT_SEVERITY_INFO);

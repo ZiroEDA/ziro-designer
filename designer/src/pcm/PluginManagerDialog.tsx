@@ -26,6 +26,7 @@ import './pcm.css';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 type Tab = PackageKind | 'installed' | 'pending';
 
@@ -382,7 +383,7 @@ export function PluginManagerDialog({
   const allTabs: [Tab, string][] = [
     ...TYPE_TABS,
     ['installed', 'Installed'],
-    ['pending', pendingCount > 0 ? `Pending (${pendingCount})` : _('Pending')],
+    ['pending', pendingCount > 0 ? wxFormat(_('Pending (%d)'), pendingCount) : _('Pending')],
   ];
 
   return (

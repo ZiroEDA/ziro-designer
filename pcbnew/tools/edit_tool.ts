@@ -110,6 +110,7 @@ import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DIALOG_GET_FOOTPRINT_BY_NAME } from '../dialogs/dialog_get_footprint_by_name.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `ID_END_LIST` (common/id.h), where `pcbnew_ids` starts. */
 const ID_END_LIST = 10557;
@@ -542,7 +543,7 @@ export class GATE_SWAP_MENU extends ACTION_MENU {
     const targets = GATE_SWAP_MENU.GetCompatibleTargets(fp, sourceIdx);
 
     for (const idx of targets) {
-      const label = `Swap with ${fp.GetUnitInfo()[idx]!.m_unitName}`;
+      const label = wxFormat(_('Swap with %s'), fp.GetUnitInfo()[idx]!.m_unitName);
       this.Append(ID_POPUP_PCB_SWAP_UNIT_BASE + idx, label);
     }
   }
@@ -3003,7 +3004,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
     // record the new items as added
     if (!selection.Empty()) {
-      editFrame.DisplayToolMsg(`Duplicated ${new_items.length} item(s)`);
+      editFrame.DisplayToolMsg(wxFormat(_('Duplicated %d item(s)'), new_items.length));
 
       // If items were duplicated, pick them up
       if (yield* this.doMoveSelection(aEvent, commit, true)) commit.Push(_('Duplicate'));

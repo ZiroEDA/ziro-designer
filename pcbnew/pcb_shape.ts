@@ -77,6 +77,7 @@ import { BOARD_USE } from './board_types.js';
 import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // `Similarity` and `TransformShapeToPolygon` are overloaded across the two bases in C++; the
 // class carries both forms, so the merged interface leaves the EDA_SHAPE ones out.
@@ -657,13 +658,24 @@ export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
 
     if (this.IsOnCopperLayer()) {
       if (parentFP) {
-        return `${this.GetFriendlyName()} ${this.GetNetnameMsg()} of ${parentFP.GetReference()} on ${this.GetLayerName()}`;
+        return wxFormat(
+          _('%s %s of %s on %s'),
+          this.GetFriendlyName(),
+          this.GetNetnameMsg(),
+          parentFP.GetReference(),
+          this.GetLayerName(),
+        );
       } else {
         return `${this.GetFriendlyName()} ${this.GetNetnameMsg()} on ${this.GetLayerName()}`;
       }
     } else {
       if (parentFP) {
-        return `${this.GetFriendlyName()} of ${parentFP.GetReference()} on ${this.GetLayerName()}`;
+        return wxFormat(
+          _('%s of %s on %s'),
+          this.GetFriendlyName(),
+          parentFP.GetReference(),
+          this.GetLayerName(),
+        );
       } else {
         return `${this.GetFriendlyName()} on ${this.GetLayerName()}`;
       }

@@ -251,7 +251,7 @@ export class BOARD_NETLIST_UPDATER {
     let msg: string;
 
     if (aFootprintId.empty()) {
-      msg = `Cannot add ${aComponent.GetReference()} (no footprint assigned).`;
+      msg = wxFormat(_('Cannot add %s (no footprint assigned).'), aComponent.GetReference());
       this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
       ++this.m_errorCount;
       return null;
@@ -260,7 +260,11 @@ export class BOARD_NETLIST_UPDATER {
     let footprint = this.m_loadFootprint(aFootprintId);
 
     if (footprint === null) {
-      msg = `Cannot add ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}' not found).`;
+      msg = wxFormat(
+        _("Cannot add %s (footprint '%s' not found)."),
+        aComponent.GetReference(),
+        EscapeHTML(aFootprintId.Format()),
+      );
       this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
       ++this.m_errorCount;
       return null;
@@ -271,7 +275,11 @@ export class BOARD_NETLIST_UPDATER {
     );
 
     if (this.m_isDryRun) {
-      msg = `Add ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}').`;
+      msg = wxFormat(
+        _("Add %s (footprint '%s')."),
+        aComponent.GetReference(),
+        EscapeHTML(aFootprintId.Format()),
+      );
 
       footprint = null;
     } else {
@@ -297,7 +305,11 @@ export class BOARD_NETLIST_UPDATER {
       this.m_addedFootprints.push(footprint);
       this.m_commit.Add(footprint);
 
-      msg = `Added ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}').`;
+      msg = wxFormat(
+        _("Added %s (footprint '%s')."),
+        aComponent.GetReference(),
+        EscapeHTML(aFootprintId.Format()),
+      );
     }
 
     this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -341,20 +353,34 @@ export class BOARD_NETLIST_UPDATER {
 
     if (this.m_isDryRun) {
       if (curClassName === '' && newClassName !== '')
-        msg = `Change ${ref} component class to '${EscapeHTML(newClassName)}'.`;
+        msg = wxFormat(_("Change %s component class to '%s'."), ref, EscapeHTML(newClassName));
       else if (curClassName !== '' && newClassName === '')
-        msg = `Remove ${ref} component class (currently '${EscapeHTML(curClassName)}').`;
+        msg = wxFormat(
+          _("Remove %s component class (currently '%s')."),
+          ref,
+          EscapeHTML(curClassName),
+        );
       else
-        msg = `Change ${ref} component class from '${EscapeHTML(curClassName)}' to '${EscapeHTML(newClassName)}'.`;
+        msg = wxFormat(
+          _("Change %s component class from '%s' to '%s'."),
+          ref,
+          EscapeHTML(curClassName),
+          EscapeHTML(newClassName),
+        );
     } else {
       aFootprint.SetStaticComponentClass(newClass);
 
       if (curClassName === '' && newClassName !== '')
-        msg = `Changed ${ref} component class to '${EscapeHTML(newClassName)}'.`;
+        msg = wxFormat(_("Changed %s component class to '%s'."), ref, EscapeHTML(newClassName));
       else if (curClassName !== '' && newClassName === '')
-        msg = `Removed ${ref} component class (was '${EscapeHTML(curClassName)}').`;
+        msg = wxFormat(_("Removed %s component class (was '%s')."), ref, EscapeHTML(curClassName));
       else
-        msg = `Changed ${ref} component class from '${EscapeHTML(curClassName)}' to '${EscapeHTML(newClassName)}'.`;
+        msg = wxFormat(
+          _("Changed %s component class from '%s' to '%s'."),
+          ref,
+          EscapeHTML(curClassName),
+          EscapeHTML(newClassName),
+        );
     }
 
     this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -373,7 +399,7 @@ export class BOARD_NETLIST_UPDATER {
     const newFpid = componentFpid(aNewComponent);
 
     if (newFpid.empty()) {
-      msg = `Cannot update ${aNewComponent.GetReference()} (no footprint assigned).`;
+      msg = wxFormat(_('Cannot update %s (no footprint assigned).'), aNewComponent.GetReference());
       this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
       ++this.m_errorCount;
       return null;
@@ -382,7 +408,11 @@ export class BOARD_NETLIST_UPDATER {
     const newFootprint = this.m_loadFootprint(newFpid);
 
     if (newFootprint === null) {
-      msg = `Cannot update ${aNewComponent.GetReference()} (footprint '${EscapeHTML(newFpid.Format())}' not found).`;
+      msg = wxFormat(
+        _("Cannot update %s (footprint '%s' not found)."),
+        aNewComponent.GetReference(),
+        EscapeHTML(newFpid.Format()),
+      );
       this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
       ++this.m_errorCount;
       return null;
@@ -394,19 +424,29 @@ export class BOARD_NETLIST_UPDATER {
 
     if (this.m_isDryRun) {
       if (aFootprint.IsLocked() && !this.m_overrideLocks) {
-        msg = `Cannot change ${ref} footprint from '${from}' to '${to}' (footprint is locked).`;
+        msg = wxFormat(
+          _("Cannot change %s footprint from '%s' to '%s' (footprint is locked)."),
+          ref,
+          from,
+          to,
+        );
         this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
         ++this.m_warningCount;
         return null;
       } else {
-        msg = `Change ${ref} footprint from '${from}' to '${to}'.`;
+        msg = wxFormat(_("Change %s footprint from '%s' to '%s'."), ref, from, to);
         this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         ++this.m_newFootprintsCount;
         return null;
       }
     } else {
       if (aFootprint.IsLocked() && !this.m_overrideLocks) {
-        msg = `Could not change ${ref} footprint from '${from}' to '${to}' (footprint is locked).`;
+        msg = wxFormat(
+          _("Could not change %s footprint from '%s' to '%s' (footprint is locked)."),
+          ref,
+          from,
+          to,
+        );
         this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
         ++this.m_warningCount;
         return null;
@@ -428,7 +468,7 @@ export class BOARD_NETLIST_UPDATER {
           true,
         );
 
-        msg = `Changed ${ref} footprint from '${from}' to '${to}'.`;
+        msg = wxFormat(_("Changed %s footprint from '%s' to '%s'."), ref, from, to);
         this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         ++this.m_newFootprintsCount;
         return newFootprint;
@@ -454,9 +494,17 @@ export class BOARD_NETLIST_UPDATER {
     // Test for reference designator field change.
     if (aFootprint.GetReference() !== aNetlistComponent.GetReference()) {
       if (this.m_isDryRun) {
-        msg = `Change ${aFootprint.GetReference()} reference designator to ${aNetlistComponent.GetReference()}.`;
+        msg = wxFormat(
+          _('Change %s reference designator to %s.'),
+          aFootprint.GetReference(),
+          aNetlistComponent.GetReference(),
+        );
       } else {
-        msg = `Changed ${aFootprint.GetReference()} reference designator to ${aNetlistComponent.GetReference()}.`;
+        msg = wxFormat(
+          _('Changed %s reference designator to %s.'),
+          aFootprint.GetReference(),
+          aNetlistComponent.GetReference(),
+        );
 
         changed = true;
         aFootprint.SetReference(aNetlistComponent.GetReference());
@@ -470,9 +518,19 @@ export class BOARD_NETLIST_UPDATER {
 
     if (aFootprint.GetValue() !== netlistValue) {
       if (this.m_isDryRun) {
-        msg = `Change ${aFootprint.GetReference()} value from ${EscapeHTML(aFootprint.GetValue())} to ${EscapeHTML(netlistValue)}.`;
+        msg = wxFormat(
+          _('Change %s value from %s to %s.'),
+          aFootprint.GetReference(),
+          EscapeHTML(aFootprint.GetValue()),
+          EscapeHTML(netlistValue),
+        );
       } else {
-        msg = `Changed ${aFootprint.GetReference()} value from ${EscapeHTML(aFootprint.GetValue())} to ${EscapeHTML(netlistValue)}.`;
+        msg = wxFormat(
+          _('Changed %s value from %s to %s.'),
+          aFootprint.GetReference(),
+          EscapeHTML(aFootprint.GetValue()),
+          EscapeHTML(netlistValue),
+        );
 
         changed = true;
         aFootprint.SetValue(netlistValue);
@@ -489,9 +547,19 @@ export class BOARD_NETLIST_UPDATER {
       const toPath = EscapeHTML(kiidPathAsString(new_path));
 
       if (this.m_isDryRun) {
-        msg = `Update ${aFootprint.GetReference()} symbol association from ${fromPath} to ${toPath}.`;
+        msg = wxFormat(
+          _('Update %s symbol association from %s to %s.'),
+          aFootprint.GetReference(),
+          fromPath,
+          toPath,
+        );
       } else {
-        msg = `Updated ${aFootprint.GetReference()} symbol association from ${fromPath} to ${toPath}.`;
+        msg = wxFormat(
+          _('Updated %s symbol association from %s to %s.'),
+          aFootprint.GetReference(),
+          fromPath,
+          toPath,
+        );
 
         changed = true;
         aFootprint.SetPath(new_path);
@@ -543,7 +611,7 @@ export class BOARD_NETLIST_UPDATER {
     if (!same) {
       if (this.m_isDryRun) {
         if (this.m_updateFields && (!remove_only || this.m_removeExtraFields)) {
-          msg = `Update ${aFootprint.GetReference()} fields.`;
+          msg = wxFormat(_('Update %s fields.'), aFootprint.GetReference());
           this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         }
 
@@ -553,7 +621,10 @@ export class BOARD_NETLIST_UPDATER {
 
           if (!compFields.has(field.GetName())) {
             if (this.m_removeExtraFields) {
-              msg = `Remove ${aFootprint.GetReference()} footprint fields not in symbol.`;
+              msg = wxFormat(
+                _('Remove %s footprint fields not in symbol.'),
+                aFootprint.GetReference(),
+              );
               this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
             }
 
@@ -562,7 +633,7 @@ export class BOARD_NETLIST_UPDATER {
         }
       } else {
         if (this.m_updateFields && (!remove_only || this.m_removeExtraFields)) {
-          msg = `Updated ${aFootprint.GetReference()} fields.`;
+          msg = wxFormat(_('Updated %s fields.'), aFootprint.GetReference());
           this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
 
           changed = true;
@@ -606,7 +677,10 @@ export class BOARD_NETLIST_UPDATER {
             if (!compFields.has(field.GetName())) {
               if (!warned) {
                 warned = true;
-                msg = `Removed ${aFootprint.GetReference()} footprint fields not in symbol.`;
+                msg = wxFormat(
+                  _('Removed %s footprint fields not in symbol.'),
+                  aFootprint.GetReference(),
+                );
                 this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
               }
 
@@ -635,10 +709,18 @@ export class BOARD_NETLIST_UPDATER {
 
     if (sheetname !== aFootprint.GetSheetname()) {
       if (this.m_isDryRun) {
-        msg = `Update ${aFootprint.GetReference()} sheetname to '${EscapeHTML(sheetname)}'.`;
+        msg = wxFormat(
+          _("Update %s sheetname to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(sheetname),
+        );
       } else {
         aFootprint.SetSheetname(sheetname);
-        msg = `Updated ${aFootprint.GetReference()} sheetname to '${EscapeHTML(sheetname)}'.`;
+        msg = wxFormat(
+          _("Updated %s sheetname to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(sheetname),
+        );
       }
 
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -646,10 +728,18 @@ export class BOARD_NETLIST_UPDATER {
 
     if (sheetfile !== aFootprint.GetSheetfile()) {
       if (this.m_isDryRun) {
-        msg = `Update ${aFootprint.GetReference()} sheetfile to '${EscapeHTML(sheetfile)}'.`;
+        msg = wxFormat(
+          _("Update %s sheetfile to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(sheetfile),
+        );
       } else {
         aFootprint.SetSheetfile(sheetfile);
-        msg = `Updated ${aFootprint.GetReference()} sheetfile to '${EscapeHTML(sheetfile)}'.`;
+        msg = wxFormat(
+          _("Updated %s sheetfile to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(sheetfile),
+        );
       }
 
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -657,10 +747,18 @@ export class BOARD_NETLIST_UPDATER {
 
     if (fpFilters !== aFootprint.GetFilters()) {
       if (this.m_isDryRun) {
-        msg = `Update ${aFootprint.GetReference()} footprint filters to '${EscapeHTML(fpFilters)}'.`;
+        msg = wxFormat(
+          _("Update %s footprint filters to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(fpFilters),
+        );
       } else {
         aFootprint.SetFilters(fpFilters);
-        msg = `Updated ${aFootprint.GetReference()} footprint filters to '${EscapeHTML(fpFilters)}'.`;
+        msg = wxFormat(
+          _("Updated %s footprint filters to '%s'."),
+          aFootprint.GetReference(),
+          EscapeHTML(fpFilters),
+        );
       }
 
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -729,12 +827,12 @@ export class BOARD_NETLIST_UPDATER {
         aFootprint.SetDuplicatePadNumbersAreJumpers(value);
 
         msg = value
-          ? `Added ${ref} 'duplicate pad numbers are jumpers' attribute.`
-          : `Removed ${ref} 'duplicate pad numbers are jumpers' attribute.`;
+          ? wxFormat(_("Added %s 'duplicate pad numbers are jumpers' attribute."), ref)
+          : wxFormat(_("Removed %s 'duplicate pad numbers are jumpers' attribute."), ref);
       } else {
         msg = value
-          ? `Add ${ref} 'duplicate pad numbers are jumpers' attribute.`
-          : `Remove ${ref} 'duplicate pad numbers are jumpers' attribute.`;
+          ? wxFormat(_("Add %s 'duplicate pad numbers are jumpers' attribute."), ref)
+          : wxFormat(_("Remove %s 'duplicate pad numbers are jumpers' attribute."), ref);
       }
 
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -749,9 +847,9 @@ export class BOARD_NETLIST_UPDATER {
         const groups = aFootprint.JumperPadGroups();
         groups.length = 0;
         for (const g of aNetlistComponent.JumperPadGroups()) groups.push(new Set(g));
-        msg = `Updated ${aFootprint.GetReference()} jumper pad groups`;
+        msg = wxFormat(_('Updated %s jumper pad groups'), aFootprint.GetReference());
       } else {
-        msg = `Update ${aFootprint.GetReference()} jumper pad groups`;
+        msg = wxFormat(_('Update %s jumper pad groups'), aFootprint.GetReference());
       }
 
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -799,9 +897,17 @@ export class BOARD_NETLIST_UPDATER {
     // Remove from existing group
     if (existingGroupKIID !== niluuid) {
       if (this.m_isDryRun) {
-        msg = `Remove ${aPcbFootprint.GetReference()} from group '${EscapeHTML(existingGroup!.GetName())}'.`;
+        msg = wxFormat(
+          _("Remove %s from group '%s'."),
+          aPcbFootprint.GetReference(),
+          EscapeHTML(existingGroup!.GetName()),
+        );
       } else {
-        msg = `Removed ${aPcbFootprint.GetReference()} from group '${EscapeHTML(existingGroup!.GetName())}'.`;
+        msg = wxFormat(
+          _("Removed %s from group '%s'."),
+          aPcbFootprint.GetReference(),
+          EscapeHTML(existingGroup!.GetName()),
+        );
 
         changed = true;
         this.m_commit.Modify(existingGroup!, null, RECURSE_MODE.NO_RECURSE);
@@ -819,9 +925,17 @@ export class BOARD_NETLIST_UPDATER {
     // Add to new group
     if (newGroupKIID !== niluuid) {
       if (this.m_isDryRun) {
-        msg = `Add ${aPcbFootprint.GetReference()} to group '${EscapeHTML(netlistGroup!.name)}'.`;
+        msg = wxFormat(
+          _("Add %s to group '%s'."),
+          aPcbFootprint.GetReference(),
+          EscapeHTML(netlistGroup!.name),
+        );
       } else {
-        msg = `Added ${aPcbFootprint.GetReference()} to group '${EscapeHTML(netlistGroup!.name)}'.`;
+        msg = wxFormat(
+          _("Added %s to group '%s'."),
+          aPcbFootprint.GetReference(),
+          EscapeHTML(netlistGroup!.name),
+        );
 
         changed = true;
 
@@ -900,13 +1014,19 @@ export class BOARD_NETLIST_UPDATER {
       // Test if new footprint pad has no net (pads not on copper layers have no net).
       if (!net.IsValid() || !pad.IsOnCopperLayer()) {
         if (pad.GetNetname() !== '') {
-          if (this.m_isDryRun) msg = `Disconnect ${ref} pin ${EscapeHTML(pad.GetNumber())}.`;
-          else msg = `Disconnected ${ref} pin ${EscapeHTML(pad.GetNumber())}.`;
+          if (this.m_isDryRun)
+            msg = wxFormat(_('Disconnect %s pin %s.'), ref, EscapeHTML(pad.GetNumber()));
+          else msg = wxFormat(_('Disconnected %s pin %s.'), ref, EscapeHTML(pad.GetNumber()));
 
           this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         } else if (pad.IsOnCopperLayer() && pad.GetNumber() !== '') {
           // pad is connectable but has no net found in netlist
-          msg = `No net found for component ${ref} pad ${EscapeHTML(pad.GetNumber())} (no pin ${EscapeHTML(pad.GetNumber())} in symbol).`;
+          msg = wxFormat(
+            _('No net found for component %s pad %s (no pin %s in symbol).'),
+            ref,
+            EscapeHTML(pad.GetNumber()),
+            EscapeHTML(pad.GetNumber()),
+          );
           this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
           ++this.m_warningCount;
         }
@@ -960,7 +1080,7 @@ export class BOARD_NETLIST_UPDATER {
             }
 
             this.m_addedNets.set(netName, netinfo);
-            msg = `Add net ${EscapeHTML(UnescapeString(netName))}.`;
+            msg = wxFormat(_('Add net %s.'), EscapeHTML(UnescapeString(netName)));
             this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
           }
 
@@ -972,11 +1092,12 @@ export class BOARD_NETLIST_UPDATER {
 
             const from = EscapeHTML(UnescapeString(pad.GetNetname()));
 
-            if (this.m_isDryRun) msg = `Reconnect ${ref} pin ${pin} from ${from} to ${to}.`;
-            else msg = `Reconnected ${ref} pin ${pin} from ${from} to ${to}.`;
+            if (this.m_isDryRun)
+              msg = wxFormat(_('Reconnect %s pin %s from %s to %s.'), ref, pin, from, to);
+            else msg = wxFormat(_('Reconnected %s pin %s from %s to %s.'), ref, pin, from, to);
           } else {
-            if (this.m_isDryRun) msg = `Connect ${ref} pin ${pin} to ${to}.`;
-            else msg = `Connected ${ref} pin ${pin} to ${to}.`;
+            if (this.m_isDryRun) msg = wxFormat(_('Connect %s pin %s to %s.'), ref, pin, to);
+            else msg = wxFormat(_('Connected %s pin %s to %s.'), ref, pin, to);
           }
 
           this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -1024,7 +1145,7 @@ export class BOARD_NETLIST_UPDATER {
     let msg: string;
 
     if (this.m_isDryRun) {
-      msg = `Update ${aFootprint.GetReference()} unit metadata.`;
+      msg = wxFormat(_('Update %s unit metadata.'), aFootprint.GetReference());
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
       return false; // no actual change on board during dry run
     }
@@ -1039,7 +1160,7 @@ export class BOARD_NETLIST_UPDATER {
 
     aFootprint.SetUnitInfo(newUnits);
 
-    msg = `Updated ${aFootprint.GetReference()} unit metadata.`;
+    msg = wxFormat(_('Updated %s unit metadata.'), aFootprint.GetReference());
     this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
 
     if (copy) this.m_commit.Modified(aFootprint, copy);
@@ -1086,7 +1207,11 @@ export class BOARD_NETLIST_UPDATER {
           if (this.m_isDryRun) {
             const originalNetname = via.GetNetname();
 
-            msg = `Reconnect via from ${EscapeHTML(UnescapeString(originalNetname))} to ${EscapeHTML(UnescapeString(updatedNetname))}.`;
+            msg = wxFormat(
+              _('Reconnect via from %s to %s.'),
+              EscapeHTML(UnescapeString(originalNetname)),
+              EscapeHTML(UnescapeString(updatedNetname)),
+            );
 
             this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
           } else {
@@ -1099,13 +1224,20 @@ export class BOARD_NETLIST_UPDATER {
               this.m_commit.Modify(via);
               via.SetNet(netinfo);
 
-              msg = `Reconnected via from ${EscapeHTML(UnescapeString(originalNetname))} to ${EscapeHTML(UnescapeString(updatedNetname))}.`;
+              msg = wxFormat(
+                _('Reconnected via from %s to %s.'),
+                EscapeHTML(UnescapeString(originalNetname)),
+                EscapeHTML(UnescapeString(updatedNetname)),
+              );
 
               this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
             }
           }
         } else {
-          msg = `Via connected to unknown net (${EscapeHTML(UnescapeString(via.GetNetname()))}).`;
+          msg = wxFormat(
+            _('Via connected to unknown net (%s).'),
+            EscapeHTML(UnescapeString(via.GetNetname())),
+          );
           this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
           ++this.m_warningCount;
         }
@@ -1156,8 +1288,13 @@ export class BOARD_NETLIST_UPDATER {
 
           if (this.m_isDryRun) {
             if (zone.GetZoneName() !== '')
-              msg = `Reconnect copper zone '${zone.GetZoneName()}' from ${from} to ${to}.`;
-            else msg = `Reconnect copper zone from ${from} to ${to}.`;
+              msg = wxFormat(
+                _("Reconnect copper zone '%s' from %s to %s."),
+                zone.GetZoneName(),
+                from,
+                to,
+              );
+            else msg = wxFormat(_('Reconnect copper zone from %s to %s.'), from, to);
 
             this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
           } else {
@@ -1169,15 +1306,23 @@ export class BOARD_NETLIST_UPDATER {
               zone.SetNet(netinfo);
 
               if (zone.GetZoneName() !== '')
-                msg = `Reconnected copper zone '${EscapeHTML(zone.GetZoneName())}' from ${from} to ${to}.`;
-              else msg = `Reconnected copper zone from ${from} to ${to}.`;
+                msg = wxFormat(
+                  _("Reconnected copper zone '%s' from %s to %s."),
+                  EscapeHTML(zone.GetZoneName()),
+                  from,
+                  to,
+                );
+              else msg = wxFormat(_('Reconnected copper zone from %s to %s.'), from, to);
 
               this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
             }
           }
         } else {
           if (zone.GetZoneName() !== '') {
-            msg = `Copper zone '${EscapeHTML(zone.GetZoneName())}' has no pads connected.`;
+            msg = wxFormat(
+              _("Copper zone '%s' has no pads connected."),
+              EscapeHTML(zone.GetZoneName()),
+            );
           } else {
             const layerNames = zone.LayerMaskDescribe();
             const pt = { ...zone.GetPosition() };
@@ -1191,7 +1336,13 @@ export class BOARD_NETLIST_UPDATER {
             const text = (v: number): string =>
               messageTextFromValue(pcbIUScale, this.m_frame.GetUserUnits(), v);
 
-            msg = `Copper zone on ${EscapeHTML(layerNames)} at (${text(pt.x)}, ${text(pt.y)}) has no pads connected to net "${zone.GetNetname()}".`;
+            msg = wxFormat(
+              _('Copper zone on %s at (%s, %s) has no pads connected to net "%s".'),
+              EscapeHTML(layerNames),
+              text(pt.x),
+              text(pt.y),
+              zone.GetNetname(),
+            );
           }
 
           this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
@@ -1215,9 +1366,17 @@ export class BOARD_NETLIST_UPDATER {
 
       if (netlistGroup.name !== pcbGroup.GetName()) {
         if (this.m_isDryRun) {
-          msg = `Change group name from '${EscapeHTML(pcbGroup.GetName())}' to '${EscapeHTML(netlistGroup.name)}'.`;
+          msg = wxFormat(
+            _("Change group name from '%s' to '%s'."),
+            EscapeHTML(pcbGroup.GetName()),
+            EscapeHTML(netlistGroup.name),
+          );
         } else {
-          msg = `Changed group name from '${EscapeHTML(pcbGroup.GetName())}' to '${EscapeHTML(netlistGroup.name)}'.`;
+          msg = wxFormat(
+            _("Changed group name from '%s' to '%s'."),
+            EscapeHTML(pcbGroup.GetName()),
+            EscapeHTML(netlistGroup.name),
+          );
           this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
           pcbGroup.SetName(netlistGroup.name);
         }
@@ -1230,9 +1389,17 @@ export class BOARD_NETLIST_UPDATER {
 
       if (libId.Format() !== pcbGroup.GetDesignBlockLibId().Format()) {
         if (this.m_isDryRun) {
-          msg = `Change group library link from '${EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId())}' to '${EscapeHTML(libId.GetUniStringLibId())}'.`;
+          msg = wxFormat(
+            _("Change group library link from '%s' to '%s'."),
+            EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId()),
+            EscapeHTML(libId.GetUniStringLibId()),
+          );
         } else {
-          msg = `Changed group library link from '${EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId())}' to '${EscapeHTML(libId.GetUniStringLibId())}'.`;
+          msg = wxFormat(
+            _("Changed group library link from '%s' to '%s'."),
+            EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId()),
+            EscapeHTML(libId.GetUniStringLibId()),
+          );
           this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
           pcbGroup.SetDesignBlockLibId(libId);
         }
@@ -1260,9 +1427,17 @@ export class BOARD_NETLIST_UPDATER {
           continue;
 
         if (this.m_isDryRun) {
-          msg = `Add group '${EscapeHTML(childGroup.GetName())}' to group '${EscapeHTML(pcbGroup.GetName())}'.`;
+          msg = wxFormat(
+            _("Add group '%s' to group '%s'."),
+            EscapeHTML(childGroup.GetName()),
+            EscapeHTML(pcbGroup.GetName()),
+          );
         } else {
-          msg = `Added group '${EscapeHTML(childGroup.GetName())}' to group '${EscapeHTML(pcbGroup.GetName())}'.`;
+          msg = wxFormat(
+            _("Added group '%s' to group '%s'."),
+            EscapeHTML(childGroup.GetName()),
+            EscapeHTML(pcbGroup.GetName()),
+          );
           this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
           this.m_commit.Modify(childGroup, null, RECURSE_MODE.NO_RECURSE);
           pcbGroup.AddItem(childGroup);
@@ -1295,12 +1470,21 @@ export class BOARD_NETLIST_UPDATER {
 
         if (padNumber === '') {
           // bad symbol, report error
-          msg = `Symbol ${component.GetReference()} has pins with no number.  These pins can not be matched to pads in ${EscapeHTML(footprint.GetFPID().Format())}.`;
+          msg = wxFormat(
+            _('Symbol %s has pins with no number.  These pins can not be matched to pads in %s.'),
+            component.GetReference(),
+            EscapeHTML(footprint.GetFPID().Format()),
+          );
           this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
           ++this.m_errorCount;
         } else if (!footprint.FindPadByNumber(padNumber)) {
           // not found: bad footprint, report error
-          msg = `${component.GetReference()} pad ${EscapeHTML(padNumber)} not found in ${EscapeHTML(footprint.GetFPID().Format())}.`;
+          msg = wxFormat(
+            _('%s pad %s not found in %s.'),
+            component.GetReference(),
+            EscapeHTML(padNumber),
+            EscapeHTML(footprint.GetFPID().Format()),
+          );
           this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
           ++this.m_errorCount;
         }
@@ -1362,13 +1546,23 @@ export class BOARD_NETLIST_UPDATER {
 
       const baseFpid = componentFpid(component);
 
-      msg = `Processing symbol '${component.GetReference()}:${EscapeHTML(baseFpid.Format())}'.`;
+      msg = wxFormat(
+        _("Processing symbol '%s:%s'."),
+        component.GetReference(),
+        EscapeHTML(baseFpid.Format()),
+      );
       this.m_reporter.report(msg, RPT_SEVERITY_INFO);
 
       const hasBaseFpid = !baseFpid.empty();
 
       if (baseFpid.IsLegacy()) {
-        msg = `Warning: ${component.GetReference()} footprint '${EscapeHTML(baseFpid.Format())}' is missing a library name. Use the full 'Library:Footprint' format to avoid repeated update notifications.`;
+        msg = wxFormat(
+          _(
+            "Warning: %s footprint '%s' is missing a library name. Use the full 'Library:Footprint' format to avoid repeated update notifications.",
+          ),
+          component.GetReference(),
+          EscapeHTML(baseFpid.Format()),
+        );
         this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
         ++this.m_warningCount;
       }
@@ -1539,9 +1733,15 @@ export class BOARD_NETLIST_UPDATER {
 
       if (doDelete && !matched && footprint.IsLocked() && !this.m_overrideLocks) {
         if (this.m_isDryRun)
-          msg = `Cannot remove unused footprint ${footprint.GetReference()} (footprint is locked).`;
+          msg = wxFormat(
+            _('Cannot remove unused footprint %s (footprint is locked).'),
+            footprint.GetReference(),
+          );
         else
-          msg = `Could not remove unused footprint ${footprint.GetReference()} (footprint is locked).`;
+          msg = wxFormat(
+            _('Could not remove unused footprint %s (footprint is locked).'),
+            footprint.GetReference(),
+          );
 
         this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
         this.m_warningCount++;
@@ -1550,10 +1750,10 @@ export class BOARD_NETLIST_UPDATER {
 
       if (doDelete && !matched) {
         if (this.m_isDryRun) {
-          msg = `Remove unused footprint ${footprint.GetReference()}.`;
+          msg = wxFormat(_('Remove unused footprint %s.'), footprint.GetReference());
         } else {
           this.m_commit.Remove(footprint);
-          msg = `Removed unused footprint ${footprint.GetReference()}.`;
+          msg = wxFormat(_('Removed unused footprint %s.'), footprint.GetReference());
         }
 
         this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
@@ -1576,7 +1776,7 @@ export class BOARD_NETLIST_UPDATER {
 
       for (const net of this.m_board.GetNetInfo()) {
         if (!net.IsCurrent()) {
-          msg = `Removed unused net ${EscapeHTML(net.GetNetname())}.`;
+          msg = wxFormat(_('Removed unused net %s.'), EscapeHTML(net.GetNetname()));
           this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         }
       }
@@ -1606,7 +1806,7 @@ export class BOARD_NETLIST_UPDATER {
     this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
     this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
 
-    msg = `Total warnings: ${this.m_warningCount}, errors: ${this.m_errorCount}.`;
+    msg = wxFormat(_('Total warnings: %d, errors: %d.'), this.m_warningCount, this.m_errorCount);
     this.m_reporter.reportTail(msg, RPT_SEVERITY_INFO);
 
     return true;

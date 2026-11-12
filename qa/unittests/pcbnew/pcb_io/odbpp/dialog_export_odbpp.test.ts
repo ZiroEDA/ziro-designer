@@ -8,6 +8,8 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { JOB_EXPORT_PCB_ODB, ODB_COMPRESSION } from '@ziroeda/common/jobs/job_export_pcb_odb.js';
 import { wxZipInputStream } from '@ziroeda/wx/zipstrm.js';
 import {
@@ -126,7 +128,7 @@ describe('DIALOG_EXPORT_ODBPP', () => {
   it('an existing output is replaced only after Overwrite', async () => {
     const refused = await run(job('out.zip', ODB_COMPRESSION.ZIP), true, false);
     expect(refused.asked).toEqual([
-      "Output files 'out.zip' already exists. Do you want to overwrite it?",
+      wxFormat(_("Output files '%s' already exists. Do you want to overwrite it?"), 'out.zip'),
     ]);
     expect(refused.written.size).toBe(0);
 

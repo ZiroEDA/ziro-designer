@@ -45,6 +45,8 @@ import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { FOOTPRINT } from './footprint.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `wxString::CmpNoCase`. */
 function cmpNoCase(a: string, b: string): number {
@@ -174,20 +176,20 @@ export class PCB_FIELD extends PCB_TEXT {
 
     switch (this.m_id) {
       case FIELD_T.REFERENCE:
-        return `Reference field of ${ref}`;
+        return wxFormat(_('Reference field of %s'), ref);
 
       case FIELD_T.VALUE:
-        return `Value field of ${ref} (${content})`;
+        return wxFormat(_('Value field of %s (%s)'), ref, content);
 
       case FIELD_T.FOOTPRINT:
-        return `Footprint field of ${ref} (${content})`;
+        return wxFormat(_('Footprint field of %s (%s)'), ref, content);
 
       case FIELD_T.DATASHEET:
-        return `Datasheet field of ${ref} (${content})`;
+        return wxFormat(_('Datasheet field of %s (%s)'), ref, content);
 
       default:
-        if (this.GetName() === '') return `Field of ${ref} (${content})`;
-        else return `${this.GetName()} field of ${ref} (${content})`;
+        if (this.GetName() === '') return wxFormat(_('Field of %s (%s)'), ref, content);
+        else return wxFormat(_('%s field of %s (%s)'), this.GetName(), ref, content);
     }
   }
 

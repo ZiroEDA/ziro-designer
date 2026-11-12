@@ -53,6 +53,7 @@ import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js'
 import { PLOT_MAX_SCALE, PLOT_MIN_SCALE } from '../pcbplot.js';
 import { DIALOG_PLOT_BASE } from './dialog_plot_base.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface Props {
   board: BOARD;
@@ -244,7 +245,11 @@ export function DialogPcbPlot({
 
   const drcWarning =
     knownViolations || exclusions
-      ? `(${knownViolations} known DRC violations; ${exclusions} exclusions)`
+      ? wxFormat(
+          wxGetTranslation('(%d known DRC violations; %d exclusions)'),
+          knownViolations,
+          exclusions,
+        )
       : null;
 
   // SetPlotFormat / reInitDialog: the solder mask alert, Gerber only.
@@ -352,7 +357,13 @@ export function DialogPcbPlot({
       const lo = pcbUnitTextMM(pcbIUScale.iuToMM(minW), units, true);
       const hi = pcbUnitTextMM(pcbIUScale.iuToMM(maxW), units, true);
       aReporter.Report(
-        `Width correction constrained.  The width correction value must be in the range of [${lo}; ${hi}] for the current design rules.`,
+        wxFormat(
+          wxGetTranslation(
+            'Width correction constrained.  The width correction value must be in the range of [%s; %s] for the current design rules.',
+          ),
+          lo,
+          hi,
+        ),
         RPT_SEVERITY_WARNING,
       );
     }

@@ -129,6 +129,7 @@ import {
   SEXPR_BOARD_FILE_VERSION,
 } from './pcb_io_kicad_sexpr_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `const_cast<KIID&>( item->m_Uuid ) = CurStrToKIID()`. */
 function setUuid(aItem: BOARD_ITEM, aUuid: KIID): void {
@@ -662,7 +663,7 @@ export function parsePCB_TEXT(
         break;
 
       default:
-        throw new IO_ERROR(`Cannot handle footprint text type ${p.CurText()}`);
+        throw new IO_ERROR(wxFormat(_('Cannot handle footprint text type %s'), p.CurText()));
     }
 
     token = p.NextTok();
@@ -2388,7 +2389,10 @@ function parseFootprintStackup(p: PCB_IO_KICAD_SEXPR_PARSER, aFootprint: FOOTPRI
   // Remove this check when we support odd copper layer stackups
   if (gotCuLayers.count() % 2 !== 0) {
     throw new IO_ERROR(
-      `Invalid stackup in footprint: odd number of copper layers (${gotCuLayers.count()}).`,
+      wxFormat(
+        _('Invalid stackup in footprint: odd number of copper layers (%d).'),
+        gotCuLayers.count(),
+      ),
     );
   }
 

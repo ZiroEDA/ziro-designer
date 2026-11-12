@@ -36,6 +36,7 @@ import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { ZONE } from '../zone.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // FOOTPRINT::FootprintNeedsUpdate and its helpers, which the C++ defines in this
@@ -49,7 +50,7 @@ const EPSILON_D = 0.00001;
 const g_unitsProvider = new UNITS_PROVIDER(pcbIUScale, 'mm');
 
 const ITEM_DESC = (item: BOARD_ITEM): string => item.GetItemDescription(g_unitsProvider, true);
-const PAD_DESC = (pad: PAD): string => `Pad ${pad.GetNumber()}`;
+const PAD_DESC = (pad: PAD): string => wxFormat(_('Pad %s'), pad.GetNumber());
 
 /**
  * The TEST macros as a small state machine: `test` records a difference and
@@ -275,7 +276,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetPadToDieLength() !== bLib.GetPadToDieLength(),
-      `${PAD_DESC(a)} pad to die length differs.`,
+      wxFormat(_('%s pad to die length differs.'), PAD_DESC(a)),
     )
   )
     return d.diff;
@@ -283,12 +284,17 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     d.testPt(
       a.GetFPRelativePosition(),
       bLib.GetFPRelativePosition(),
-      `${PAD_DESC(a)} position differs.`,
+      wxFormat(_('%s position differs.'), PAD_DESC(a)),
     )
   )
     return d.diff;
 
-  if (d.test(a.GetNumber() !== bLib.GetNumber(), `${PAD_DESC(a)} has different numbers.`))
+  if (
+    d.test(
+      a.GetNumber() !== bLib.GetNumber(),
+      wxFormat(_('%s has different numbers.'), PAD_DESC(a)),
+    )
+  )
     return d.diff;
 
   // These are assigned from the schematic and not from the library
@@ -316,14 +322,22 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
   ) {
     d.diff = true;
 
-    if (aReporter) aReporter.report(`${PAD_DESC(a)} layers differ.`);
+    if (aReporter) aReporter.report(wxFormat(_('%s layers differ.'), PAD_DESC(a)));
     else return true;
   }
 
-  if (d.test(a.GetAttribute() !== bLib.GetAttribute(), `${PAD_DESC(a)} pad type differs.`))
+  if (
+    d.test(
+      a.GetAttribute() !== bLib.GetAttribute(),
+      wxFormat(_('%s pad type differs.'), PAD_DESC(a)),
+    )
+  )
     return d.diff;
   if (
-    d.test(a.GetProperty() !== bLib.GetProperty(), `${PAD_DESC(a)} fabrication property differs.`)
+    d.test(
+      a.GetProperty() !== bLib.GetProperty(),
+      wxFormat(_('%s fabrication property differs.'), PAD_DESC(a)),
+    )
   )
     return d.diff;
 
@@ -332,7 +346,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     d.testD(
       a.GetFPRelativeOrientation().Normalize().AsDegrees(),
       bLib.GetFPRelativeOrientation().Normalize().AsDegrees(),
-      `${PAD_DESC(a)} orientation differs.`,
+      wxFormat(_('%s orientation differs.'), PAD_DESC(a)),
     )
   ) {
     return d.diff;
@@ -348,7 +362,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     if (
       d.test(
         a.GetShape(layer) !== bLib.GetShape(layer),
-        `${PAD_DESC(a)} pad shape type differs on layer ${layerName}.`,
+        wxFormat(_('%s pad shape type differs on layer %s.'), PAD_DESC(a), layerName),
       )
     ) {
       return d.diff;
@@ -357,7 +371,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     if (
       d.test(
         !equal(a.GetSize(layer), bLib.GetSize(layer)),
-        `${PAD_DESC(a)} size differs on layer ${layerName}.`,
+        wxFormat(_('%s size differs on layer %s.'), PAD_DESC(a), layerName),
       )
     )
       return d.diff;
@@ -365,7 +379,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     if (
       d.test(
         !equal(a.GetDelta(layer), bLib.GetDelta(layer)),
-        `${PAD_DESC(a)} trapezoid delta differs on layer ${layerName}.`,
+        wxFormat(_('%s trapezoid delta differs on layer %s.'), PAD_DESC(a), layerName),
       )
     ) {
       return d.diff;
@@ -379,7 +393,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
         d.testD(
           a.GetRoundRectRadiusRatio(layer),
           bLib.GetRoundRectRadiusRatio(layer),
-          `${PAD_DESC(a)} rounded corners differ on layer ${layerName}.`,
+          wxFormat(_('%s rounded corners differ on layer %s.'), PAD_DESC(a), layerName),
         )
       ) {
         return d.diff;
@@ -391,7 +405,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
         d.testD(
           a.GetChamferRectRatio(layer),
           bLib.GetChamferRectRatio(layer),
-          `${PAD_DESC(a)} chamfered corner sizes differ on layer ${layerName}.`,
+          wxFormat(_('%s chamfered corner sizes differ on layer %s.'), PAD_DESC(a), layerName),
         )
       ) {
         return d.diff;
@@ -400,7 +414,7 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
       if (
         d.test(
           a.GetChamferPositions(layer) !== bLib.GetChamferPositions(layer),
-          `${PAD_DESC(a)} chamfered corners differ on layer ${layerName}.`,
+          wxFormat(_('%s chamfered corners differ on layer %s.'), PAD_DESC(a), layerName),
         )
       ) {
         return d.diff;
@@ -411,16 +425,26 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
       d.testPt(
         a.GetOffset(layer),
         bLib.GetOffset(layer),
-        `${PAD_DESC(a)} shape offset from hole differs on layer ${layerName}.`,
+        wxFormat(_('%s shape offset from hole differs on layer %s.'), PAD_DESC(a), layerName),
       )
     ) {
       return d.diff;
     }
   }
 
-  if (d.test(a.GetDrillShape() !== bLib.GetDrillShape(), `${PAD_DESC(a)} drill shape differs.`))
+  if (
+    d.test(
+      a.GetDrillShape() !== bLib.GetDrillShape(),
+      wxFormat(_('%s drill shape differs.'), PAD_DESC(a)),
+    )
+  )
     return d.diff;
-  if (d.test(!equal(a.GetDrillSize(), bLib.GetDrillSize()), `${PAD_DESC(a)} drill size differs.`))
+  if (
+    d.test(
+      !equal(a.GetDrillSize(), bLib.GetDrillSize()),
+      wxFormat(_('%s drill size differs.'), PAD_DESC(a)),
+    )
+  )
     return d.diff;
 
   // Clearance and zone connection overrides are as likely to be set at the board level as in
@@ -458,7 +482,9 @@ function padNeedsUpdate(a: PAD, bLib: PAD, aReporter: Reporter | null): boolean 
     layerName = board ? board.GetLayerName(firstDifferingLayer) : LayerName(firstDifferingLayer);
 
     if (aReporter) {
-      aReporter.report(`${PAD_DESC(a)} shape primitives differ on layer ${layerName}.`);
+      aReporter.report(
+        wxFormat(_('%s shape primitives differ on layer %s.'), PAD_DESC(a), layerName),
+      );
     } else {
       return true;
     }
@@ -473,7 +499,7 @@ function barcodeNeedsUpdate(curr_barcode: PCB_BARCODE, ref_barcode: PCB_BARCODE)
   if (
     d.test(
       curr_barcode.GetText() !== ref_barcode.GetText(),
-      `${ITEM_DESC(curr_barcode)} text differs.`,
+      wxFormat(_('%s text differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
@@ -482,7 +508,7 @@ function barcodeNeedsUpdate(curr_barcode: PCB_BARCODE, ref_barcode: PCB_BARCODE)
     d.testPt(
       curr_barcode.GetPosition(),
       ref_barcode.GetPosition(),
-      `${ITEM_DESC(curr_barcode)} position differs.`,
+      wxFormat(_('%s position differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
@@ -490,14 +516,14 @@ function barcodeNeedsUpdate(curr_barcode: PCB_BARCODE, ref_barcode: PCB_BARCODE)
   if (
     d.test(
       curr_barcode.GetWidth() !== ref_barcode.GetWidth(),
-      `${ITEM_DESC(curr_barcode)} width differs.`,
+      wxFormat(_('%s width differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
   if (
     d.test(
       curr_barcode.GetHeight() !== ref_barcode.GetHeight(),
-      `${ITEM_DESC(curr_barcode)} height differs.`,
+      wxFormat(_('%s height differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
@@ -505,7 +531,7 @@ function barcodeNeedsUpdate(curr_barcode: PCB_BARCODE, ref_barcode: PCB_BARCODE)
   if (
     d.test(
       curr_barcode.GetTextSize() !== ref_barcode.GetTextSize(),
-      `${ITEM_DESC(curr_barcode)} text size differs.`,
+      wxFormat(_('%s text size differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
@@ -513,14 +539,14 @@ function barcodeNeedsUpdate(curr_barcode: PCB_BARCODE, ref_barcode: PCB_BARCODE)
   if (
     d.test(
       curr_barcode.GetKind() !== ref_barcode.GetKind(),
-      `${ITEM_DESC(curr_barcode)} code differs.`,
+      wxFormat(_('%s code differs.'), ITEM_DESC(curr_barcode)),
     )
   )
     return d.diff;
   if (
     d.test(
       curr_barcode.GetErrorCorrection() !== ref_barcode.GetErrorCorrection(),
-      `${ITEM_DESC(curr_barcode)} error correction level differs.`,
+      wxFormat(_('%s error correction level differs.'), ITEM_DESC(curr_barcode)),
     )
   ) {
     return d.diff;
@@ -625,7 +651,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetCornerSmoothingType() !== b.GetCornerSmoothingType(),
-      `${ITEM_DESC(a)} corner smoothing setting differs.`,
+      wxFormat(_('%s corner smoothing setting differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -633,22 +659,31 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetCornerRadius() !== b.GetCornerRadius(),
-      `${ITEM_DESC(a)} corner smoothing radius differs.`,
+      wxFormat(_('%s corner smoothing radius differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
-  if (d.test(a.GetZoneName() !== b.GetZoneName(), `${ITEM_DESC(a)} name differs.`)) return d.diff;
+  if (d.test(a.GetZoneName() !== b.GetZoneName(), wxFormat(_('%s name differs.'), ITEM_DESC(a))))
+    return d.diff;
   if (
-    d.test(a.GetAssignedPriority() !== b.GetAssignedPriority(), `${ITEM_DESC(a)} priority differs.`)
+    d.test(
+      a.GetAssignedPriority() !== b.GetAssignedPriority(),
+      wxFormat(_('%s priority differs.'), ITEM_DESC(a)),
+    )
   )
     return d.diff;
 
-  if (d.test(a.GetIsRuleArea() !== b.GetIsRuleArea(), `${ITEM_DESC(a)} keep-out property differs.`))
+  if (
+    d.test(
+      a.GetIsRuleArea() !== b.GetIsRuleArea(),
+      wxFormat(_('%s keep-out property differs.'), ITEM_DESC(a)),
+    )
+  )
     return d.diff;
   if (
     d.test(
       a.GetDoNotAllowZoneFills() !== b.GetDoNotAllowZoneFills(),
-      `${ITEM_DESC(a)} keep out zone fill setting differs.`,
+      wxFormat(_('%s keep out zone fill setting differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -656,7 +691,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetDoNotAllowFootprints() !== b.GetDoNotAllowFootprints(),
-      `${ITEM_DESC(a)} keep out footprints setting differs.`,
+      wxFormat(_('%s keep out footprints setting differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -664,21 +699,21 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetDoNotAllowPads() !== b.GetDoNotAllowPads(),
-      `${ITEM_DESC(a)} keep out pads setting differs.`,
+      wxFormat(_('%s keep out pads setting differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetDoNotAllowTracks() !== b.GetDoNotAllowTracks(),
-      `${ITEM_DESC(a)} keep out tracks setting differs.`,
+      wxFormat(_('%s keep out tracks setting differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetDoNotAllowVias() !== b.GetDoNotAllowVias(),
-      `${ITEM_DESC(a)} keep out vias setting differs.`,
+      wxFormat(_('%s keep out vias setting differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
@@ -697,7 +732,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
     d.diff = true;
 
     if (aReporter) {
-      aReporter.report(`${ITEM_DESC(a)} layers differ.`);
+      aReporter.report(wxFormat(_('%s layers differ.'), ITEM_DESC(a)));
     } else {
       return true;
     }
@@ -706,64 +741,76 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetPadConnection() !== b.GetPadConnection(),
-      `${ITEM_DESC(a)} pad connection property differs.`,
+      wxFormat(_('%s pad connection property differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetLocalClearance() !== b.GetLocalClearance(),
-      `${ITEM_DESC(a)} local clearance differs.`,
+      wxFormat(_('%s local clearance differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetThermalReliefGap() !== b.GetThermalReliefGap(),
-      `${ITEM_DESC(a)} thermal relief gap differs.`,
+      wxFormat(_('%s thermal relief gap differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetThermalReliefSpokeWidth() !== b.GetThermalReliefSpokeWidth(),
-      `${ITEM_DESC(a)} thermal relief spoke width differs.`,
+      wxFormat(_('%s thermal relief spoke width differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
   }
 
-  if (d.test(a.GetMinThickness() !== b.GetMinThickness(), `${ITEM_DESC(a)} min thickness differs.`))
+  if (
+    d.test(
+      a.GetMinThickness() !== b.GetMinThickness(),
+      wxFormat(_('%s min thickness differs.'), ITEM_DESC(a)),
+    )
+  )
     return d.diff;
 
   if (
     d.test(
       a.GetIslandRemovalMode() !== b.GetIslandRemovalMode(),
-      `${ITEM_DESC(a)} remove islands setting differs.`,
+      wxFormat(_('%s remove islands setting differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
   if (
     d.test(
       a.GetMinIslandArea() !== b.GetMinIslandArea(),
-      `${ITEM_DESC(a)} minimum island size setting differs.`,
+      wxFormat(_('%s minimum island size setting differs.'), ITEM_DESC(a)),
     )
   )
     return d.diff;
 
-  if (d.test(a.GetFillMode() !== b.GetFillMode(), `${ITEM_DESC(a)} fill type differs.`))
-    return d.diff;
   if (
-    d.test(a.GetHatchThickness() !== b.GetHatchThickness(), `${ITEM_DESC(a)} hatch width differs.`)
+    d.test(a.GetFillMode() !== b.GetFillMode(), wxFormat(_('%s fill type differs.'), ITEM_DESC(a)))
   )
     return d.diff;
-  if (d.test(a.GetHatchGap() !== b.GetHatchGap(), `${ITEM_DESC(a)} hatch gap differs.`))
+  if (
+    d.test(
+      a.GetHatchThickness() !== b.GetHatchThickness(),
+      wxFormat(_('%s hatch width differs.'), ITEM_DESC(a)),
+    )
+  )
+    return d.diff;
+  if (
+    d.test(a.GetHatchGap() !== b.GetHatchGap(), wxFormat(_('%s hatch gap differs.'), ITEM_DESC(a)))
+  )
     return d.diff;
   if (
     d.testD(
       a.GetHatchOrientation().AsDegrees(),
       b.GetHatchOrientation().AsDegrees(),
-      `${ITEM_DESC(a)} hatch orientation differs.`,
+      wxFormat(_('%s hatch orientation differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -771,7 +818,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetHatchSmoothingLevel() !== b.GetHatchSmoothingLevel(),
-      `${ITEM_DESC(a)} hatch smoothing level differs.`,
+      wxFormat(_('%s hatch smoothing level differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -779,7 +826,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetHatchSmoothingValue() !== b.GetHatchSmoothingValue(),
-      `${ITEM_DESC(a)} hatch smoothing amount differs.`,
+      wxFormat(_('%s hatch smoothing amount differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -787,7 +834,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.GetHatchHoleMinArea() !== b.GetHatchHoleMinArea(),
-      `${ITEM_DESC(a)} minimum hatch hole setting differs.`,
+      wxFormat(_('%s minimum hatch hole setting differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -799,7 +846,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
   if (
     d.test(
       a.Outline().TotalVertices() !== b.Outline().TotalVertices(),
-      `${ITEM_DESC(a)} outline corner count differs.`,
+      wxFormat(_('%s outline corner count differs.'), ITEM_DESC(a)),
     )
   ) {
     return d.diff;
@@ -822,7 +869,7 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
     }
   }
 
-  if (cornersDiffer && aReporter) aReporter.report(`${ITEM_DESC(a)} corners differ.`);
+  if (cornersDiffer && aReporter) aReporter.report(wxFormat(_('%s corners differ.'), ITEM_DESC(a)));
 
   return d.diff;
 }
@@ -876,7 +923,11 @@ function footprintVsBoardStackup(
     mismatch = true;
     if (aReporter) {
       aReporter.report(
-        `Footprint has ${onlyInFp.count()} layers not on board: ${LAYER_UTILS.AccumulateNames(onlyInFp.Seq(), aBoard)}`,
+        wxFormat(
+          _('Footprint has %lu layers not on board: %s'),
+          onlyInFp.count(),
+          LAYER_UTILS.AccumulateNames(onlyInFp.Seq(), aBoard),
+        ),
       );
     }
   }
@@ -888,7 +939,11 @@ function footprintVsBoardStackup(
     mismatch = true;
     if (aReporter) {
       aReporter.report(
-        `Board has ${cuOnlyInBoard.count()} copper layers not in footprint: ${LAYER_UTILS.AccumulateNames(cuOnlyInBoard.Seq(), aBoard)}`,
+        wxFormat(
+          _('Board has %lu copper layers not in footprint: %s'),
+          cuOnlyInBoard.count(),
+          LAYER_UTILS.AccumulateNames(cuOnlyInBoard.Seq(), aBoard),
+        ),
       );
     }
   }
@@ -1149,7 +1204,7 @@ export function FootprintNeedsUpdate(
 
       if (shapeNeedsUpdate(curr_shape, test_shape)) {
         d.diff = true;
-        d.report(`${ITEM_DESC(aShapes[ii]!)} differs.`);
+        d.report(wxFormat(_('%s differs.'), ITEM_DESC(aShapes[ii]!)));
       }
     }
   }
@@ -1178,7 +1233,7 @@ export function FootprintNeedsUpdate(
 
       if (barcodeNeedsUpdate(curr_barcode, test_barcode)) {
         d.diff = true;
-        d.report(`${ITEM_DESC(aBarcodes[ii]!)} differs.`);
+        d.report(wxFormat(_('%s differs.'), ITEM_DESC(aBarcodes[ii]!)));
       }
     }
   }
@@ -1269,7 +1324,10 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
       if (!libTableRow) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)!;
-          msg = `The current configuration does not include the footprint library '${unescapeString(libName)}'`;
+          msg = wxFormat(
+            _("The current configuration does not include the footprint library '%s'"),
+            unescapeString(libName),
+          );
           drcItem.SetErrorMessage(msg);
           drcItem.SetItems(footprint);
           this.reportViolation(drcItem, footprint.GetCenter(), UNDEFINED_LAYER);
@@ -1279,7 +1337,10 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
       } else if (!adapter.HasLibrary(libName, true)) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)!;
-          msg = `The footprint library '${unescapeString(libName)}' is not enabled in the current configuration`;
+          msg = wxFormat(
+            _("The footprint library '%s' is not enabled in the current configuration"),
+            unescapeString(libName),
+          );
           drcItem.SetErrorMessage(msg);
           drcItem.SetItems(footprint);
           this.reportViolation(drcItem, footprint.GetCenter(), UNDEFINED_LAYER);
@@ -1289,7 +1350,11 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
       } else if (!adapter.IsLibraryLoaded(libName)) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)!;
-          msg = `The footprint library '${unescapeString(libName)}' was not found at '${adapter.GetFullURI(libTableRow, true)}'`;
+          msg = wxFormat(
+            _("The footprint library '%s' was not found at '%s'"),
+            unescapeString(libName),
+            adapter.GetFullURI(libTableRow, true),
+          );
           drcItem.SetErrorMessage(msg);
           drcItem.SetItems(footprint);
           this.reportViolation(drcItem, footprint.GetCenter(), UNDEFINED_LAYER);
@@ -1314,7 +1379,7 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
       if (!libFootprint) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES)!;
-          msg = `Footprint '${fpName}' not found in library '${libName}'`;
+          msg = wxFormat(_("Footprint '%s' not found in library '%s'"), fpName, libName);
           drcItem.SetErrorMessage(msg);
           drcItem.SetItems(footprint);
           this.reportViolation(drcItem, footprint.GetCenter(), UNDEFINED_LAYER);
@@ -1322,7 +1387,7 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
       } else if (FootprintNeedsUpdate(footprint, libFootprint, BOARD_ITEM.COMPARE_FLAGS.DRC)) {
         if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH)) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH)!;
-          msg = `Footprint '${fpName}' does not match copy in library '${libName}'`;
+          msg = wxFormat(_("Footprint '%s' does not match copy in library '%s'"), fpName, libName);
           drcItem.SetErrorMessage(msg);
           drcItem.SetItems(footprint);
           this.reportViolation(drcItem, footprint.GetCenter(), UNDEFINED_LAYER);

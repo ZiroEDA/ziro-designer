@@ -107,6 +107,7 @@ import {
   sortedMap,
 } from './pads_parser.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const INT_MIN = -2147483648;
 const INT_MAX = 2147483647;
@@ -472,7 +473,7 @@ export class PCB_IO_PADS extends PCB_IO {
         applyAttributes(decal.attributes, decalScaler);
       } else {
         this.Report(
-          `Footprint '${FromUTF8(decal_name)}' not found in decal list, part skipped`,
+          wxFormat(_("Footprint '%s' not found in decal list, part skipped"), FromUTF8(decal_name)),
           RPT_SEVERITY_WARNING,
         );
       }
@@ -855,7 +856,10 @@ export class PCB_IO_PADS extends PCB_IO {
         }
 
         if (shape_layer === UNDEFINED_LAYER) {
-          this.Report(`Skipping decal item on unmapped layer ${item.layer}`, RPT_SEVERITY_WARNING);
+          this.Report(
+            wxFormat(_('Skipping decal item on unmapped layer %d'), item.layer),
+            RPT_SEVERITY_WARNING,
+          );
           continue;
         }
 
@@ -1054,7 +1058,7 @@ export class PCB_IO_PADS extends PCB_IO {
 
       if (textLayer === UNDEFINED_LAYER) {
         this.Report(
-          `Text on unmapped layer ${pads_text.layer} assigned to Comments layer`,
+          wxFormat(_('Text on unmapped layer %d assigned to Comments layer'), pads_text.layer),
           RPT_SEVERITY_WARNING,
         );
         textLayer = Cmts_User;
@@ -1119,7 +1123,7 @@ export class PCB_IO_PADS extends PCB_IO {
 
         if (!IsCopperLayer(track_layer)) {
           this.Report(
-            `Skipping track on non-copper layer ${track_def.layer}`,
+            wxFormat(_('Skipping track on non-copper layer %d'), track_def.layer),
             RPT_SEVERITY_WARNING,
           );
           continue;
@@ -1302,7 +1306,7 @@ export class PCB_IO_PADS extends PCB_IO {
 
       if (layer === UNDEFINED_LAYER) {
         this.Report(
-          `COPPER item on unmapped layer ${copper.layer} defaulting to F.Cu`,
+          wxFormat(_('COPPER item on unmapped layer %d defaulting to F.Cu'), copper.layer),
           RPT_SEVERITY_WARNING,
         );
         layer = F_Cu;
@@ -1477,7 +1481,10 @@ export class PCB_IO_PADS extends PCB_IO {
       const pourLayer = this.getMappedLayer(pour_def.layer);
 
       if (pourLayer === UNDEFINED_LAYER) {
-        this.Report(`Skipping pour on unmapped layer ${pour_def.layer}`, RPT_SEVERITY_WARNING);
+        this.Report(
+          wxFormat(_('Skipping pour on unmapped layer %d'), pour_def.layer),
+          RPT_SEVERITY_WARNING,
+        );
         continue;
       }
 
@@ -1697,7 +1704,10 @@ export class PCB_IO_PADS extends PCB_IO {
         const koLayer = this.getMappedLayer(ko.layers[0]!);
 
         if (koLayer === UNDEFINED_LAYER) {
-          this.Report(`Skipping keepout on unmapped layer ${ko.layers[0]}`, RPT_SEVERITY_WARNING);
+          this.Report(
+            wxFormat(_('Skipping keepout on unmapped layer %d'), ko.layers[0]!),
+            RPT_SEVERITY_WARNING,
+          );
           continue;
         }
 
@@ -1837,7 +1847,14 @@ export class PCB_IO_PADS extends PCB_IO {
     }
 
     this.Report(
-      `Imported ${this.board.Footprints().length} footprints, ${this.board.GetNetCount()} nets, ${trackCount} tracks, ${viaCount} vias, ${this.board.Zones().length} zones`,
+      wxFormat(
+        _('Imported %zu footprints, %d nets, %zu tracks, %zu vias, %zu zones'),
+        this.board.Footprints().length,
+        this.board.GetNetCount(),
+        trackCount,
+        viaCount,
+        this.board.Zones().length,
+      ),
       RPT_SEVERITY_INFO,
     );
   }

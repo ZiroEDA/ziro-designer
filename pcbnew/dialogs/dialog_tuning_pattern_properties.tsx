@@ -49,6 +49,7 @@ import {
 import { PnsRouterMode } from '../router/pns_router.js';
 import type { MinOptMax } from '../drc/drc_rule_view.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The three tuning modes `DIALOG_TUNING_PATTERN_PROPERTIES` is built for. */
 export type TuningPatternMode =
@@ -186,7 +187,7 @@ export function tuningPatternEnableState(
 
 /** `(from %s)`, `DIALOG_TUNING_PATTERN_PROPERTIES::TransferDataToWindow`. */
 export function tuningPatternSourceInfoText(constraint: TuningConstraintInput): string {
-  return `(from ${constraint.name})`;
+  return wxFormat(_('(from %s)'), constraint.name);
 }
 
 /**

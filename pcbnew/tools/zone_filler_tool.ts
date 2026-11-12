@@ -36,6 +36,7 @@ import { PCB_ACTIONS } from './pcb_actions.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `ZONE_FILLER_TOOL_NAME`. */
 export const ZONE_FILLER_TOOL_NAME = 'pcbnew.ZoneFiller';
@@ -328,7 +329,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
         pts += zone.GetFilledPolysList(layer).FullPointCount();
 
       if (pts > 1000) {
-        reporter = this.openReporter(`Refill ${toFill.length} Zones`);
+        reporter = this.openReporter(wxFormat(_('Refill %d Zones'), toFill.length));
         this.m_filler.SetProgressReporter(reporter);
         break;
       }

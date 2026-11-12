@@ -42,17 +42,21 @@ import {
 import { PCB_VIEWER_TOOLS } from '@ziroeda/pcbnew/tools/pcb_viewer_tools.js';
 import { CVPCB_SETTINGS } from './cvpcb_settings.js';
 import { CVPCB_FOOTPRINT_VIEWER_SELECTION_TOOL } from './tools/cvpcb_fpviewer_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FOOTPRINTVIEWER_FRAME_NAME`. */
 export const FOOTPRINTVIEWER_FRAME_NAME = 'ModViewFrame';
 
 /** `_( "Footprint ID '%s' is not valid." )` and the three other GetFootprint reports. */
 export const footprintIdNotValid = (aName: string): string =>
-  `Footprint ID '${aName}' is not valid.`;
+  wxFormat(_("Footprint ID '%s' is not valid."), aName);
 export const libraryNotInTable = (aNickname: string): string =>
-  `Library '${aNickname}' is not in the footprint library table.`;
-export const footprintNotFound = (aName: string): string => `Footprint '${aName}' not found.`;
-export const errorLoadingFootprint = (aWhat: string): string => `Error loading footprint: ${aWhat}`;
+  wxFormat(_("Library '%s' is not in the footprint library table."), aNickname);
+export const footprintNotFound = (aName: string): string =>
+  wxFormat(_("Footprint '%s' not found."), aName);
+export const errorLoadingFootprint = (aWhat: string): string =>
+  wxFormat(_('Error loading footprint: %s'), aWhat);
 
 /**
  * What `InitDisplay` reads off its parent CVPCB_MAINFRAME: the footprint
@@ -301,7 +305,7 @@ export class DISPLAY_FOOTPRINTS_FRAME extends PCB_BASE_FRAME {
     let footprint: FOOTPRINT | null = null;
 
     if (footprintName !== '') {
-      this.hooks.setTitle(`Footprint: ${footprintName}`);
+      this.hooks.setTitle(wxFormat(_('Footprint: %s'), footprintName));
       footprint = await this.GetFootprint(footprintName, (m) => reports.push(m));
     }
 
@@ -315,7 +319,7 @@ export class DISPLAY_FOOTPRINTS_FRAME extends PCB_BASE_FRAME {
       this.m_currentFootprint = '';
     }
 
-    this.SetStatusText(aParent.libNickname ? `Lib: ${aParent.libNickname}` : '', 0);
+    this.SetStatusText(aParent.libNickname ? wxFormat(_('Lib: %s'), aParent.libNickname) : '', 0);
 
     // `infoReporter.Finalize()`: the infobar shows what was reported.
     if (reports.length > 0) this.hooks.showInfoBar(reports.join('\n'));

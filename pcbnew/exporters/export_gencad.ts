@@ -16,6 +16,7 @@ import {
 } from '../dialogs/dialog_gencad_export_options.js';
 import { GENCAD_EXPORTER } from './export_gencad_writer.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** The frame `ExportGenCAD` runs on. */
 export interface EXPORT_GENCAD_FRAME extends DIALOG_GENCAD_EXPORT_OPTIONS_FRAME {
@@ -62,7 +63,7 @@ export async function BOARD_EDITOR_CONTROL_ExportGenCAD(
   const success = exporter.WriteFile(path, (aPath, aText) => aFrame.WriteTextFile(aPath, aText));
 
   // DisplayError: the same error box as DisplayErrorMessage, without extra info.
-  if (!success) DisplayErrorMessage(`Failed to create file '${path}'.`);
+  if (!success) DisplayErrorMessage(wxFormat(_("Failed to create file '%s'."), path));
 
   return 0;
 }
