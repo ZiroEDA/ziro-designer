@@ -1,3 +1,4 @@
+import { _ } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -73,7 +74,7 @@ function validityComment(areaM2: number, timeS: number, meltingC: number): strin
   const frad = 0.5 * (tmKelvin + 293) * (tmKelvin + 293) * (tmKelvin + 293);
   const tau = (CP * DENSITY * r) / (epsilon * sigma * frad * 2);
   if (2 * timeS < tau) return undefined;
-  return 'Current calculation is underestimated due to long fusing time.';
+  return _('Current calculation is underestimated due to long fusing time.');
 }
 
 export function fusingCurrent(p: FusingParams): FusingResult {

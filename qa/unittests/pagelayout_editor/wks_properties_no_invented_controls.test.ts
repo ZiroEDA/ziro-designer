@@ -24,12 +24,15 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { fmtInt, fmtRotation } from '@ziroeda/pagelayout_editor/dialogs/properties_frame.js';
+import { unmarked } from '../translation/unmarked.js';
 
-const PANEL = readFileSync(
-  fileURLToPath(
-    new URL('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx', import.meta.url),
+const PANEL = unmarked(
+  readFileSync(
+    fileURLToPath(
+      new URL('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx', import.meta.url),
+    ),
+    'utf8',
   ),
-  'utf8',
 );
 
 /** The panel's source with comments blanked — prose must not read as code. */

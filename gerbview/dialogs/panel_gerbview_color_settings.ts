@@ -46,6 +46,7 @@ import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `s_defaultTheme`'s entry for `key`, as the `rgb( r, g, b )` string the
@@ -92,43 +93,43 @@ export const GERBVIEW_FIXED_LAYERS: readonly {
 }[] = [
   {
     id: 'LAYER_DCODES',
-    name: 'DCodes',
+    name: _HKI('DCodes'),
     key: 'gerbview.dcodes',
     fallback: GERBER_DCODE_COLOR,
   },
   {
     id: 'LAYER_NEGATIVE_OBJECTS',
-    name: 'Negative Objects',
+    name: _HKI('Negative Objects'),
     key: 'gerbview.negativeObjects',
     fallback: GERBER_NEGATIVE_COLOR,
   },
   {
     id: 'LAYER_GERBVIEW_GRID',
-    name: 'Grid',
+    name: _HKI('Grid'),
     key: 'gerbview.grid',
     fallback: GERBER_GRID_COLOR,
   },
   {
     id: 'LAYER_GERBVIEW_AXES',
-    name: 'Axes',
+    name: _HKI('Axes'),
     key: 'gerbview.axes',
     fallback: GERBER_AXES_COLOR,
   },
   {
     id: 'LAYER_GERBVIEW_BACKGROUND',
-    name: 'Background',
+    name: _HKI('Background'),
     key: 'gerbview.background',
     fallback: GERBER_BG_COLOR,
   },
   {
     id: 'LAYER_GERBVIEW_DRAWINGSHEET',
-    name: 'Drawing Sheet',
+    name: _HKI('Drawing Sheet'),
     key: 'gerbview.drawingSheet',
     fallback: GERBER_DRAWINGSHEET_COLOR,
   },
   {
     id: 'LAYER_GERBVIEW_PAGE_LIMITS',
-    name: 'Page Limits',
+    name: _HKI('Page Limits'),
     key: 'gerbview.pageLimits',
     fallback: GERBER_PAGE_LIMITS_COLOR,
   },

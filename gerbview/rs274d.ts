@@ -26,6 +26,7 @@ import { GERBER_BUFZ, GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { Gerb_GCommand, Gerb_Interpolation } from './gerbview.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { CHAR_PTR, LINE_BUFFER, NUL, strncmp0, strtol10 } from './libc.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const add = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x + b.x, y: a.y + b.y });
 const sub = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x - b.x, y: a.y - b.y });
@@ -495,7 +496,7 @@ export function Execute_DCODE_Command(
             // Before any arc command, a G74 or G75 command must be set.
             // Otherwise the Gerber file is invalid
             if (!self.m_AsArcG74G75Cmd) {
-              self.AddMessageToList('Invalid Gerber file: missing G74 or G75 arc command');
+              self.AddMessageToList(_('Invalid Gerber file: missing G74 or G75 arc command'));
 
               // Disable further warning messages:
               self.m_AsArcG74G75Cmd = true;

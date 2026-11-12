@@ -25,6 +25,7 @@ import { D_CODE } from './dcode.js';
 import { SortedKeys } from './gerber_file_image.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -64,29 +65,29 @@ export const GBR_CONTROL = {
  * openers. Ours had all three wrong.
  */
 export const GBR_TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'gerbClear', icon: 'gerbClear', title: 'Clear All Layers' },
-  { id: 'gerbReload', icon: 'gerbReload', title: 'Reload All Layers' },
+  { id: 'gerbClear', icon: 'gerbClear', title: _HKI('Clear All Layers') },
+  { id: 'gerbReload', icon: 'gerbReload', title: _HKI('Reload All Layers') },
   {
     id: 'gerbOpenAutodetected',
     icon: 'gerbOpenAutodetected',
-    title: 'Open Autodetected file(s) on a new layer.',
+    title: _HKI('Open Autodetected file(s) on a new layer.'),
   },
-  { id: 'gerbOpen', icon: 'gerbOpen', title: 'Open Gerber plot file(s) on a new layer.' },
+  { id: 'gerbOpen', icon: 'gerbOpen', title: _HKI('Open Gerber plot file(s) on a new layer.') },
   {
     id: 'gerbOpenDrill',
     icon: 'gerbOpenDrill',
-    title: 'Open Excellon drill file(s) on a new layer.',
+    title: _HKI('Open Excellon drill file(s) on a new layer.'),
   },
   sep,
-  { id: 'print', icon: 'print', title: 'Print...' },
+  { id: 'print', icon: 'print', title: _HKI('Print...') },
   sep,
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
+  { id: 'zoomRedraw', icon: 'zoomRedraw', title: _HKI('Refresh') },
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom In' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom Out' },
   {
     id: 'zoomFit',
     icon: 'zoomFit',
-    title: 'Zoom to worksheet area if exists or edited object',
+    title: _HKI('Zoom to worksheet area if exists or edited object'),
   },
   {
     // ACTIONS::zoomTool. Not a GerbView feature: ZOOM_TOOL is 174 lines in
@@ -95,7 +96,7 @@ export const GBR_TOP_TOOLBAR: ToolEntry[] = [
     // a radio like selectionTool and measureTool, not a check.
     id: 'zoomTool',
     icon: 'zoomTool',
-    title: 'Zoom to an area selection created by a mouse drag',
+    title: _HKI('Zoom to an area selection created by a mouse drag'),
   },
   sep,
   { control: GBR_CONTROL.layerSelector },
@@ -147,28 +148,28 @@ export const GBR_TOP_AUX_TOOLBAR: ToolEntry[] = [
  * corner, not three buttons in a row.
  */
 export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'select', icon: 'select', title: 'Select item(s)' },
+  { id: 'select', icon: 'select', title: _HKI('Select item(s)') },
   {
     id: 'measure',
     icon: 'measureTool',
-    title: 'Interactively measure distance between points',
+    title: _HKI('Interactively measure distance between points'),
   },
   sep,
   {
     id: 'toggleGrid',
     icon: 'toggleGrid',
-    title: 'Display background grid in the edit window',
+    title: _HKI('Display background grid in the edit window'),
     toggle: true,
   },
   {
     id: 'togglePolar',
     icon: 'togglePolar',
-    title: 'Switch between polar and cartesian coordinate systems',
+    title: _HKI('Switch between polar and cartesian coordinate systems'),
     toggle: true,
   },
   {
     // TOOLBAR_GROUP_CONFIG( _( "Units" ) ), in upstream's own order: mm first.
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
@@ -178,23 +179,23 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
   },
   {
     // TOOLBAR_GROUP_CONFIG( _( "Crosshair modes" ) ).
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
       {
         id: 'crosshairSmall',
         icon: 'crosshairSmall',
-        title: 'Use small crosshairs aligned at 0 and 90 degrees',
+        title: _HKI('Use small crosshairs aligned at 0 and 90 degrees'),
       },
       {
         id: 'crosshairFull',
         icon: 'crosshairFull',
-        title: 'Display full-window crosshairs aligned at 0 and 90 degrees',
+        title: _HKI('Display full-window crosshairs aligned at 0 and 90 degrees'),
       },
       {
         id: 'crosshair45',
         icon: 'crosshair45',
-        title: 'Display full-window crosshairs aligned at 45 and 135 degrees',
+        title: _HKI('Display full-window crosshairs aligned at 45 and 135 degrees'),
       },
     ],
   },
@@ -202,23 +203,28 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
   {
     id: 'flashedSketch',
     icon: 'flashedSketch',
-    title: 'Show flashed items in outline mode',
+    title: _HKI('Show flashed items in outline mode'),
     toggle: true,
   },
-  { id: 'linesSketch', icon: 'linesSketch', title: 'Show lines in outline mode', toggle: true },
+  {
+    id: 'linesSketch',
+    icon: 'linesSketch',
+    title: _HKI('Show lines in outline mode'),
+    toggle: true,
+  },
   {
     id: 'polygonsSketch',
     icon: 'polygonsSketch',
-    title: 'Show polygons in outline mode',
+    title: _HKI('Show polygons in outline mode'),
     toggle: true,
   },
   {
     id: 'showNegativeObjects',
     icon: 'showNegativeObjects',
-    title: 'Show negative objects in ghost color',
+    title: _HKI('Show negative objects in ghost color'),
     toggle: true,
   },
-  { id: 'showDcodes', icon: 'showDcodes', title: 'Show dcode numbers', toggle: true },
+  { id: 'showDcodes', icon: 'showDcodes', title: _HKI('Show dcode numbers'), toggle: true },
   sep,
   {
     // GERBVIEW_ACTIONS::toggleForceOpacityMode, live since the renderer
@@ -231,24 +237,29 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
     // Options.
     id: 'forceOpacityMode',
     icon: 'forceOpacityMode',
-    title: 'Show layers using opacity color forced mode',
+    title: _HKI('Show layers using opacity color forced mode'),
     toggle: true,
   },
   {
     id: 'xorMode',
     icon: 'xorMode',
-    title: 'Show layers in exclusive-or compare mode',
+    title: _HKI('Show layers in exclusive-or compare mode'),
     toggle: true,
   },
   {
     id: 'highContrast',
     icon: 'gerbHighContrast',
-    title: 'Toggle inactive layers between normal and dimmed',
+    title: _HKI('Toggle inactive layers between normal and dimmed'),
     toggle: true,
   },
-  { id: 'flipView', icon: 'flipView', title: 'Show as mirror image', toggle: true },
+  { id: 'flipView', icon: 'flipView', title: _HKI('Show as mirror image'), toggle: true },
   sep,
-  { id: 'showLayerManager', icon: 'showLayerManager', title: 'Show Layers Manager', toggle: true },
+  {
+    id: 'showLayerManager',
+    icon: 'showLayerManager',
+    title: _HKI('Show Layers Manager'),
+    toggle: true,
+  },
 ];
 
 /*

@@ -50,6 +50,8 @@ import { unzipSync } from 'fflate';
 import { ReadFileText } from './libc.js';
 import { GERBER_FILE_IMAGE_LIST, GERBER_ORDER_ENUM } from './gerber_file_image_list.js';
 import { type GERBVIEW_FRAME, NO_AVAILABLE_LAYERS } from './gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The file types `LoadListOfGerberAndDrillFiles` switches on (`aFileType`):
@@ -79,11 +81,12 @@ export const MSG_NOT_LOADED = '<b>Not loaded:</b> <i>%s</i>';
 export const MSG_NO_MORE_LAYER = '<b>No more available layers</b> in GerbView to load files';
 
 /** The `.gbrjob` refusal (`:303-307`). */
-export const MSG_JOB_FILE_AS_PLOT =
-  '<b>A gerber job file cannot be loaded as a plot file</b> <i>%s</i>';
+export const MSG_JOB_FILE_AS_PLOT = _HKI(
+  '<b>A gerber job file cannot be loaded as a plot file</b> <i>%s</i>',
+);
 
 /** `_( "Errors" )`, the Errors box's caption (`:417`). */
-export const ERRORS_CAPTION = 'Errors';
+export const ERRORS_CAPTION = _HKI('Errors');
 
 const format = (template: string, fileName: string): string => template.replace('%s', fileName);
 
@@ -246,7 +249,7 @@ export function LoadAutodetectedFiles(this: GERBVIEW_FRAME, aFileName: string): 
     this,
     aFileName,
     GERBVIEW_AUTODETECT_FILTERS,
-    'Open Autodetected File(s)',
+    _('Open Autodetected File(s)'),
     2,
   );
 }
@@ -257,7 +260,7 @@ export function LoadGerberFiles(this: GERBVIEW_FRAME, aFileName: string): Promis
     this,
     aFileName,
     GERBVIEW_GERBER_FILTERS,
-    'Open Gerber File(s)',
+    _('Open Gerber File(s)'),
     0,
   );
 }
@@ -268,7 +271,7 @@ export function LoadExcellonFiles(this: GERBVIEW_FRAME, aFileName: string): Prom
     this,
     aFileName,
     GERBVIEW_DRILL_FILTERS,
-    'Open NC (Excellon) Drill File(s)',
+    _('Open NC (Excellon) Drill File(s)'),
     1,
   );
 }
@@ -588,7 +591,7 @@ export async function LoadZipArchiveFile(
   let filename = aFullFileName;
 
   if (filename === '') {
-    const chosen = await this.Host().FileDialog('Open Zip File', GERBVIEW_ZIP_FILTERS, false, 0);
+    const chosen = await this.Host().FileDialog(_('Open Zip File'), GERBVIEW_ZIP_FILTERS, false, 0);
 
     if (chosen === null || chosen.paths.length === 0) return false;
 
@@ -609,7 +612,8 @@ export async function LoadZipArchiveFile(
   this.SetActiveLayer(this.GetActiveLayer());
   this.syncLayerBox();
 
-  if (reporter.HasMessage()) await this.Host().HtmlMessageBox('Messages', reporter.GetMessages());
+  if (reporter.HasMessage())
+    await this.Host().HtmlMessageBox(_('Messages'), reporter.GetMessages());
 
   return true;
 }

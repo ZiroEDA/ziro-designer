@@ -17,6 +17,7 @@
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `File units:` — `m_rbInches` then `m_rbMM` (`:37-44`), in that order, with
@@ -29,8 +30,8 @@ import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
 export type ExcellonUnit = 'inch' | 'mm';
 
 export const EXCELLON_UNIT_CHOICES: readonly (readonly [ExcellonUnit, string])[] = [
-  ['inch', 'Inches'],
-  ['mm', 'mm'],
+  ['inch', _HKI('Inches')],
+  ['mm', _HKI('mm')],
 ];
 
 /** `m_UnitsMM` — the stored flag, which is `true` for the second button. */
@@ -51,8 +52,8 @@ export const unitOf = (mm: boolean): ExcellonUnit => (mm ? 'mm' : 'inch');
 export type ExcellonZeroFormat = 'tz' | 'lz';
 
 export const EXCELLON_ZERO_CHOICES: readonly (readonly [ExcellonZeroFormat, string])[] = [
-  ['tz', 'No leading zeros (TZ format)'],
-  ['lz', 'No trailing zeros (LZ format)'],
+  ['tz', _HKI('No leading zeros (TZ format)')],
+  ['lz', _HKI('No trailing zeros (LZ format)')],
 ];
 
 /** `m_LeadingZero` — the stored flag, `true` for LZ. */
@@ -90,16 +91,16 @@ export const EXCELLON_DIGIT_RANGE = { min: 2, max: 6 } as const;
  * from the labels.
  */
 export const EXCELLON_STRINGS = {
-  fileFormat: 'File Format',
-  fileFormatHelp: 'These parameters are usually specified in files, but not always.',
-  units: 'File units:',
-  zeroFormat: 'Zero format:',
-  coordinates: 'Coordinates Format',
-  coordinatesHelp: 'The coordinates format is not specified in Excellon format.',
-  hint1: '(The decimal format does not use these settings)',
-  formatMm: 'Format for mm:',
-  formatInch: 'Format for inches:',
-  hint2: 'Usually: 3:3 in mm and 2:4 in inches',
+  fileFormat: _HKI('File Format'),
+  fileFormatHelp: _HKI('These parameters are usually specified in files, but not always.'),
+  units: _HKI('File units:'),
+  zeroFormat: _HKI('Zero format:'),
+  coordinates: _HKI('Coordinates Format'),
+  coordinatesHelp: _HKI('The coordinates format is not specified in Excellon format.'),
+  hint1: _HKI('(The decimal format does not use these settings)'),
+  formatMm: _HKI('Format for mm:'),
+  formatInch: _HKI('Format for inches:'),
+  hint2: _HKI('Usually: 3:3 in mm and 2:4 in inches'),
   /** `m_staticText8` / `m_staticText9`, the separator between the two choices. */
   separator: ':',
 } as const;

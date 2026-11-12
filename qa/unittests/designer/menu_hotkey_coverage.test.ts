@@ -42,6 +42,7 @@ import {
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
 import { footprintViewerMenus } from '@ziroeda/pcbnew/toolbars_footprint_viewer.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -213,7 +214,7 @@ const FILES = [
   ...FRAME_PACKAGES.flatMap((dir) => walk(dir).filter((p) => !p.includes('node_modules'))),
 ].map((path) => ({
   rel: relative(SRC, path).split('\\').join('/'),
-  src: readFileSync(path, 'utf8'),
+  src: unmarked(readFileSync(path, 'utf8')),
 }));
 
 const source = (rel: string): string => {
@@ -255,7 +256,9 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
  */
 const menuSource = (rel: string): string => {
   const moved = MENU_MODULE[rel];
-  return moved ? `${readFileSync(join(SRC, moved), 'utf8')}\n${source(rel)}` : source(rel);
+  return moved
+    ? `${unmarked(readFileSync(join(SRC, moved), 'utf8'))}\n${source(rel)}`
+    : source(rel);
 };
 
 /**

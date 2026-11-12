@@ -17,6 +17,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { GERBVIEW_ACTIONS } from '../tools/gerbview_actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface LayerInfo {
   index: number;
@@ -61,15 +62,15 @@ export function renderRows(colors: {
   return [
     {
       id: 'dcodes',
-      label: 'DCodes',
-      tooltip: 'Show DCodes identification',
+      label: _('DCodes'),
+      tooltip: _('Show DCodes identification'),
       color: colors.dcodes,
       changeable: true,
     },
     {
       id: 'negativeObjects',
-      label: 'Negative Objects',
-      tooltip: 'Show negative objects in this color',
+      label: _('Negative Objects'),
+      tooltip: _('Show negative objects in this color'),
       color: colors.negativeObjects,
       changeable: true,
     },
@@ -77,22 +78,22 @@ export function renderRows(colors: {
     { id: '', label: '', tooltip: '', color: null, changeable: false, spacer: true },
     {
       id: 'grid',
-      label: 'Grid',
-      tooltip: 'Show the (x,y) grid dots',
+      label: _('Grid'),
+      tooltip: _('Show the (x,y) grid dots'),
       color: colors.grid,
       changeable: true,
     },
     {
       id: 'drawingSheet',
-      label: 'Drawing Sheet',
-      tooltip: 'Show drawing sheet border and title block',
+      label: _('Drawing Sheet'),
+      tooltip: _('Show drawing sheet border and title block'),
       color: colors.drawingSheet,
       changeable: true,
     },
     {
       id: 'pageLimits',
-      label: 'Page Limits',
-      tooltip: 'Show drawing sheet page limits',
+      label: _('Page Limits'),
+      tooltip: _('Show drawing sheet page limits'),
       color: colors.pageLimits,
       changeable: true,
     },
@@ -102,8 +103,8 @@ export function renderRows(colors: {
       // this row's checkbox is disabled. Note the tooltip really does say "PCB
       // Background" in GerbView (`gerbview_layer_widget.cpp:141`).
       id: 'background',
-      label: 'Background',
-      tooltip: 'PCB Background',
+      label: _('Background'),
+      tooltip: _('PCB Background'),
       color: colors.background,
       changeable: false,
     },
@@ -124,25 +125,25 @@ export function layerContextMenu(aSelect: (aId: GERBER_LAYER_WIDGET_ID) => void)
   });
 
   return [
-    row('Show All Layers', GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS),
-    row('Hide All Layers But Active', GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE),
+    row(_('Show All Layers'), GERBER_LAYER_WIDGET_ID.ID_SHOW_ALL_LAYERS),
+    row(_('Hide All Layers But Active'), GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS_BUT_ACTIVE),
     row(
-      'Always Hide All Layers But Active',
+      _('Always Hide All Layers But Active'),
       GERBER_LAYER_WIDGET_ID.ID_ALWAYS_SHOW_NO_LAYERS_BUT_ACTIVE,
     ),
-    row('Hide All Layers', GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS),
+    row(_('Hide All Layers'), GERBER_LAYER_WIDGET_ID.ID_SHOW_NO_LAYERS),
     { sep: true },
-    row('Sort Layers if X2 Mode', GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_X2),
-    row('Sort Layers by File Extension', GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_FILE_EXT),
+    row(_('Sort Layers if X2 Mode'), GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_X2),
+    row(_('Sort Layers by File Extension'), GERBER_LAYER_WIDGET_ID.ID_SORT_GBR_LAYERS_FILE_EXT),
     { sep: true },
     row(
-      'Layers Display Parameters: Offset and Rotation',
+      _('Layers Display Parameters: Offset and Rotation'),
       GERBER_LAYER_WIDGET_ID.ID_SET_GBR_LAYERS_DRAW_PRMS,
     ),
     { sep: true },
-    row('Move Current Layer Up', GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_UP),
-    row('Move Current Layer Down', GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_DOWN),
-    row('Clear Current Layer...', GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE),
+    row(_('Move Current Layer Up'), GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_UP),
+    row(_('Move Current Layer Down'), GERBER_LAYER_WIDGET_ID.ID_LAYER_MOVE_DOWN),
+    row(_('Clear Current Layer...'), GERBER_LAYER_WIDGET_ID.ID_LAYER_DELETE),
   ];
 }
 

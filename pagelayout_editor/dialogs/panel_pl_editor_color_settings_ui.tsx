@@ -34,6 +34,7 @@
 import type { JSX } from 'react';
 import { ColorThemeChoice } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import type { PL_PREFS_CONTEXT } from '../pl_editor.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelPlEditorColorSettings({ ctx }: { ctx: PL_PREFS_CONTEXT }): JSX.Element {
   const { plEditor, upPl } = ctx;
@@ -43,7 +44,7 @@ export function PanelPlEditorColorSettings({ ctx }: { ctx: PL_PREFS_CONTEXT }): 
   return (
     <ColorThemeChoice
       installed={ctx.installedThemes}
-      label="Color theme:"
+      label={_('Color theme:')}
       value={plEditor.appearance.color_theme}
       onChange={(v) =>
         upPl((s) => {

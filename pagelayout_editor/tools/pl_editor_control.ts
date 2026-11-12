@@ -20,6 +20,7 @@ import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
 import { PL_SELECTION_TOOL } from './pl_selection_tool.js';
 import { PlDataModel } from '../pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Handle actions specific to the drawing sheet editor.
@@ -125,7 +126,7 @@ export class PL_EDITOR_CONTROL extends TOOL_INTERACTIVE {
 
       const uuid = GetMsgPanelDisplayUuid(item.m_Uuid);
 
-      if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM('UUID', uuid));
+      if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM(_('UUID'), uuid));
 
       item.GetMsgPanelInfo(frame.AsDrawFrameLike(), msgItems);
       frame.SetMsgPanel(msgItems);

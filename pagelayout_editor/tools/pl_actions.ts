@@ -20,6 +20,7 @@ import {
   TOOL_ACTION_SCOPE,
   TOOLBAR_STATE,
 } from '@ziroeda/common/tool/tool_action.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `'M'` in a hotkey: the character's code, as C++ `int` promotion gives it. */
 const ch = (c: string): number => c.charCodeAt(0);
@@ -31,7 +32,7 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.InteractiveDrawing.drawLine')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Lines')
+      .FriendlyName(_HKI('Draw Lines'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_graphical_segments)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -42,7 +43,7 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.InteractiveDrawing.drawRectangle')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Rectangles')
+      .FriendlyName(_HKI('Draw Rectangles'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_rectangle)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -53,7 +54,7 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.InteractiveDrawing.placeText')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Text')
+      .FriendlyName(_HKI('Draw Text'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.text)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -64,7 +65,7 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.InteractiveDrawing.placeImage')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Bitmaps')
+      .FriendlyName(_HKI('Place Bitmaps'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.image)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -79,7 +80,7 @@ export class PL_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('M'))
       .LegacyHotkeyName('Move Item')
-      .FriendlyName('Move')
+      .FriendlyName(_HKI('Move'))
       .Icon(BITMAPS.move)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -88,8 +89,8 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.InteractiveEdit.appendWorksheet')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Append Existing Drawing Sheet...')
-      .Tooltip('Append an existing drawing sheet file to the current file')
+      .FriendlyName(_HKI('Append Existing Drawing Sheet...'))
+      .Tooltip(_HKI('Append an existing drawing sheet file to the current file'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.import)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -101,7 +102,7 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.EditorControl.ShowInspector')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Design Inspector')
+      .FriendlyName(_HKI('Show Design Inspector'))
       .Icon(BITMAPS.spreadsheet),
   );
 
@@ -109,8 +110,8 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.EditorControl.PreviewSettings')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Page Preview Settings...')
-      .Tooltip('Edit preview data for page size and title block')
+      .FriendlyName(_HKI('Page Preview Settings...'))
+      .Tooltip(_HKI('Edit preview data for page size and title block'))
       .Icon(BITMAPS.sheetset),
   );
 
@@ -118,8 +119,8 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.EditorControl.LayoutNormalMode')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Title Block in Preview Mode')
-      .Tooltip('Text placeholders will be replaced with preview data')
+      .FriendlyName(_HKI('Show Title Block in Preview Mode'))
+      .Tooltip(_HKI('Text placeholders will be replaced with preview data'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pagelayout_normal_view_mode),
   );
@@ -128,8 +129,8 @@ export class PL_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('plEditor.EditorControl.LayoutEditMode')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Title Block in Edit Mode')
-      .Tooltip('Text placeholders are shown as ${keyword} tokens')
+      .FriendlyName(_HKI('Show Title Block in Edit Mode'))
+      .Tooltip(_HKI('Text placeholders are shown as ${keyword} tokens'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pagelayout_special_view_mode),
   );

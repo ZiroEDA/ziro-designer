@@ -25,6 +25,7 @@ import {
   DIALOG_DRAW_LAYERS_SETTINGS,
   DRAW_LAYERS_SCOPE_CHOICES,
 } from './dialog_draw_layers_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function DialogDrawLayersSettings({
   dlg,
@@ -79,20 +80,24 @@ export function DialogDrawLayersSettings({
   ];
 
   return (
-    <DialogShim title="Layers Settings" onClose={() => onClose(false)} className="ze-drawlayers">
+    <DialogShim
+      title={_('Layers Settings')}
+      onClose={() => onClose(false)}
+      className="ze-drawlayers"
+    >
       <div className="ze-drawlayers-name">
-        <span className="ze-drawlayers-cell">Active layer name:</span>
+        <span className="ze-drawlayers-cell">{_('Active layer name:')}</span>
         <span className="ze-drawlayers-cell">{dlg.m_stLayerName}</span>
       </div>
       <div className="ze-drawlayers-grid">
-        {row('Offset X:', offsetX, setOffsetX, units)}
-        {row('Offset Y:', offsetY, setOffsetY, units)}
+        {row(_('Offset X:'), offsetX, setOffsetX, units)}
+        {row(_('Offset Y:'), offsetY, setOffsetY, units)}
         {/* UNIT_BINDER::SetUnits( DEGREES ) relabels the "dummy" to °. */}
-        {row('Rotate counterclockwise:', rotation, setRotation, unitLabel('degrees'))}
+        {row(_('Rotate counterclockwise:'), rotation, setRotation, unitLabel('degrees'))}
       </div>
       <div className="ze-drawlayers-line" />
       <fieldset className="ze-props-group ze-drawlayers-scope">
-        <legend>Scope</legend>
+        <legend>{_('Scope')}</legend>
         {DRAW_LAYERS_SCOPE_CHOICES.map((c, i) => (
           <RadioButton
             key={c}

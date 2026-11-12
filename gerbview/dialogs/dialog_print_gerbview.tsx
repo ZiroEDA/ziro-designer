@@ -44,6 +44,7 @@ import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { GERBVIEW_PRINTOUT } from '../gerbview_printout.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** A wxCheckListBox: its rows' text and check state. */
 export interface CHECK_LIST_BOX {
@@ -227,7 +228,8 @@ export class DIALOG_PRINT_GERBVIEW {
     this.m_settings.m_pageCount = 0; // it needs to be set by a derived dialog
     const info = this.saveSettings();
 
-    if (this.m_settings.m_pageCount === 0) return { info, error: 'Nothing to print' };
+    if (this.m_settings.m_pageCount === 0)
+      return { info, error: wxGetTranslation('Nothing to print') };
 
     return { info, error: null };
   }
@@ -299,7 +301,7 @@ export function DialogPrintGerbview({
       mainSizerInserts={
         // createLeftPanel(): getMainSizer()->Insert( 0, sbLayersSizer, 1, wxEXPAND | wxALL, 5 )
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-          <StaticBoxSizer label="Include Layers" orient={wxVERTICAL}>
+          <StaticBoxSizer label={wxGetTranslation('Include Layers')} orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxEXPAND} border={5}>
               {/* bLayerListsSizer */}
               <BoxSizer orient={wxHORIZONTAL}>
@@ -323,7 +325,7 @@ export function DialogPrintGerbview({
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxALL} border={5}>
                   <Button
-                    label="Select all"
+                    label={wxGetTranslation('Select all')}
                     onClick={() => {
                       dlg.onSelectAllClick();
                       changed();
@@ -332,7 +334,7 @@ export function DialogPrintGerbview({
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL} border={5}>
                   <Button
-                    label="Deselect all"
+                    label={wxGetTranslation('Deselect all')}
                     onClick={() => {
                       dlg.onDeselectAllClick();
                       changed();
@@ -348,7 +350,7 @@ export function DialogPrintGerbview({
         // createExtraOptions(): wxGBPosition( rows, 0 ), wxGBSpan( 1, cols ), the base's 2 x 2.
         <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
           <CheckBox
-            label="Print mirrored"
+            label={wxGetTranslation('Print mirrored')}
             check={{
               value: dlg.m_checkboxMirror,
               onChange: (aOn) => {

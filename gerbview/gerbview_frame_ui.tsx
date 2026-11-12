@@ -99,6 +99,7 @@ import {
 } from './widgets/layer_widget.js';
 import './gerbview_frame.css';
 import '@ziroeda/common/widgets/shell.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The layers manager's starting width: `.BestSize( m_LayersManager->GetBestSize() )`
@@ -550,7 +551,7 @@ export function GerbviewFrameWindow({
     // GBR_LAYER_BOX_SELECTOR, added bare (`toolbars_gerber.cpp:128-152`).
     [GBR_CONTROL.layerSelector]: layerBox ? (
       <Combo
-        ariaLabel="Active layer"
+        ariaLabel={_('Active layer')}
         value={String(layerBox.GetLayerSelection())}
         options={layerBox.GetRows().map((r) => ({
           value: String(r.layerid),
@@ -578,41 +579,41 @@ export function GerbviewFrameWindow({
   const auxControls: Record<string, ReactNode> = {
     [GBR_CONTROL.componentHighlight]: (
       <>
-        <span className="ze-tb-label">Cmp: </span>
+        <span className="ze-tb-label">{_('Cmp:')} </span>
         {choiceCombo(
           frame.m_SelComponentBox,
           () => frame.OnSelectHighlightChoice(frame.m_SelComponentBox!),
           {
-            title: 'Highlight items belonging to this component',
+            title: _('Highlight items belonging to this component'),
           },
         )}
       </>
     ),
     [GBR_CONTROL.netHighlight]: (
       <>
-        <span className="ze-tb-label">Net:</span>
+        <span className="ze-tb-label">{_('Net:')}</span>
         {choiceCombo(
           frame.m_SelNetnameBox,
           () => frame.OnSelectHighlightChoice(frame.m_SelNetnameBox!),
           {
-            title: 'Highlight items belonging to this net',
+            title: _('Highlight items belonging to this net'),
           },
         )}
       </>
     ),
     [GBR_CONTROL.appertureHighlight]: (
       <>
-        <span className="ze-tb-label">Attr:</span>
+        <span className="ze-tb-label">{_('Attr:')}</span>
         {choiceCombo(
           frame.m_SelAperAttributesBox,
           () => frame.OnSelectHighlightChoice(frame.m_SelAperAttributesBox!),
-          { title: 'Highlight items with this aperture attribute' },
+          { title: _('Highlight items with this aperture attribute') },
         )}
       </>
     ),
     [GBR_CONTROL.dcodeSelector]: (
       <>
-        <span className="ze-tb-label">DCode:</span>
+        <span className="ze-tb-label">{_('DCode:')}</span>
         {/* [data] `wxSize( 150, -1 )`, DCODE_SELECTION_BOX's own size (`toolbars_gerber.cpp:244-245`). */}
         {choiceCombo(frame.m_DCodeSelector, () => frame.OnSelectActiveDCode(), {
           style: { width: 150 },
@@ -620,10 +621,10 @@ export function GerbviewFrameWindow({
       </>
     ),
     [GBR_CONTROL.gridSelect]: choiceCombo(frame.GetGridSelectBox(), () => frame.OnSelectGrid(), {
-      title: 'Grid Selection box',
+      title: _('Grid Selection box'),
     }),
     [GBR_CONTROL.zoomSelect]: choiceCombo(frame.GetZoomSelectBox(), () => frame.OnSelectZoom(), {
-      title: 'Zoom Selection box',
+      title: _('Zoom Selection box'),
     }),
   };
 
@@ -925,7 +926,7 @@ export function GerbviewFrameWindow({
               style={{ width: dockWidth, minWidth: dockWidth }}
             >
               {/* EDA_PANE().Palette() with .Caption( _( "Layers Manager" ) ) (`gerbview_frame.cpp:170`). */}
-              <div className="ze-panel-header">Layers Manager</div>
+              <div className="ze-panel-header">{_('Layers Manager')}</div>
               <LayerManager
                 layers={layerInfos}
                 activeLayer={frame.GetActiveLayer()}

@@ -18,6 +18,7 @@
 import { UNDEFINED_LAYER, UNSELECTED_LAYER } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The radio box's major dimension: `std::min( int( m_layerId.size() ), 12 )`
@@ -73,13 +74,13 @@ export class SELECT_LAYER_DIALOG {
       this.m_layerId.push(layer);
     }
 
-    this.m_layerList.push('Hole data');
+    this.m_layerList.push(_('Hole data'));
 
     if (aDefaultLayer === UNDEFINED_LAYER) selected = this.m_layerId.length;
 
     this.m_layerId.push(UNDEFINED_LAYER);
 
-    this.m_layerList.push('Do not export');
+    this.m_layerList.push(_('Do not export'));
 
     if (aDefaultLayer === UNSELECTED_LAYER) selected = this.m_layerId.length;
 

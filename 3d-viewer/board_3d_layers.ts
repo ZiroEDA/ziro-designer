@@ -100,6 +100,7 @@ import {
   Rescue,
   User_1,
 } from '@ziroeda/common/layer_ids.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** An axis-aligned box in board IU. */
 interface Box {
@@ -714,7 +715,7 @@ export function buildBoard3dLayers(
   const allHoles = booleanAdd(thOD, npthOD);
 
   // ----- per-layer item polygons ----------------------------------------------
-  report('Create tracks and vias'); // create_layer_items.cpp:315
+  report(wxGetTranslation('Create tracks and vias')); // create_layer_items.cpp:315
   const items: Partial<Record<Layer3d, SHAPE_POLY_SET>> = {};
   const bufferOf = (aLayer: Layer3d): SHAPE_POLY_SET => {
     const existing = items[aLayer];
@@ -757,7 +758,7 @@ export function buildBoard3dLayers(
   }
 
   // Tech layers (create_layer_items.cpp:1340-1670).
-  report('Build Tech layers');
+  report(wxGetTranslation('Build Tech layers'));
   const maskOpenings = { 'F.Mask': [] as Polygon[], 'B.Mask': [] as Polygon[] };
   const silkLineWidth = bds.m_LineThickness[LAYER_CLASS.LAYER_CLASS_SILK]!;
 
@@ -829,7 +830,7 @@ export function buildBoard3dLayers(
   }
 
   // ----- union, cut the holes, clip to the board -----------------------------
-  report('Simplifying copper layer polygons'); // create_layer_items.cpp:1674
+  report(wxGetTranslation('Simplifying copper layer polygons')); // create_layer_items.cpp:1674
   // `DrawCulled( showThickness, throughHolesOuter, anti_board )` for a tech
   // layer, `( outerTH, viaHoles, m_antiBoard )` for copper. The mask is the
   // odd one: its list is the OPENINGS, and the layer drawn is the BOARD minus
@@ -888,7 +889,7 @@ export function buildBoard3dLayers(
 
   // TRIM PLATED COPPER TO SOLDERMASK, then subtract it from the unplated
   // (create_layer_items.cpp:1673-1697).
-  if (opts.differentiatePlatedCopper) report('Calculating plated copper');
+  if (opts.differentiatePlatedCopper) report(wxGetTranslation('Calculating plated copper'));
 
   const platedCopper = { 'F.Cu': [] as Polygon[], 'B.Cu': [] as Polygon[] };
 

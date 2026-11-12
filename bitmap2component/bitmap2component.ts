@@ -37,6 +37,7 @@ import {
   type potrace_dpoint_t,
   type potrace_path_t,
 } from '@ziroeda/potrace';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum OUTPUT_FMT_ID {
   SYMBOL_FMT,
@@ -387,7 +388,7 @@ export class BITMAPCONV_INFO {
 
     if (!this.m_Paths) {
       this.m_reporter.report(
-        'No shape in black and white image to convert: no outline created.',
+        _('No shape in black and white image to convert: no outline created.'),
         RPT_SEVERITY_ERROR,
       );
     }

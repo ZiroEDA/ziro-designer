@@ -38,9 +38,10 @@ import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { FRAME_TITLE_SEPARATOR, frameTitleName } from '@ziroeda/common/use_document_title.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  unmarked(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 
 const EDITOR = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
 const SHELL = read('../../../common/widgets/shell.css');

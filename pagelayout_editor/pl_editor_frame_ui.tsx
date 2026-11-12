@@ -102,6 +102,7 @@ import {
 } from './pl_editor_settings_bridge.js';
 import '@ziroeda/common/widgets/shell.css';
 import { PlDataModel } from './pl_data_model.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -667,7 +668,7 @@ export function PlEditorFrameWindow({
           persist();
           repaint();
         }}
-        title="Origin of coordinates displayed to the status bar"
+        title={wxGetTranslation('Origin of coordinates displayed to the status bar')}
       />
     ),
     // `m_pageSelectBox` (:172-185).
@@ -749,7 +750,7 @@ export function PlEditorFrameWindow({
   useDocumentTitle(
     'drawingsheet',
     formatTitle(
-      'Drawing Sheet Editor',
+      wxGetTranslation('Drawing Sheet Editor'),
       frameTitleName(frame.GetCurrentFileName(), ''),
       titleModified,
     ),

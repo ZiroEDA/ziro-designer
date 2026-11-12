@@ -22,9 +22,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { BITMAP2CMP_PANEL } from '@ziroeda/bitmap2component';
+import { unmarked } from '../translation/unmarked.js';
 
 const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  unmarked(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 
 const CSS = read('../../../bitmap2component/bitmap2cmp_panel.css');
 const TSX = read('../../../bitmap2component/bitmap2cmp_panel_ui.tsx');

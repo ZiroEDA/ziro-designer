@@ -52,6 +52,8 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_SELECTION_TOOL } from '../tools/pl_selection_tool.js';
 import { PlDataModel } from '../pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `"%.3f"` — always three decimal places, so a rotation of zero reads `0.000`
@@ -80,17 +82,17 @@ export const DLG_MAX_TEXTSIZE = 100.0;
 
 /** `m_choicePageOptChoices[]` (properties_frame_base.cpp:38). [data] */
 export const PAGE_OPTION_CHOICES: readonly string[] = [
-  'Show on all pages',
-  'First page only',
-  'Subsequent pages only',
+  _HKI('Show on all pages'),
+  _HKI('First page only'),
+  _HKI('Subsequent pages only'),
 ];
 
 /** `m_comboBoxCornerPos` / `m_comboBoxCornerEnd`'s rows (:275-278, :328-331). [data] */
 export const CORNER_CHOICES: readonly string[] = [
-  'Upper Right',
-  'Upper Left',
-  'Lower Right',
-  'Lower Left',
+  _HKI('Upper Right'),
+  _HKI('Upper Left'),
+  _HKI('Lower Right'),
+  _HKI('Lower Left'),
 ];
 
 /**
@@ -207,25 +209,25 @@ export class PROPERTIES_FRAME {
     const error = (aMessage: string): void => aParent.GetHost()?.DisplayErrorMessage(aMessage);
     const binder = (aLabel: string): UNIT_BINDER => new UNIT_BINDER(aParent, aLabel, error);
 
-    this.m_textSizeX = binder('Text width:');
-    this.m_textSizeY = binder('Text height:');
-    this.m_constraintX = binder('Maximum width:');
-    this.m_constraintY = binder('Maximum height:');
+    this.m_textSizeX = binder(_('Text width:'));
+    this.m_textSizeY = binder(_('Text height:'));
+    this.m_constraintX = binder(_('Maximum width:'));
+    this.m_constraintY = binder(_('Maximum height:'));
     this.m_textPosX = binder('X:');
     this.m_textPosY = binder('Y:');
     this.m_textEndX = binder('X:');
     this.m_textEndY = binder('Y:');
-    this.m_textStepX = binder('Step X:');
-    this.m_textStepY = binder('Step Y:');
-    this.m_defaultTextSizeX = binder('Text width:');
-    this.m_defaultTextSizeY = binder('Text height:');
-    this.m_defaultLineWidth = binder('Line thickness:');
-    this.m_defaultTextThickness = binder('Text thickness:');
-    this.m_textLeftMargin = binder('Left:');
-    this.m_textRightMargin = binder('Right:');
-    this.m_textTopMargin = binder('Top:');
-    this.m_textBottomMargin = binder('Bottom:');
-    this.m_lineWidth = binder('Line width:');
+    this.m_textStepX = binder(_('Step X:'));
+    this.m_textStepY = binder(_('Step Y:'));
+    this.m_defaultTextSizeX = binder(_('Text width:'));
+    this.m_defaultTextSizeY = binder(_('Text height:'));
+    this.m_defaultLineWidth = binder(_('Line thickness:'));
+    this.m_defaultTextThickness = binder(_('Text thickness:'));
+    this.m_textLeftMargin = binder(_('Left:'));
+    this.m_textRightMargin = binder(_('Right:'));
+    this.m_textTopMargin = binder(_('Top:'));
+    this.m_textBottomMargin = binder(_('Bottom:'));
+    this.m_lineWidth = binder(_('Line width:'));
     this.m_propertiesDirty = false;
 
     this.m_textColorSwatch = COLOR4D_UNSPECIFIED;
@@ -678,7 +680,7 @@ export class PROPERTIES_FRAME {
       'TITLE',
     ];
 
-    return { caption: 'Predefined Keywords', html: message, list };
+    return { caption: _('Predefined Keywords'), html: message, list };
   }
 
   /** The Syntax Help link: `onHelp`'s box, shown by the host. */

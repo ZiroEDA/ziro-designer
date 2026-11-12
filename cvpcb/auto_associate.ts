@@ -87,6 +87,7 @@ import {
   type CvpcbAssociations,
   type CvpcbComponent,
 } from './cvpcb_mainframe.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One line of a `.equ` file (`FOOTPRINT_EQUIVALENCE`, auto_associate.h:35-42). */
 export interface FootprintEquivalence {
@@ -189,10 +190,10 @@ export function equFileNotFoundMessage(name: string): string {
 }
 
 /** `_( "Equivalence File Load Error" )` (auto_associate.cpp:180). */
-export const EQU_LOAD_ERROR_TITLE = 'Equivalence File Load Error';
+export const EQU_LOAD_ERROR_TITLE = _HKI('Equivalence File Load Error');
 
 /** `_( "CvPcb Warning" )` (auto_associate.cpp:300). */
-export const CVPCB_WARNING_TITLE = 'CvPcb Warning';
+export const CVPCB_WARNING_TITLE = _HKI('CvPcb Warning');
 
 /**
  * `CVPCB_MAINFRAME::buildEquivalenceList` (auto_associate.cpp:79-167) — every

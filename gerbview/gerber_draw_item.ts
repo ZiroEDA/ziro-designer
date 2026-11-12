@@ -42,6 +42,7 @@ import { GBR_NETLIST_METADATA, GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netl
 import type { GERBER_FILE_IMAGE } from './gerber_file_image.js';
 import { GERBER_FILE_IMAGE_LIST } from './gerber_file_image_list.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `GBR_BASIC_SHAPE_TYPE` (`gerber_draw_item.h:50-61`), `m_ShapeType`. */
 export enum GBR_BASIC_SHAPE_TYPE {
@@ -660,20 +661,20 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
     let text: string;
 
     msg = this.ShowGBRShape();
-    aList.push(new MSG_PANEL_ITEM('Type', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), msg));
 
     // Display D_Code value with its attributes for items using a DCode:
     if (this.m_ShapeType === GBR_BASIC_SHAPE_TYPE.GBR_POLYGON) {
       // Has no DCode, but can have an attribute
-      msg = 'Attribute';
+      msg = _('Attribute');
 
-      if (this.m_AperFunction.length === 0) text = 'No attribute';
+      if (this.m_AperFunction.length === 0) text = _('No attribute');
       else text = this.m_AperFunction;
     } else {
       msg = `D Code ${this.m_DCode}`;
       const apertDescr = this.GetDcodeDescr();
 
-      if (!apertDescr || apertDescr.m_AperFunction.length === 0) text = 'No attribute';
+      if (!apertDescr || apertDescr.m_AperFunction.length === 0) text = _('No attribute');
       else text = apertDescr.m_AperFunction;
     }
 
@@ -681,7 +682,7 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
 
     // Display graphic layer name
     msg = GERBER_FILE_IMAGE_LIST.GetImagesList().GetDisplayName(this.GetLayer(), true);
-    aList.push(new MSG_PANEL_ITEM('Graphic Layer', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Graphic Layer'), msg));
 
     // Display item position
     const units = aFrame.GetUserUnits();
@@ -692,13 +693,13 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
 
     if (this.m_Flashed) {
       msg = `(${xStart.toFixed(4)}, ${yStart.toFixed(4)})`;
-      aList.push(new MSG_PANEL_ITEM('Position', msg));
+      aList.push(new MSG_PANEL_ITEM(_('Position'), msg));
     } else {
       msg = `(${xStart.toFixed(4)}, ${yStart.toFixed(4)})`;
-      aList.push(new MSG_PANEL_ITEM('Start', msg));
+      aList.push(new MSG_PANEL_ITEM(_('Start'), msg));
 
       msg = `(${xEnd.toFixed(4)}, ${yEnd.toFixed(4)})`;
-      aList.push(new MSG_PANEL_ITEM('End', msg));
+      aList.push(new MSG_PANEL_ITEM(_('End'), msg));
     }
 
     // Display item rotation
@@ -706,19 +707,19 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
     // but m_lyrRotation is specific to this object
     // so we display only this parameter
     msg = this.m_lyrRotation.toFixed(6); // wxT( "%f" )
-    aList.push(new MSG_PANEL_ITEM('Rotation', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Rotation'), msg));
 
     // Display item polarity (item specific)
-    msg = this.m_LayerNegative ? 'Clear' : 'Dark';
-    aList.push(new MSG_PANEL_ITEM('Polarity', msg));
+    msg = this.m_LayerNegative ? _('Clear') : _('Dark');
+    aList.push(new MSG_PANEL_ITEM(_('Polarity'), msg));
 
     // Display mirroring (item specific)
-    msg = `A:${this.m_mirrorA ? 'Yes' : 'No'} B:${this.m_mirrorB ? 'Yes' : 'No'}`;
-    aList.push(new MSG_PANEL_ITEM('Mirror', msg));
+    msg = `A:${this.m_mirrorA ? _('Yes') : _('No')} B:${this.m_mirrorB ? _('Yes') : _('No')}`;
+    aList.push(new MSG_PANEL_ITEM(_('Mirror'), msg));
 
     // Display AB axis swap (item specific)
     msg = this.m_swapAxis ? 'A=Y B=X' : 'A=X B=Y';
-    aList.push(new MSG_PANEL_ITEM('AB axis', msg));
+    aList.push(new MSG_PANEL_ITEM(_('AB axis'), msg));
 
     // Display net info, if exists
     if (this.m_netAttributes.m_NetAttribType === GBR_NETINFO_TYPE.GBR_NETINFO_UNSPECIFIED) return;
@@ -728,10 +729,10 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
     let cmp_pad_msg = '';
 
     if (this.m_netAttributes.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_NET) {
-      net_msg = 'Net:';
+      net_msg = _('Net:');
       net_msg += ' ';
 
-      if (this.m_netAttributes.m_Netname.length === 0) net_msg += '<no net>';
+      if (this.m_netAttributes.m_Netname.length === 0) net_msg += _('<no net>');
       else net_msg += UnescapeString(this.m_netAttributes.m_Netname);
     }
 
@@ -744,7 +745,7 @@ export class GERBER_DRAW_ITEM extends EDA_ITEM {
           `  Fct ${this.m_netAttributes.m_PadPinFunction.GetValue()}`;
       }
     } else if (this.m_netAttributes.m_NetAttribType & GBR_NETINFO_TYPE.GBR_NETINFO_CMP) {
-      cmp_pad_msg = 'Cmp:';
+      cmp_pad_msg = _('Cmp:');
       cmp_pad_msg += ` ${this.m_netAttributes.m_Cmpref}`;
     }
 

@@ -51,9 +51,10 @@ import { buildMenus as buildSchMenus } from '@ziroeda/eeschema/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
+const read = (rel: string): string => unmarked(readFileSync(join(SRC, rel), 'utf8'));
 
 /** What the two substituted keys resolve to. Spelled out so a change to
  *  BROWSER_REBINDS cannot quietly rewrite what this file asserts. */
@@ -360,7 +361,7 @@ describe('no menu declares a key the browser will not deliver', () => {
         if (!/\.tsx?$/.test(name)) continue;
         const rel = relative(SRC, path).split('\\').join('/');
         files.push(rel);
-        const src = readFileSync(path, 'utf8');
+        const src = unmarked(readFileSync(path, 'utf8'));
         // Both spellings a declaration uses: `shortcut:` on a MenuItem, `keys:`
         // in a hotkey registry. A positional argument (`act(…, 'Ctrl+P')`) is
         // covered by the Hotkey List assertion below, which reads the built

@@ -34,6 +34,7 @@ import {
   PAGE_OPTION_CHOICES,
   type PROPERTIES_FRAME,
 } from './properties_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---- small layout helpers ----------------------------------------------------
 
@@ -196,21 +197,21 @@ export function PropertiesFrame({
     >
       {/* The AUI pane caption: `.Caption( _( "Properties" ) )`
           (pl_editor_frame.cpp:199-203), WX_AUI_DOCK_ART's shared strip. */}
-      <div className="ze-panel-header">Properties</div>
+      <div className="ze-panel-header">{_('Properties')}</div>
       <div className="ze-ds-tabs">
         <button
           type="button"
           className={tab === 'item' ? 'active' : ''}
           onClick={() => setTab('item')}
         >
-          Item Properties
+          {_('Item Properties')}
         </button>
         <button
           type="button"
           className={tab === 'general' ? 'active' : ''}
           onClick={() => setTab('general')}
         >
-          General Options
+          {_('General Options')}
         </button>
       </div>
       <div
@@ -272,7 +273,7 @@ function ItemProperties({
               panel.ShowHelp();
             }}
           >
-            Syntax Help
+            {_('Syntax Help')}
           </a>
         )}
         <Combo
@@ -394,7 +395,7 @@ function ItemProperties({
               />
             )}
           </div>
-          <Row label="Font:">
+          <Row label={_('Font:')}>
             <Combo
               style={{ flex: 1, minWidth: 0 }}
               value={String(panel.m_fontCtrl)}
@@ -405,24 +406,24 @@ function ItemProperties({
               }}
             />
           </Row>
-          <Row label="Text width:">{binder(panel.m_textSizeX)}</Row>
-          <Row label="Text height:">{binder(panel.m_textSizeY)}</Row>
-          <Row label="Maximum width:" hint="Set to 0 to disable this constraint">
+          <Row label={_('Text width:')}>{binder(panel.m_textSizeX)}</Row>
+          <Row label={_('Text height:')}>{binder(panel.m_textSizeY)}</Row>
+          <Row label={_('Maximum width:')} hint={_('Set to 0 to disable this constraint')}>
             {binder(panel.m_constraintX)}
           </Row>
-          <Row label="Maximum height:" hint="Set to 0 to disable this constraint">
+          <Row label={_('Maximum height:')} hint={_('Set to 0 to disable this constraint')}>
             {binder(panel.m_constraintY)}
           </Row>
           {/* `m_staticTextSizeInfo` (properties_frame_base.cpp:226), in
               KIUI::GetInfoFont().Italic() (properties_frame.cpp:97). */}
-          <div className="ze-ds-sizeinfo">Set to 0 to use default values</div>
+          <div className="ze-ds-sizeinfo">{_('Set to 0 to use default values')}</div>
         </>
       )}
 
       {/* m_staticTextComment above a full-width m_textCtrlComment
           (properties_frame_base.cpp:233-238). */}
       <label className="ze-ds-label ze-ds-stacklabel" htmlFor="ze-ds-comment">
-        Comment:
+        {_('Comment:')}
       </label>
       <input
         id="ze-ds-comment"
@@ -436,10 +437,10 @@ function ItemProperties({
         onBlur={focusLost}
       />
 
-      <Group title="Position">
+      <Group title={_('Position')}>
         <Row label="X:">{binder(panel.m_textPosX)}</Row>
         <Row label="Y:">{binder(panel.m_textPosY)}</Row>
-        <Row label="From:">
+        <Row label={_('From:')}>
           <Combo
             style={{ flex: 1, minWidth: 0 }}
             value={String(panel.m_comboBoxCornerPos)}
@@ -452,10 +453,10 @@ function ItemProperties({
         </Row>
       </Group>
       {panel.m_showEndPosition && (
-        <Group title="End Position">
+        <Group title={_('End Position')}>
           <Row label="X:">{binder(panel.m_textEndX)}</Row>
           <Row label="Y:">{binder(panel.m_textEndY)}</Row>
-          <Row label="From:">
+          <Row label={_('From:')}>
             <Combo
               style={{ flex: 1, minWidth: 0 }}
               value={String(panel.m_comboBoxCornerEnd)}
@@ -472,10 +473,12 @@ function ItemProperties({
       {/* gbSizer1 (properties_frame_base.cpp:350-380): Line width, Rotation and
           Bitmap DPI, built once and Show()n per type (properties_frame.cpp:359-379). */}
       <div className="ze-ds-grid bare">
-        {panel.m_lineWidth.IsShown() && <Row label="Line width:">{binder(panel.m_lineWidth)}</Row>}
+        {panel.m_lineWidth.IsShown() && (
+          <Row label={_('Line width:')}>{binder(panel.m_lineWidth)}</Row>
+        )}
         {/* No unit label: m_textCtrlRotation has no m_*Units beside it. */}
         {panel.m_showRotation && (
-          <Row label="Rotation:">
+          <Row label={_('Rotation:')}>
             <TextCtrl
               value={panel.m_textCtrlRotation}
               onChange={(t) => {
@@ -487,7 +490,7 @@ function ItemProperties({
           </Row>
         )}
         {panel.m_showBitmapDPI && (
-          <Row label="Bitmap DPI:">
+          <Row label={_('Bitmap DPI:')}>
             <TextCtrl
               value={panel.m_textCtrlBitmapDPI}
               onChange={(t) => {
@@ -500,8 +503,8 @@ function ItemProperties({
         )}
       </div>
 
-      <Group title="Repeat Parameters">
-        <Row label="Count:">
+      <Group title={_('Repeat Parameters')}>
+        <Row label={_('Count:')}>
           <TextCtrl
             value={panel.m_textCtrlRepeatCount}
             onChange={(t) => {
@@ -513,8 +516,8 @@ function ItemProperties({
         </Row>
         {panel.m_showIncLabel && (
           <Row
-            label="Step text:"
-            hint="Number of characters or digits to step text by for each repeat."
+            label={_('Step text:')}
+            hint={_('Number of characters or digits to step text by for each repeat.')}
           >
             <TextCtrl
               value={panel.m_textCtrlTextIncrement}
@@ -526,10 +529,10 @@ function ItemProperties({
             />
           </Row>
         )}
-        <Row label="Step X:" hint="Distance on the X axis to step for each repeat.">
+        <Row label={_('Step X:')} hint={_('Distance on the X axis to step for each repeat.')}>
           {binder(panel.m_textStepX)}
         </Row>
-        <Row label="Step Y:" hint="Distance to step on Y axis for each repeat.">
+        <Row label={_('Step Y:')} hint={_('Distance to step on Y axis for each repeat.')}>
           {binder(panel.m_textStepY)}
         </Row>
       </Group>
@@ -546,20 +549,20 @@ function GeneralOptions({
 }): JSX.Element {
   return (
     <div>
-      <Group title="Default Values" layout="stack">
-        <StackRow label="Text width:">{binder(panel.m_defaultTextSizeX)}</StackRow>
-        <StackRow label="Text height:">{binder(panel.m_defaultTextSizeY)}</StackRow>
-        <StackRow label="Line thickness:">{binder(panel.m_defaultLineWidth)}</StackRow>
-        <StackRow label="Text thickness:">{binder(panel.m_defaultTextThickness)}</StackRow>
+      <Group title={_('Default Values')} layout="stack">
+        <StackRow label={_('Text width:')}>{binder(panel.m_defaultTextSizeX)}</StackRow>
+        <StackRow label={_('Text height:')}>{binder(panel.m_defaultTextSizeY)}</StackRow>
+        <StackRow label={_('Line thickness:')}>{binder(panel.m_defaultLineWidth)}</StackRow>
+        <StackRow label={_('Text thickness:')}>{binder(panel.m_defaultTextThickness)}</StackRow>
         <div className="ze-ds-row">
-          <Button label="Set to Default" onClick={() => panel.OnSetDefaultValues()} />
+          <Button label={_('Set to Default')} onClick={() => panel.OnSetDefaultValues()} />
         </div>
       </Group>
-      <Group title="Page Margins" layout="stack">
-        <StackRow label="Left:">{binder(panel.m_textLeftMargin)}</StackRow>
-        <StackRow label="Right:">{binder(panel.m_textRightMargin)}</StackRow>
-        <StackRow label="Top:">{binder(panel.m_textTopMargin)}</StackRow>
-        <StackRow label="Bottom:">{binder(panel.m_textBottomMargin)}</StackRow>
+      <Group title={_('Page Margins')} layout="stack">
+        <StackRow label={_('Left:')}>{binder(panel.m_textLeftMargin)}</StackRow>
+        <StackRow label={_('Right:')}>{binder(panel.m_textRightMargin)}</StackRow>
+        <StackRow label={_('Top:')}>{binder(panel.m_textTopMargin)}</StackRow>
+        <StackRow label={_('Bottom:')}>{binder(panel.m_textBottomMargin)}</StackRow>
       </Group>
     </div>
   );

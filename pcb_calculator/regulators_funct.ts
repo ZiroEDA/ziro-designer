@@ -1,3 +1,5 @@
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -35,8 +37,8 @@ export interface RegulatorData {
  * order is not cosmetic.
  */
 export const REGULATOR_TYPE_CHOICES: readonly { value: RegulatorType; label: string }[] = [
-  { value: RegulatorType.STANDARD, label: 'Standard Type' },
-  { value: RegulatorType.THREE_TERMINAL, label: '3 Terminal Type' },
+  { value: RegulatorType.STANDARD, label: _HKI('Standard Type') },
+  { value: RegulatorType.THREE_TERMINAL, label: _HKI('3 Terminal Type') },
 ];
 
 /**
@@ -131,14 +133,15 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
   // Vout < Vref AND Vref = 0 shows the Vout message, not the Vref one, and
   // these strings go on screen verbatim.
   if ((vout < vrefMin || vout < vrefTyp || vout < vrefMax) && p.solve !== RegulatorSolve.VOUT)
-    return fail('Vout must be greater than Vref');
+    return fail(_('Vout must be greater than Vref'));
 
-  if (vrefMin === 0 || vrefTyp === 0 || vrefMax === 0) return fail('Vref set to 0 !');
+  if (vrefMin === 0 || vrefTyp === 0 || vrefMax === 0) return fail(_('Vref set to 0 !'));
 
-  if (vrefMin > vrefTyp || vrefTyp > vrefMax) return fail('Vref must VrefMin < VrefTyp < VrefMax');
+  if (vrefMin > vrefTyp || vrefTyp > vrefMax)
+    return fail(_('Vref must VrefMin < VrefTyp < VrefMax'));
 
   if ((r1 < 0 && p.solve !== RegulatorSolve.R1) || (r2 <= 0 && p.solve !== RegulatorSolve.R2))
-    return fail('Incorrect value for R1 R2');
+    return fail(_('Incorrect value for R1 R2'));
 
   let voutMin: number;
   let voutMax: number;
@@ -146,7 +149,7 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
   if (p.type === RegulatorType.THREE_TERMINAL) {
     const iadjTyp = p.iadjTyp;
     const iadjMax = p.iadjMax;
-    if (iadjTyp > iadjMax) return fail('Iadj must IadjTyp < IadjMax');
+    if (iadjTyp > iadjMax) return fail(_('Iadj must IadjTyp < IadjMax'));
 
     if (p.solve === RegulatorSolve.R1) {
       r1 = (vrefTyp * r2) / (vout - vrefTyp - r2 * iadjTyp);

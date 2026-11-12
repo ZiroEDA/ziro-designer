@@ -112,6 +112,9 @@ importers:
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/include':
+        specifier: workspace:*
+        version: link:../include
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
@@ -527,6 +530,12 @@ importers:
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/include':
+        specifier: workspace:*
+        version: link:../include
+      '@ziroeda/wx':
+        specifier: workspace:*
+        version: link:../external/wx
 
   pcbnew:
     dependencies:

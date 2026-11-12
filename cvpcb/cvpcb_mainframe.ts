@@ -127,6 +127,8 @@ import {
   type CvpcbSaveCommand,
   type CvpcbSaveEffect,
 } from './readwrite_dlgs.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One row of the "Symbol : Footprint Assignments" pane. */
 export interface CvpcbComponent {
@@ -516,8 +518,9 @@ export function markSaved(state: CvpcbAssociations): CvpcbAssociations {
 // ----- closing --------------------------------------------------------------
 
 /** `HandleUnsavedChanges`'s question for this frame. */
-export const UNSAVED_ASSOCIATIONS_MESSAGE =
-  'Symbol to Footprint links have been modified. Save changes?';
+export const UNSAVED_ASSOCIATIONS_MESSAGE = _HKI(
+  'Symbol to Footprint links have been modified. Save changes?',
+);
 
 /**
  * `CVPCB_MAINFRAME::canCloseWindow` — modified links have to be asked about
@@ -608,7 +611,7 @@ export interface CvpcbContextMenuActions {
 export function cvpcbSymbolsContextMenu(actions: CvpcbContextMenuActions): MenuItem[] {
   return [
     {
-      label: 'View Selected Footprint',
+      label: _('View Selected Footprint'),
       icon: 'cvpcbViewFootprint',
       action: actions.showFootprintViewer,
     },
@@ -627,9 +630,9 @@ export function cvpcbSymbolsContextMenu(actions: CvpcbContextMenuActions): MenuI
     },
     { sep: true },
     {
-      label: 'Delete Footprint Assignment',
+      label: _('Delete Footprint Assignment'),
       icon: 'cvpcbDeleteAssoc',
-      shortcut: 'Delete',
+      shortcut: _('Delete'),
       action: actions.deleteAssoc,
     },
   ];
@@ -645,7 +648,7 @@ export function cvpcbSymbolsContextMenu(actions: CvpcbContextMenuActions): MenuI
 export function cvpcbFootprintsContextMenu(actions: CvpcbContextMenuActions): MenuItem[] {
   return [
     {
-      label: 'View Selected Footprint',
+      label: _('View Selected Footprint'),
       icon: 'cvpcbViewFootprint',
       action: actions.showFootprintViewer,
     },

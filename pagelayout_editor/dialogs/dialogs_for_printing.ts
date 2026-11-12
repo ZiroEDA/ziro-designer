@@ -41,6 +41,7 @@ import { wxPrinter } from '@ziroeda/wx/printer.js';
 import { wxPrintout } from '@ziroeda/wx/prntbase.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PlDataModel } from '../pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What `${#}` and `${##}` resolve to in the Drawing Sheet Editor, on screen and
@@ -184,12 +185,12 @@ function paperInches(aCaller: PL_EDITOR_FRAME): { x: number; y: number } {
  */
 export function InvokeDialogPrint(aCaller: PL_EDITOR_FRAME): number {
   const printer = new wxPrinter();
-  const printout = new PLEDITOR_PRINTOUT(aCaller, 'Print Drawing Sheet');
+  const printout = new PLEDITOR_PRINTOUT(aCaller, _('Print Drawing Sheet'));
 
   if (!printer.Print(printout, paperInches(aCaller))) {
     aCaller
       .GetHost()
-      ?.MessageBox('An error occurred attempting to print the drawing sheet.', 'Printing');
+      ?.MessageBox(_('An error occurred attempting to print the drawing sheet.'), _('Printing'));
     return 0;
   }
 
@@ -203,5 +204,5 @@ export function InvokeDialogPrint(aCaller: PL_EDITOR_FRAME): number {
 export function InvokeDialogPrintPreview(aCaller: PL_EDITOR_FRAME): number {
   const printer = new wxPrinter();
 
-  return printer.Print(new PLEDITOR_PRINTOUT(aCaller, 'Preview'), paperInches(aCaller)) ? 1 : 0;
+  return printer.Print(new PLEDITOR_PRINTOUT(aCaller, _('Preview')), paperInches(aCaller)) ? 1 : 0;
 }

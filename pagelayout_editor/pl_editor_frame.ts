@@ -85,6 +85,8 @@ import { PL_POINT_EDITOR } from './tools/pl_point_editor.js';
 import { PL_EDITOR_CONTROL } from './tools/pl_editor_control.js';
 import { PL_SELECTION_TOOL } from './tools/pl_selection_tool.js';
 import { PlDataModel } from './pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `PL_EDITOR_FRAME_NAME`, the frame's wx name (common/eda_draw_frame.ts has it). [data] */
 export { PL_EDITOR_FRAME_NAME };
@@ -197,11 +199,11 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
   private m_originTransforms = new ORIGIN_TRANSFORMS();
 
   private m_originChoiceList: readonly string[] = [
-    'Left Top paper corner',
-    'Right Bottom page corner',
-    'Left Bottom page corner',
-    'Right Top page corner',
-    'Left Top page corner',
+    _HKI('Left Top paper corner'),
+    _HKI('Right Bottom page corner'),
+    _HKI('Left Bottom page corner'),
+    _HKI('Right Top page corner'),
+    _HKI('Left Top page corner'),
   ];
 
   constructor(aSettings: PL_EDITOR_SETTINGS) {
@@ -223,7 +225,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     // (toolbars_pl_editor.cpp:152-185).
     this.m_originSelectBox = new wxChoice(this.m_originChoiceList);
     this.m_originSelectBox.SetSelection(this.m_originSelectChoice);
-    this.m_pageSelectBox = new wxChoice(['Page 1', 'Other pages']);
+    this.m_pageSelectBox = new wxChoice([_('Page 1'), _('Other pages')]);
     this.m_pageSelectBox.SetSelection(0);
   }
 
@@ -655,13 +657,13 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
 
     switch (this.GetUserUnits()) {
       case 'in':
-        this.SetStatusText('inches', 6);
+        this.SetStatusText(_('inches'), 6);
         break;
       case 'mils':
-        this.SetStatusText('mils', 6);
+        this.SetStatusText(_('mils'), 6);
         break;
       case 'mm':
-        this.SetStatusText('mm', 6);
+        this.SetStatusText(_('mm'), 6);
         break;
       case 'unscaled':
         this.SetStatusText('', 6);
@@ -747,7 +749,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
 
     // wxFileName::IsOk() && GetName(): the name without directory or extension.
     if (file !== '') title += fileNameWithoutExt(file);
-    else title += '[no drawing sheet loaded]';
+    else title += _('[no drawing sheet loaded]');
 
     title += ' — Drawing Sheet Editor';
 
@@ -769,8 +771,8 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
     const size = this.GetPageSettings().GetSizeIU(drawSheetIUScale.IU_PER_MILS);
 
     const msgItems = [
-      new MSG_PANEL_ITEM('Page Width', this.GetUnitsProvider().MessageTextFromValue(size.x)),
-      new MSG_PANEL_ITEM('Page Height', this.GetUnitsProvider().MessageTextFromValue(size.y)),
+      new MSG_PANEL_ITEM(_('Page Width'), this.GetUnitsProvider().MessageTextFromValue(size.x)),
+      new MSG_PANEL_ITEM(_('Page Height'), this.GetUnitsProvider().MessageTextFromValue(size.y)),
     ];
 
     this.SetMsgPanel(msgItems);
@@ -912,7 +914,7 @@ export class PL_EDITOR_FRAME extends EDA_DRAW_FRAME {
         if (!image.ReadImageFile(aImageFile.data)) {
           // The second argument is wxMessageBox's CAPTION: upstream's box
           // really does read `'%s'` with the path in its title bar.
-          this.m_host?.MessageBox("Could not load image from '%s'.", fullFilename);
+          this.m_host?.MessageBox(_("Could not load image from '%s'."), fullFilename);
           break;
         }
 

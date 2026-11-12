@@ -38,6 +38,7 @@ import {
 } from './libc.js';
 import { ReadDouble, ReadInt } from './rs274_read_XY_and_IJ_coordinates.js';
 import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `CODE( x, y )`: two chars as a 16-bit command identifier. */
 const CODE = (x: string, y: string): number => (x.charCodeAt(0) << 8) + y.charCodeAt(0);
@@ -502,7 +503,7 @@ export function ExecuteRS274XCommand(
       else if (strncasecmp0(aText, '90*', 3)) self.m_ImageRotation = 90;
       else if (strncasecmp0(aText, '180*', 4)) self.m_ImageRotation = 180;
       else if (strncasecmp0(aText, '270*', 4)) self.m_ImageRotation = 270;
-      else self.AddMessageToList('RS274X: Command "IR" rotation value not allowed');
+      else self.AddMessageToList(_('RS274X: Command "IR" rotation value not allowed'));
 
       break;
 
@@ -609,7 +610,7 @@ export function ExecuteRS274XCommand(
 
     case RS274X.KNOCKOUT:
       self.m_Iterpolation = Gerb_Interpolation.GERB_INTERPOL_LINEAR_1X; // Start a new Gerber layer
-      msg = 'RS274X: Command KNOCKOUT ignored by GerbView';
+      msg = _('RS274X: Command KNOCKOUT ignored by GerbView');
       self.AddMessageToList(msg);
       break;
 
@@ -640,7 +641,7 @@ export function ExecuteRS274XCommand(
         self.m_ImageNegative = true;
         // IPPOS Gerber command is deprecated since 2012.
         // in Gerber doc 2024, the advice is: warn user and skip it.
-        self.AddMessageToList('IPNEG Gerber command is deprecated since 2012. Skip it');
+        self.AddMessageToList(_('IPNEG Gerber command is deprecated since 2012. Skip it'));
       } else {
         self.m_ImageNegative = false;
         // IPPOS Gerber command is deprecated since 2012.

@@ -40,6 +40,7 @@ import type { GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
 import { GERBVIEW_SELECTION } from './gerbview_selection.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The "Highlight" submenu: for a single selected item, the component, net,
@@ -49,7 +50,7 @@ class HIGHLIGHT_MENU extends ACTION_MENU {
   constructor() {
     super(true);
     this.SetIcon(BITMAPS.net_highlight_schematic);
-    this.SetTitle('Highlight');
+    this.SetTitle(_('Highlight'));
   }
 
   protected override update(): void {

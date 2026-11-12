@@ -58,6 +58,8 @@ import {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
 } from '@ziroeda/common/layer_ids.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `findNumX2GerbersLoaded`'s `kicadLayers` map
@@ -262,9 +264,9 @@ export const COPPER_LAYERS_COUNT_CHOICES: readonly string[] = Array.from(
 );
 
 /** `_( "Do not export" )`, the label of an `UNSELECTED_LAYER` row. [data] */
-export const DO_NOT_EXPORT = 'Do not export';
+export const DO_NOT_EXPORT = _HKI('Do not export');
 /** `_( "Hole data" )`, the label of an `UNDEFINED_LAYER` row. [data] */
-export const HOLE_DATA = 'Hole data';
+export const HOLE_DATA = _HKI('Hole data');
 
 /**
  * The two foreground colours a mapped-layer wxStaticText takes: `*wxBLUE` for a
@@ -425,7 +427,7 @@ export class DIALOG_MAP_GERBER_LAYERS_TO_PCB {
         .Host()
         .OkCancelMessageDialog(
           `Gerbers with known layers: ${numMappedGerbers}\n\nAssign to matching PCB layers?`,
-          'Automatic Layer Assignment',
+          wxGetTranslation('Automatic Layer Assignment'),
         );
 
       if (ok) {
@@ -580,7 +582,9 @@ export class DIALOG_MAP_GERBER_LAYERS_TO_PCB {
       void this.m_Parent
         .Host()
         .MessageBox(
-          'Exported board does not have enough copper layers to handle selected inner layers',
+          wxGetTranslation(
+            'Exported board does not have enough copper layers to handle selected inner layers',
+          ),
         );
       return false;
     }

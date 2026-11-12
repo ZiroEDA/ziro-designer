@@ -43,6 +43,7 @@ import {
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type { LayerInfo, RenderRow } from './gerbview_layer_widget.js';
 export { renderRows, layerContextMenu } from './gerbview_layer_widget.js';
@@ -86,7 +87,7 @@ export function LayerManager({
           className={page === 'layers' ? 'active' : ''}
           onClick={() => setPage('layers')}
         >
-          Layers
+          {_('Layers')}
         </button>
         <button
           type="button"
@@ -95,7 +96,7 @@ export function LayerManager({
           className={page === 'items' ? 'active' : ''}
           onClick={() => setPage('items')}
         >
-          Items
+          {_('Items')}
         </button>
       </div>
 
@@ -133,7 +134,7 @@ export function LayerManager({
               <input
                 type="checkbox"
                 checked={layer.visible}
-                title="Enable this for visibility"
+                title={_('Enable this for visibility')}
                 aria-label={`${layer.name} visible`}
                 onChange={() => onToggleVisible(layer.index)}
                 onClick={(e) => e.stopPropagation()}

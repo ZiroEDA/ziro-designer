@@ -19,6 +19,7 @@ import { Gerb_Analyse_Cmd } from './gerbview.js';
 import { CHAR_PTR, FILE, LINE_BUFFER, NUL, StrPurge, isdigit } from './libc.js';
 import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `GERBER_FILE_IMAGE::TestFileIsRS274`: "Original function derived from
@@ -244,7 +245,7 @@ export async function Read_GERBER_File(
 
   // Display errors list
   if (gerber.GetMessages().length > 0)
-    await this.Host().HtmlMessageBox('Errors', gerber.GetMessages().join('\n'));
+    await this.Host().HtmlMessageBox(_('Errors'), gerber.GetMessages().join('\n'));
 
   /* if the gerber file has items using D codes but missing D codes definitions,
    * it can be a deprecated RS274D file (i.e. without any aperture information),

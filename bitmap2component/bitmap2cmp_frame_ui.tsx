@@ -42,6 +42,7 @@ import { Bitmap2cmpPanel, readImageFile } from './bitmap2cmp_panel_ui.js';
 import { BITMAP2CMP_SETTINGS, type BITMAP2CMP_SETTINGS_JSON } from './bitmap2cmp_settings.js';
 import './bitmap2cmp_panel.css';
 import './bitmap2cmp_frame.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** One Open Recent row: the name FILE_HISTORY shows, and the image to reload. */
 export interface RecentImage {
@@ -114,7 +115,7 @@ export function Bitmap2cmpFrameWindow({
   const pendingPick = useRef<((f: IMAGE_FILE | null) => void) | null>(null);
 
   const [version, setVersion] = useState(0);
-  const [title, setTitle] = useState('Image Converter');
+  const [title, setTitle] = useState(_('Image Converter'));
   // KiCad's status bar starts empty and shows the loaded file (OnLoadFile).
   const [status, setStatus] = useState('');
   const [modals, setModals] = useState<Modal[]>([]);
@@ -265,11 +266,11 @@ export function Bitmap2cmpFrameWindow({
 
   const menus: Menu[] = [
     {
-      label: 'File',
+      label: _('File'),
       items: [
         // ACTIONS::open, which BITMAP2CMP_CONTROL::Open answers.
         {
-          label: 'Open...',
+          label: _('Open...'),
           shortcut: 'Ctrl+O',
           action: () => frame.GetToolManager()?.RunAction(ACTIONS.open),
         },
@@ -277,15 +278,15 @@ export function Bitmap2cmpFrameWindow({
         { sep: true },
         // `fileMenu->AddQuit( _( "Image Converter" ) )`: bitmap2component has
         // no kiface of its own to close into, so it is always Quit.
-        addQuit('Image Converter', () => frame.OnExit()),
+        addQuit(_('Image Converter'), () => frame.OnExit()),
       ],
     },
     {
-      label: 'Preferences',
+      label: _('Preferences'),
       items: [
         // ACTIONS::openPreferences, which COMMON_CONTROL::OpenPreferences answers.
         {
-          label: 'Preferences...',
+          label: _('Preferences...'),
           shortcut: 'Ctrl+,',
           action: () => frame.GetToolManager()?.RunAction(ACTIONS.openPreferences),
         },

@@ -44,6 +44,7 @@ import { Check, Group, Num, Radio } from '@ziroeda/common/dialogs/pref_controls.
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { GBR_PAGE_SIZE_CHOICES, OPACITY_RANGE } from './panel_gerbview_display_options.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT }): JSX.Element {
   const { gerbview, upGbr } = ctx;
@@ -60,9 +61,9 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
         />
       </div>
       <div>
-        <Group title="Annotations">
+        <Group title={_('Annotations')}>
           <Check
-            label="Show D codes"
+            label={_('Show D codes')}
             checked={gerbview.appearance.show_dcodes}
             borders={['top', 'bottom']}
             onChange={(v) =>
@@ -72,7 +73,7 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
           <Check
-            label="Show page limits"
+            label={_('Show page limits')}
             checked={gerbview.appearance.show_page_limit}
             onChange={(v) =>
               upGbr((s) => {
@@ -81,10 +82,12 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
         </Group>
-        <Group title="Drawing Mode">
+        <Group title={_('Drawing Mode')}>
           <Check
-            label="Sketch flashed items"
-            title="Display flashed items (items drawn using standard or macro apertures) in outlines mode"
+            label={_('Sketch flashed items')}
+            title={_(
+              'Display flashed items (items drawn using standard or macro apertures) in outlines mode',
+            )}
             checked={!gerbview.display.flashed_items_fill}
             borders={['top', 'bottom']}
             onChange={(v) =>
@@ -94,7 +97,7 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
           <Check
-            label="Sketch lines"
+            label={_('Sketch lines')}
             checked={!gerbview.display.lines_fill}
             onChange={(v) =>
               upGbr((s) => {
@@ -103,8 +106,8 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
           <Check
-            label="Sketch polygons"
-            title="Display polygon items in outline mode"
+            label={_('Sketch polygons')}
+            title={_('Display polygon items in outline mode')}
             checked={!gerbview.display.polygons_fill}
             onChange={(v) =>
               upGbr((s) => {
@@ -113,8 +116,8 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
           <Num
-            label="Forced opacity:"
-            title="Opacity in forced opacity display mode"
+            label={_('Forced opacity:')}
+            title={_('Opacity in forced opacity display mode')}
             value={gerbview.appearance.mode_opacity_value}
             min={OPACITY_RANGE.min}
             max={OPACITY_RANGE.max}
@@ -127,7 +130,7 @@ export function PanelGerbviewDisplayOptions({ ctx }: { ctx: GBR_PREFS_CONTEXT })
             }
           />
         </Group>
-        <Group title="Page Size">
+        <Group title={_('Page Size')}>
           {/* `wxRB_GROUP` on `m_pageSizeFull` and six more, each added
               `wxTOP|wxRIGHT|wxLEFT, 5` — so every row carries a top border and
               none carries a bottom one. */}

@@ -20,6 +20,7 @@ import { Button, RadioButton } from '@ziroeda/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { SELECT_LAYER_DIALOG } from './dialog_select_one_pcb_layer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function DialogSelectOnePcbLayer({
   dlg,
@@ -40,7 +41,7 @@ export function DialogSelectOnePcbLayer({
     <DialogShim title={dlg.m_title} onClose={() => onClose(false)} className="ze-selectlayer">
       <div className="ze-selectlayer-main">
         <fieldset className="ze-props-group ze-selectlayer-box">
-          <legend>Layer</legend>
+          <legend>{_('Layer')}</legend>
           <div
             className="ze-selectlayer-grid"
             // [data] wxRA_SPECIFY_ROWS: the major dimension is the row count.
@@ -61,8 +62,8 @@ export function DialogSelectOnePcbLayer({
           </div>
         </fieldset>
         <div className="ze-selectlayer-buttons">
-          <Button label="OK" isDefault onClick={() => ok(selection)} />
-          <Button label="Cancel" onClick={() => onClose(false)} />
+          <Button label={_('OK')} isDefault onClick={() => ok(selection)} />
+          <Button label={_('Cancel')} onClick={() => onClose(false)} />
         </div>
       </div>
     </DialogShim>

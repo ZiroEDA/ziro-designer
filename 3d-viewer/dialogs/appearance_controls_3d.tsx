@@ -51,6 +51,7 @@ import {
   pcbLayerOfFlag,
   userFlagIndex,
 } from '../viewer3d_appearance.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COLOR4D::WHITE`, the `aBackground` every swatch of this pane is built with (`.cpp:475`). */
 const SWATCH_BACKGROUND: Color4d = { r: 1, g: 1, b: 1, a: 1 };
@@ -145,25 +146,25 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
           })}
         </div>
         <Check
-          label="Use board stackup colors"
+          label={_('Use board stackup colors')}
           checked={p.useStackupColors}
           onChange={p.onUseStackupColors}
           borders={['top']}
         />
         <Check
-          label="Use PCB editor copper colors"
+          label={_('Use PCB editor copper colors')}
           checked={p.useBoardEditorCopperColors}
           onChange={p.onUseBoardEditorCopperColors}
-          title="Use the board editor layer colors for copper layers (realtime renderer only)"
+          title={_('Use the board editor layer colors for copper layers (realtime renderer only)')}
           borders={['top', 'bottom']}
         />
       </div>
       {/* bBottomMargin: the static line, then presets and viewports — the
           same block the PCB pane draws, so its rules apply as they are. */}
       <div className="ze-appearance-bottom ze-appearance-3d-bottom">
-        <div className="ze-info ze-inset">Presets (Ctrl+Tab):</div>
+        <div className="ze-info ze-inset">{_('Presets (Ctrl+Tab):')}</div>
         <Combo
-          ariaLabel="Presets"
+          ariaLabel={_('Presets')}
           value={p.preset}
           options={p.presetItems.map((name) => ({
             value: name,
@@ -174,7 +175,7 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
         />
         <div className="ze-info ze-inset ze-viewports-label">Viewports (Shift+Tab):</div>
         <Combo
-          ariaLabel="Viewports"
+          ariaLabel={_('Viewports')}
           value={p.viewport}
           options={p.viewportItems.map((name) => ({
             value: name,

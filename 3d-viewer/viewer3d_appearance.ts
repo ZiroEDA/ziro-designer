@@ -27,6 +27,8 @@ import {
   type StackupColors,
 } from './board_adapter_colors.js';
 import type { PlotLayerSelection } from './board_3d_layers.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `LAYER_3D_ID` (include/layer_ids.h:548-622) plus the three `GAL_LAYER_ID`s
@@ -84,28 +86,44 @@ export interface AppearanceRow3d {
  * (eda_3d_actions.cpp:312-368).
  */
 export const APPEARANCE_ROWS_3D: readonly (AppearanceRow3d | null)[] = [
-  { label: 'Board Body', id: 'LAYER_3D_BOARD', tooltip: 'Show board body' },
+  { label: _HKI('Board Body'), id: 'LAYER_3D_BOARD', tooltip: _HKI('Show board body') },
   {
-    label: 'Plated Barrels',
+    label: _HKI('Plated Barrels'),
     id: 'LAYER_3D_PLATED_BARRELS',
-    tooltip: 'Show barrels of plated through-holes and vias',
+    tooltip: _HKI('Show barrels of plated through-holes and vias'),
   },
-  { label: 'F.Cu', id: 'LAYER_3D_COPPER_TOP', tooltip: 'Show front copper / surface finish color' },
+  {
+    label: 'F.Cu',
+    id: 'LAYER_3D_COPPER_TOP',
+    tooltip: _HKI('Show front copper / surface finish color'),
+  },
   {
     label: 'B.Cu',
     id: 'LAYER_3D_COPPER_BOTTOM',
-    tooltip: 'Show back copper / surface finish color',
+    tooltip: _HKI('Show back copper / surface finish color'),
   },
-  { label: 'Adhesive', id: 'LAYER_3D_ADHESIVE', tooltip: 'Show adhesive' },
-  { label: 'Solder Paste', id: 'LAYER_3D_SOLDERPASTE', tooltip: 'Show solder paste' },
-  { label: 'F.Silkscreen', id: 'LAYER_3D_SILKSCREEN_TOP', tooltip: 'Show front silkscreen' },
-  { label: 'B.Silkscreen', id: 'LAYER_3D_SILKSCREEN_BOTTOM', tooltip: 'Show back silkscreen' },
-  { label: 'F.Mask', id: 'LAYER_3D_SOLDERMASK_TOP', tooltip: 'Show front solder mask' },
-  { label: 'B.Mask', id: 'LAYER_3D_SOLDERMASK_BOTTOM', tooltip: 'Show back solder mask' },
-  { label: 'User.Drawings', id: 'LAYER_3D_USER_DRAWINGS', tooltip: 'Show user drawings layer' },
-  { label: 'User.Comments', id: 'LAYER_3D_USER_COMMENTS', tooltip: 'Show user comments layer' },
-  { label: 'User.Eco1', id: 'LAYER_3D_USER_ECO1', tooltip: 'Show user ECO1 layer' },
-  { label: 'User.Eco2', id: 'LAYER_3D_USER_ECO2', tooltip: 'Show user ECO2 layer' },
+  { label: _HKI('Adhesive'), id: 'LAYER_3D_ADHESIVE', tooltip: _HKI('Show adhesive') },
+  { label: _HKI('Solder Paste'), id: 'LAYER_3D_SOLDERPASTE', tooltip: _HKI('Show solder paste') },
+  { label: 'F.Silkscreen', id: 'LAYER_3D_SILKSCREEN_TOP', tooltip: _HKI('Show front silkscreen') },
+  {
+    label: 'B.Silkscreen',
+    id: 'LAYER_3D_SILKSCREEN_BOTTOM',
+    tooltip: _HKI('Show back silkscreen'),
+  },
+  { label: 'F.Mask', id: 'LAYER_3D_SOLDERMASK_TOP', tooltip: _HKI('Show front solder mask') },
+  { label: 'B.Mask', id: 'LAYER_3D_SOLDERMASK_BOTTOM', tooltip: _HKI('Show back solder mask') },
+  {
+    label: 'User.Drawings',
+    id: 'LAYER_3D_USER_DRAWINGS',
+    tooltip: _HKI('Show user drawings layer'),
+  },
+  {
+    label: 'User.Comments',
+    id: 'LAYER_3D_USER_COMMENTS',
+    tooltip: _HKI('Show user comments layer'),
+  },
+  { label: 'User.Eco1', id: 'LAYER_3D_USER_ECO1', tooltip: _HKI('Show user ECO1 layer') },
+  { label: 'User.Eco2', id: 'LAYER_3D_USER_ECO2', tooltip: _HKI('Show user ECO2 layer') },
   ...Array.from({ length: 45 }, (_, i) => ({
     label: `User.${i + 1}`,
     id: userFlag(i + 1),
@@ -113,55 +131,59 @@ export const APPEARANCE_ROWS_3D: readonly (AppearanceRow3d | null)[] = [
   })),
   null,
   {
-    label: 'Through-hole Models',
+    label: _HKI('Through-hole Models'),
     id: 'LAYER_3D_TH_MODELS',
-    tooltip: "Show 3D models for 'Through hole' type footprints",
+    tooltip: _HKI("Show 3D models for 'Through hole' type footprints"),
   },
   {
-    label: 'SMD Models',
+    label: _HKI('SMD Models'),
     id: 'LAYER_3D_SMD_MODELS',
-    tooltip: "Show 3D models for 'Surface mount' type footprints",
+    tooltip: _HKI("Show 3D models for 'Surface mount' type footprints"),
   },
   {
-    label: 'Virtual Models',
+    label: _HKI('Virtual Models'),
     id: 'LAYER_3D_VIRTUAL_MODELS',
-    tooltip: "Show 3D models for 'unspecified' type footprints",
+    tooltip: _HKI("Show 3D models for 'unspecified' type footprints"),
   },
   {
-    label: 'Models not in POS File',
+    label: _HKI('Models not in POS File'),
     id: 'LAYER_3D_MODELS_NOT_IN_POS',
-    tooltip: 'Show 3D models even if not found in .pos file',
+    tooltip: _HKI('Show 3D models even if not found in .pos file'),
   },
   {
-    label: 'Models marked DNP',
+    label: _HKI('Models marked DNP'),
     id: 'LAYER_3D_MODELS_MARKED_DNP',
-    tooltip: "Show 3D models even if marked 'Do Not Place'",
+    tooltip: _HKI("Show 3D models even if marked 'Do Not Place'"),
   },
   {
-    label: 'Model Bounding Boxes',
+    label: _HKI('Model Bounding Boxes'),
     id: 'LAYER_3D_BOUNDING_BOXES',
-    tooltip: 'Show 3D model bounding boxes in realtime renderer',
+    tooltip: _HKI('Show 3D model bounding boxes in realtime renderer'),
   },
   null,
-  { label: 'Values', id: 'LAYER_FP_VALUES', tooltip: 'Show footprint values' },
-  { label: 'References', id: 'LAYER_FP_REFERENCES', tooltip: 'Show footprint references' },
-  { label: 'Footprint Text', id: 'LAYER_FP_TEXT', tooltip: 'Show all footprint text' },
+  { label: 'Values', id: 'LAYER_FP_VALUES', tooltip: _HKI('Show footprint values') },
   {
-    label: 'Off-board Silkscreen',
+    label: _HKI('References'),
+    id: 'LAYER_FP_REFERENCES',
+    tooltip: _HKI('Show footprint references'),
+  },
+  { label: _HKI('Footprint Text'), id: 'LAYER_FP_TEXT', tooltip: _HKI('Show all footprint text') },
+  {
+    label: _HKI('Off-board Silkscreen'),
     id: 'LAYER_3D_OFF_BOARD_SILK',
-    tooltip: 'Do not clip silk layers to board outline',
+    tooltip: _HKI('Do not clip silk layers to board outline'),
   },
   null,
-  { label: '3D Navigator', id: 'LAYER_3D_NAVIGATOR', tooltip: 'Show 3D navigator' },
+  { label: _HKI('3D Navigator'), id: 'LAYER_3D_NAVIGATOR', tooltip: 'Show 3D navigator' },
   {
-    label: 'Background Start',
+    label: _HKI('Background Start'),
     id: 'LAYER_3D_BACKGROUND_TOP',
-    tooltip: 'Background gradient start color',
+    tooltip: _HKI('Background gradient start color'),
   },
   {
-    label: 'Background End',
+    label: _HKI('Background End'),
     id: 'LAYER_3D_BACKGROUND_BOTTOM',
-    tooltip: 'Background gradient end color',
+    tooltip: _HKI('Background gradient end color'),
   },
 ];
 
@@ -627,12 +649,12 @@ export const PRESET_SEPARATOR_3D = '---';
  */
 export function presetComboItems3d(userPresetNames: readonly string[]): string[] {
   return [
-    'Follow PCB Editor',
-    'Follow PCB Plot Settings',
+    wxGetTranslation('Follow PCB Editor'),
+    wxGetTranslation('Follow PCB Plot Settings'),
     ...(userPresetNames.length ? [PRESET_SEPARATOR_3D, ...userPresetNames] : []),
     PRESET_SEPARATOR_3D,
-    'Save preset...',
-    'Delete preset...',
+    wxGetTranslation('Save preset...'),
+    wxGetTranslation('Delete preset...'),
   ];
 }
 
@@ -641,8 +663,8 @@ export function presetComboValue(
   currentPreset: string,
   userPresetNames: readonly string[],
 ): string {
-  if (currentPreset === FOLLOW_PCB) return 'Follow PCB Editor';
-  if (currentPreset === FOLLOW_PLOT_SETTINGS) return 'Follow PCB Plot Settings';
+  if (currentPreset === FOLLOW_PCB) return wxGetTranslation('Follow PCB Editor');
+  if (currentPreset === FOLLOW_PLOT_SETTINGS) return wxGetTranslation('Follow PCB Plot Settings');
   if (userPresetNames.includes(currentPreset)) return currentPreset;
   return PRESET_SEPARATOR_3D; // GetCount() - 3, the separator
 }
@@ -679,7 +701,12 @@ export function syncLayerPresetSelection(
  */
 export function viewportComboItems3d(names: readonly string[]): string[] {
   const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-  return [...[...names].sort(cmp), PRESET_SEPARATOR_3D, 'Save viewport...', 'Delete viewport...'];
+  return [
+    ...[...names].sort(cmp),
+    PRESET_SEPARATOR_3D,
+    wxGetTranslation('Save viewport...'),
+    wxGetTranslation('Delete viewport...'),
+  ];
 }
 
 /**
@@ -712,7 +739,7 @@ export function defaultVisibleLayers3d(): Set<Layer3dFlag> {
 /** The preset the first open of the frame leaves behind. */
 export function legacyColorsPreset(): LayerPreset3d {
   return {
-    name: 'legacy colors',
+    name: wxGetTranslation('legacy colors'),
     layers: [...defaultVisibleLayers3d()],
     colors: Object.fromEntries(defaultColors3d()),
   };

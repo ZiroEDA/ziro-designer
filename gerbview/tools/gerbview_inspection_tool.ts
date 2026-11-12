@@ -26,6 +26,7 @@ import { D_CODE } from '../dcode.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import { gerbIUScale } from '@ziroeda/common/eda_units.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** C's `%2.2d`. */
 const d2 = (n: number): string => String(n).padStart(2, '0');
@@ -118,7 +119,7 @@ export class GERBVIEW_INSPECTION_TOOL extends TOOL_INTERACTIVE {
 
     // wxSingleChoiceDialog( m_frame, "", _( "D Codes" ), list, nullptr,
     //                       wxCHOICEDLG_STYLE & ~wxCANCEL ).ShowModal()
-    void frame.Host().SingleChoiceDialog('D Codes', list);
+    void frame.Host().SingleChoiceDialog(_('D Codes'), list);
 
     return 0;
   }
@@ -142,7 +143,7 @@ export class GERBVIEW_INSPECTION_TOOL extends TOOL_INTERACTIVE {
           void frame.Host().MessageBox(msg);
         }
       } else {
-        void frame.Host().MessageBox('No text editor selected in KiCad.  Please choose one.');
+        void frame.Host().MessageBox(_('No text editor selected in KiCad.  Please choose one.'));
       }
     } else {
       const msg = `No file loaded on the active layer ${layer + 1}.`;

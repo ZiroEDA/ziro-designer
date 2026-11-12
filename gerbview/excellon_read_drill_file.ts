@@ -59,6 +59,7 @@ import { ReadDouble, ReadInt } from './rs274_read_XY_and_IJ_coordinates.js';
 import { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
 import { ReadFileText } from './libc.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `drill_M_code_t`. */
 export enum drill_M_code_t {
@@ -735,7 +736,7 @@ export class EXCELLON_IMAGE extends GERBER_FILE_IMAGE {
     }
 
     // Read tool shape
-    if (aText.c() === NUL) this.AddMessageToList('Tool definition shape not found');
+    if (aText.c() === NUL) this.AddMessageToList(_('Tool definition shape not found'));
     else if (aText.c() !== 'C')
       this.AddMessageToList(`Tool definition '${aText.c()}' not supported`);
     if (aText.c() !== NUL) aText.inc();
@@ -1194,14 +1195,14 @@ export async function Read_EXCELLON_File(
   layerId = images.AddGbrImage(drill_layer, layerId);
 
   if (layerId < 0) {
-    this.Host().InfoBarError('No empty layers to load file into.');
+    this.Host().InfoBarError(_('No empty layers to load file into.'));
     return false;
   }
 
   // Display errors list
   if (drill_layer.GetMessages().length > 0)
     await this.Host().HtmlMessageBox(
-      'Error reading EXCELLON drill file',
+      _('Error reading EXCELLON drill file'),
       drill_layer.GetMessages().join('\n'),
     );
 

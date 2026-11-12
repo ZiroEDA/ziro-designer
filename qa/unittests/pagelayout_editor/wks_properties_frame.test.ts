@@ -25,9 +25,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_FONT_NAME, KICAD_FONT_NAME } from '@ziroeda/common/font/stroke_font.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  unmarked(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'));
 
 const PANEL = read('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx');
 

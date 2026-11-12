@@ -22,6 +22,7 @@
  */
 
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -37,7 +38,7 @@ export const DISPLAY_FP_CONTROL = {
 
 /** `TOOLBAR_LOC::TOP_MAIN`. */
 export const DISPLAY_FP_TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
+  { id: 'zoomRedraw', icon: 'zoomRedraw', title: _HKI('Refresh') },
   // ACTIONS::zoomInCenter / zoomOutCenter, not zoomIn / zoomOut: the centred
   // pair is what every toolbar in the suite carries, and it is the pair the
   // PCB and footprint editors already spell `zoomIn` / `zoomOut` here.
@@ -71,7 +72,7 @@ export const DISPLAY_FP_TOP_TOOLBAR: ToolEntry[] = [
 
 /** `TOOLBAR_LOC::LEFT`. */
 export const DISPLAY_FP_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'selectionTool', icon: 'selectionTool', title: 'Select item(s)', toggle: true },
+  { id: 'selectionTool', icon: 'selectionTool', title: _HKI('Select item(s)'), toggle: true },
   {
     id: 'measureTool',
     icon: 'measureTool',
@@ -96,7 +97,7 @@ export const DISPLAY_FP_LEFT_TOOLBAR: ToolEntry[] = [
   // neither button can ever paint checked — `cycleOnClick` carries that, the
   // same as in every other editor that builds these two groups.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
@@ -105,7 +106,7 @@ export const DISPLAY_FP_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
       {
@@ -126,7 +127,7 @@ export const DISPLAY_FP_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   sep,
-  { id: 'showPadNumbers', icon: 'showPadNumbers', title: 'Show Pad Numbers', toggle: true },
+  { id: 'showPadNumbers', icon: 'showPadNumbers', title: _HKI('Show Pad Numbers'), toggle: true },
   {
     id: 'padDisplayMode',
     icon: 'padDisplayMode',

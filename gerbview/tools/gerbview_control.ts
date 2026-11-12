@@ -30,6 +30,7 @@ import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
 import type { GERBVIEW_PAINTER, GERBVIEW_RENDER_SETTINGS } from '../gerbview_painter.js';
 import { GERBVIEW_ACTIONS } from './gerbview_actions.js';
 import { GERBVIEW_SELECTION_TOOL } from './gerbview_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /// `#define NAMELESS_PROJECT _( "untitled" )` (include/project.h:44)
 const NAMELESS_PROJECT = 'untitled';
@@ -319,7 +320,7 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
     }
 
     if (layercount === 0) {
-      await DisplayInfoMessage('None of the Gerber layers contain any data');
+      await DisplayInfoMessage(_('None of the Gerber layers contain any data'));
       return;
     }
 
@@ -327,7 +328,7 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
 
     const path = await this.frame()
       .Host()
-      .SaveFileDialog('Export as KiCad Board File', fileDialogName, [kicadPcbWildcard()]);
+      .SaveFileDialog(_('Export as KiCad Board File'), fileDialogName, [kicadPcbWildcard()]);
 
     if (path === null) return;
 

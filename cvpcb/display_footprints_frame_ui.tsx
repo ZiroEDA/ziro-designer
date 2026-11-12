@@ -65,6 +65,7 @@ import {
   DISPLAY_FP_TOP_TOOLBAR,
 } from './toolbars_display_footprints.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * What this window draws with and cannot own itself: `Pgm()` for the canvas,
@@ -122,7 +123,7 @@ export interface DisplayFootprintsFrameProps {
 }
 
 /** The constructor's title (`:74`), before `InitDisplay` names a footprint. */
-export const DISPLAY_FOOTPRINTS_TITLE = 'Footprint Viewer';
+export const DISPLAY_FOOTPRINTS_TITLE = _HKI('Footprint Viewer');
 
 /**
  * The toolbar ids this window's bars carry that are not the TOOL_ACTION's own
@@ -412,7 +413,7 @@ export function DisplayFootprintsFrame({
         controls={{
           [DISPLAY_FP_CONTROL.gridSelect]: (
             <Combo
-              title="Grid Selection box"
+              title={_('Grid Selection box')}
               value={String(gridIdx)}
               options={[
                 ...CVPCB_GRID_SIZES.map((g, i) => ({
@@ -430,7 +431,7 @@ export function DisplayFootprintsFrame({
           ),
           [DISPLAY_FP_CONTROL.zoomSelect]: (
             <Combo
-              title="Zoom Selection box"
+              title={_('Zoom Selection box')}
               value={String(zoom.selected)}
               options={zoom.choices.map((c, i) => ({ value: String(i), label: c.label }))}
               onChange={(v) => {

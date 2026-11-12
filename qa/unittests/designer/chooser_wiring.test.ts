@@ -29,9 +29,12 @@ import {
   KICAD_SCHEMATIC_FILE_EXTENSION,
   ensureFileExtension,
 } from '@ziroeda/common/common.js';
+import { unmarked } from '../translation/unmarked.js';
 
 const src = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
+  unmarked(
+    readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8'),
+  );
 
 /** Source with comments blanked, so a citation cannot read as code. */
 const code = (s: string): string =>
@@ -136,13 +139,14 @@ describe('GerbView opens from the account and from the machine', () => {
   /** The window: the answer onto the RAM disk, where the frame reads it by path. */
   const WINDOW = src('../../gerbview/gerbview_frame_ui.tsx');
   /** The dialogs are GERBVIEW_FRAME's now, asked for through its host. */
-  const FILES = readFileSync(
-    fileURLToPath(new URL('../../../gerbview/files.ts', import.meta.url)),
-    'utf8',
+  const FILES = unmarked(
+    readFileSync(fileURLToPath(new URL('../../../gerbview/files.ts', import.meta.url)), 'utf8'),
   );
-  const JOB = readFileSync(
-    fileURLToPath(new URL('../../../gerbview/job_file_reader.ts', import.meta.url)),
-    'utf8',
+  const JOB = unmarked(
+    readFileSync(
+      fileURLToPath(new URL('../../../gerbview/job_file_reader.ts', import.meta.url)),
+      'utf8',
+    ),
   );
 
   it('opens the chooser, multi-select, for gerbers and drill files', () => {
@@ -268,9 +272,9 @@ describe('the capabilities that used to block it', () => {
     // A `.zip` is not text. Handing back only one of the two is what made the
     // dialog unusable for the binary callers.
     // The result type is wxFileDialog's, declared in common/wx since 09-26.
-    expect(readFileSync(resolve(process.cwd(), '../external/wx/filedlg.tsx'), 'utf8')).toContain(
-      'bytes: Uint8Array;',
-    );
+    expect(
+      unmarked(readFileSync(resolve(process.cwd(), '../external/wx/filedlg.tsx'), 'utf8')),
+    ).toContain('bytes: Uint8Array;');
     expect(src('fs/OpenFileDialog.tsx')).toContain(
       'onDone({ path, text: new TextDecoder().decode(bytes), bytes, rest: others });',
     );

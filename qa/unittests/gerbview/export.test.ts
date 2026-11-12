@@ -14,6 +14,7 @@
  * wrong.
  */
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -441,7 +442,7 @@ describe('the board header', () => {
     const run = await runMapDialog([image('board-In5_Cu.gbr')]);
     expect(run.accepted).toBe(false);
     expect(run.messages).toEqual([
-      'Exported board does not have enough copper layers to handle selected inner layers',
+      _('Exported board does not have enough copper layers to handle selected inner layers'),
     ]);
   });
 

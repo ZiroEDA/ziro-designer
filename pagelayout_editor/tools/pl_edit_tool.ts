@@ -44,6 +44,7 @@ import { PL_ACTIONS } from './pl_actions.js';
 import type { PL_SELECTION } from './pl_selection.js';
 import { PL_SELECTION_TOOL } from './pl_selection_tool.js';
 import { PlDataModel } from '../pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `#define HITTEST_THRESHOLD_PIXELS 5` (pl_edit_tool.cpp:414), the delete picker's. [data] */
 const DELETE_HITTEST_THRESHOLD_PIXELS = 5;
@@ -231,7 +232,7 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
             // Allowing other tools to activate during a move runs the risk of race
             // conditions in which we try to spool up both event loops at once.
 
-            frame.GetHost()?.ShowInfoBarMsg('Press <ESC> to cancel move.');
+            frame.GetHost()?.ShowInfoBarMsg(_('Press <ESC> to cancel move.'));
 
             evt.SetPassEvent(false);
             continue;

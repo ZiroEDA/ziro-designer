@@ -108,6 +108,8 @@ import { GERBVIEW_SELECTION_TOOL } from './tools/gerbview_selection_tool.js';
 import type { DCODE_SELECTION_BOX } from './widgets/dcode_selection_box.js';
 import { GERBER_LAYER_WIDGET } from './widgets/gerbview_layer_widget.js';
 import type { GBR_LAYER_BOX_SELECTOR } from './widgets/gbr_layer_box_selector.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export const GERBVIEW_FRAME_NAME = 'GerberFrame';
 
@@ -208,7 +210,7 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
   private m_host: GERBVIEW_FRAME_HOST = NO_HOST;
 
   /// The frame title `SetTitle` sets.
-  private m_title = 'Gerber Viewer';
+  private m_title = _HKI('Gerber Viewer');
   private m_settings: GERBVIEW_SETTINGS;
 
   m_show_layer_manager_tools: boolean;
@@ -757,11 +759,11 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
 
     // Display the gerber filename
     if (gerber === null) {
-      this.SetTitle('Gerber Viewer');
+      this.SetTitle(_('Gerber Viewer'));
 
       this.SetStatusText('', 0);
 
-      const info = 'Drawing layer not in use';
+      const info = _('Drawing layer not in use');
       this.m_TextInfo = info;
 
       this.ClearMsgPanel();

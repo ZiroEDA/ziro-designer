@@ -16,6 +16,7 @@
 
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -30,7 +31,7 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'undo', icon: 'undo', title: 'Undo last edit' },
   { id: 'redo', icon: 'redo', title: 'Redo last edit' },
   sep,
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
+  { id: 'zoomRedraw', icon: 'zoomRedraw', title: _HKI('Refresh') },
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit' },
@@ -40,7 +41,7 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
   {
     id: 'zoomTool',
     icon: 'zoomTool',
-    title: 'Zoom to an area selection created by a mouse drag',
+    title: _HKI('Zoom to an area selection created by a mouse drag'),
     toggle: true,
   },
   sep,
@@ -48,19 +49,19 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
   {
     id: 'previewSettings',
     icon: 'previewSettings',
-    title: 'Edit preview data for page size and title block',
+    title: _HKI('Edit preview data for page size and title block'),
   },
   sep,
   {
     id: 'layoutNormalMode',
     icon: 'layoutNormalMode',
-    title: 'Text placeholders will be replaced with preview data',
+    title: _HKI('Text placeholders will be replaced with preview data'),
     toggle: true,
   },
   {
     id: 'layoutEditMode',
     icon: 'layoutEditMode',
-    title: 'Text placeholders are shown as ${keyword} tokens',
+    title: _HKI('Text placeholders are shown as ${keyword} tokens'),
     toggle: true,
   },
   sep,
@@ -98,9 +99,9 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
  * `ui/Toolbar.tsx` looks it up on right-click.
  */
 export const DS_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },
+  { id: 'toggleGrid', icon: 'toggleGrid', title: _HKI('Show grid'), toggle: true },
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     // NOT toggles. `ACTIONS::millimetersUnits` / `inchesUnits` / `milsUnits`
     // declare `.Flags( AF_NONE )` and no `ToolbarState` (`actions.cpp:1113-1131`),
@@ -119,7 +120,7 @@ export const DS_LEFT_TOOLBAR: ToolEntry[] = [
 
 /** RIGHT drawing/placement toolbar (radio selection). */
 export const DS_RIGHT_TOOLBAR: ToolEntry[] = [
-  { id: 'select', icon: 'select', title: 'Select item(s)' },
+  { id: 'select', icon: 'select', title: _HKI('Select item(s)') },
   sep,
   { id: 'dsAddLine', icon: 'dsAddLine', title: 'Draw lines' },
   { id: 'dsAddRect', icon: 'dsAddRect', title: 'Draw rectangles' },
@@ -128,7 +129,7 @@ export const DS_RIGHT_TOOLBAR: ToolEntry[] = [
   {
     id: 'appendSheet',
     icon: 'appendSheet',
-    title: 'Append an existing drawing sheet file to the current file',
+    title: _HKI('Append an existing drawing sheet file to the current file'),
   },
   sep,
   { id: 'dsDelete', icon: 'dsDelete', title: 'Delete items' },

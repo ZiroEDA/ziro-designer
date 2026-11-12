@@ -21,6 +21,7 @@ import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { addClose, addQuit } from '@ziroeda/common/tool/action_menu.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PlEditorMenuHandlers {
   /**
@@ -84,28 +85,28 @@ export interface PlEditorMenuHandlers {
 export function doReCreateMenuBar(h: PlEditorMenuHandlers): Menu[] {
   return [
     {
-      label: 'File',
+      label: _('File'),
       items: [
         {
-          label: 'New...',
+          label: _('New...'),
           icon: 'new',
           action: h.doNew,
           shortcut: browserSafeKey('Ctrl+N'),
         },
-        { label: 'Open...', icon: 'open', action: h.open, shortcut: 'Ctrl+O' },
+        { label: _('Open...'), icon: 'open', action: h.open, shortcut: 'Ctrl+O' },
         h.openRecent,
         { sep: true },
         { label: 'Save', icon: 'save', action: h.save, shortcut: 'Ctrl+S' },
-        { label: 'Save As...', icon: 'saveAs', action: h.saveAs, shortcut: 'Shift+Ctrl+S' },
+        { label: _('Save As...'), icon: 'saveAs', action: h.saveAs, shortcut: 'Shift+Ctrl+S' },
         { sep: true },
-        { label: 'Print...', icon: 'print', action: h.print, shortcut: 'Ctrl+P' },
+        { label: _('Print...'), icon: 'print', action: h.print, shortcut: 'Ctrl+P' },
         { sep: true },
-        addClose('Drawing Sheet Editor', h.close),
-        addQuit('Drawing Sheet Editor', h.close),
+        addClose(_('Drawing Sheet Editor'), h.close),
+        addQuit(_('Drawing Sheet Editor'), h.close),
       ],
     },
     {
-      label: 'Edit',
+      label: _('Edit'),
       items: [
         {
           label: 'Undo',
@@ -148,41 +149,45 @@ export function doReCreateMenuBar(h: PlEditorMenuHandlers): Menu[] {
           disabled: !h.pasteEnabled,
         },
         {
-          label: 'Delete',
+          label: _('Delete'),
           icon: 'dsDelete',
           action: h.doDelete,
-          shortcut: 'Delete',
+          shortcut: _('Delete'),
           disabled: !h.selectionNotEmpty,
         },
       ],
     },
     {
-      label: 'View',
+      label: _('View'),
       items: [
         { label: 'Zoom In', icon: 'zoomIn', action: h.zoomInCenter },
         { label: 'Zoom Out', icon: 'zoomOut', action: h.zoomOutCenter },
-        { label: 'Zoom to Fit', icon: 'zoomFit', action: h.zoomFitScreen, shortcut: 'Home' },
+        { label: _('Zoom to Fit'), icon: 'zoomFit', action: h.zoomFitScreen, shortcut: 'Home' },
         {
-          label: 'Zoom to Selection Area',
+          label: _('Zoom to Selection Area'),
           icon: 'zoomTool',
           action: h.zoomTool,
           shortcut: 'Ctrl+F5',
         },
-        { label: 'Refresh', icon: 'zoomRedraw', action: h.zoomRedraw, shortcut: 'F5' },
+        { label: _('Refresh'), icon: 'zoomRedraw', action: h.zoomRedraw, shortcut: 'F5' },
         { sep: true },
-        { label: 'Page Preview Settings...', icon: 'previewSettings', action: h.previewSettings },
+        {
+          label: _('Page Preview Settings...'),
+          icon: 'previewSettings',
+          action: h.previewSettings,
+        },
       ],
     },
     {
-      label: 'Place',
+      label: _('Place'),
       items: [
-        { label: 'Draw Lines', icon: 'dsAddLine', action: h.drawLine },
-        { label: 'Draw Rectangles', icon: 'dsAddRect', action: h.drawRectangle },
-        { label: 'Draw Text', icon: 'dsAddText', action: h.placeText },
-        { label: 'Place Bitmaps', icon: 'dsAddBitmap', action: h.placeImage },
+        { label: _('Draw Lines'), icon: 'dsAddLine', action: h.drawLine },
+        { label: _('Draw Rectangles'), icon: 'dsAddRect', action: h.drawRectangle },
+        { label: _('Draw Text'), icon: 'dsAddText', action: h.placeText },
+        { label: _('Place Bitmaps'), icon: 'dsAddBitmap', action: h.placeImage },
         { sep: true },
         {
-          label: 'Append Existing Drawing Sheet...',
+          label: _('Append Existing Drawing Sheet...'),
           icon: 'appendSheet',
           action: h.appendImportedDrawingSheet,
         },
@@ -191,16 +196,16 @@ export function doReCreateMenuBar(h: PlEditorMenuHandlers): Menu[] {
       ],
     },
     {
-      label: 'Inspect',
-      items: [{ label: 'Show Design Inspector', icon: 'inspect', action: h.showInspector }],
+      label: _('Inspect'),
+      items: [{ label: _('Show Design Inspector'), icon: 'inspect', action: h.showInspector }],
     },
     {
-      label: 'Preferences',
+      label: _('Preferences'),
       // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
       // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
       items: [
         {
-          label: 'Preferences...',
+          label: _('Preferences...'),
           action: () => h.toolManager.RunAction(ACTIONS.openPreferences),
           shortcut: 'Ctrl+,',
         },

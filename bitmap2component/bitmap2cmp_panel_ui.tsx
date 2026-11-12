@@ -30,18 +30,21 @@ import {
   type OUTPUT_FMT_ID,
 } from './bitmap2component.js';
 import type { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The Output Format radios, in `fgSizer2` order, with the Layer row after Footprint. [data] */
 const FORMATS: { id: OUTPUT_FMT_ID; label: string }[] = [
-  { id: SYMBOL_FMT, label: 'Symbol (.kicad_sym file)' },
-  { id: FOOTPRINT_FMT, label: 'Footprint (.kicad_mod file)' },
-  { id: POSTSCRIPT_FMT, label: 'Postscript (.ps file)' },
-  { id: DRAWING_SHEET_FMT, label: 'Drawing Sheet (.kicad_wks file)' },
+  { id: SYMBOL_FMT, label: _HKI('Symbol (.kicad_sym file)') },
+  { id: FOOTPRINT_FMT, label: _HKI('Footprint (.kicad_mod file)') },
+  { id: POSTSCRIPT_FMT, label: _HKI('Postscript (.ps file)') },
+  { id: DRAWING_SHEET_FMT, label: _HKI('Drawing Sheet (.kicad_wks file)') },
 ];
 
 /** `m_sliderThreshold->SetToolTip(...)`. [data] */
-const THRESHOLD_TOOLTIP =
-  'Adjust the level to convert the greyscale picture to a black and white picture.';
+const THRESHOLD_TOOLTIP = _HKI(
+  'Adjust the level to convert the greyscale picture to a black and white picture.',
+);
 
 /**
  * Read a file the browser hands over (the file dialog or a drop) into what
@@ -179,38 +182,38 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
       {/* brightSizer, group by group */}
       <div className="imgc-side">
         <fieldset className="imgc-group">
-          <legend>Image Information</legend>
+          <legend>{_('Image Information')}</legend>
           <div className="imgc-info">
-            <span className="k">Image size:</span>
+            <span className="k">{_('Image size:')}</span>
             <span className="v">{panel.m_SizeXValue}</span>
             <span className="v">{panel.m_SizeYValue}</span>
-            <span className="u">pixels</span>
+            <span className="u">{_('pixels')}</span>
 
-            <span className="k">Image PPI:</span>
+            <span className="k">{_('Image PPI:')}</span>
             <span className="v">{panel.m_InputXValueDPI}</span>
             <span className="v">{panel.m_InputYValueDPI}</span>
-            <span className="u">PPI</span>
+            <span className="u">{_('PPI')}</span>
 
             {/* Three cells then fgSizerInfo->Add( 0, 0, ... ), so "bits" is
                 in column 3 and the empty cell trails it. */}
-            <span className="k">BPP:</span>
+            <span className="k">{_('BPP:')}</span>
             <span className="v">{panel.m_BPPValue}</span>
-            <span className="u">bits</span>
+            <span className="u">{_('bits')}</span>
             <span />
           </div>
         </fieldset>
 
         <button type="button" className="imgc-btn block" onClick={() => panel.OnLoadFile()}>
-          Load Source Image
+          {_('Load Source Image')}
         </button>
 
         {/* brightSizer->Add( 0, 0, 1, wxEXPAND ) */}
         <div className="imgc-spacer" />
 
         <fieldset className="imgc-group">
-          <legend>Output Size</legend>
+          <legend>{_('Output Size')}</legend>
           <div className="imgc-sizerow">
-            <span className="lbl">Size:</span>
+            <span className="lbl">{_('Size:')}</span>
             <TextCtrl
               value={panel.m_UnitSizeX}
               onChange={(aValue) => panel.SetUnitSizeXText(aValue)}
@@ -229,7 +232,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
             />
           </div>
           <CheckBox
-            label="Lock height / width ratio"
+            label={_('Lock height / width ratio')}
             checked={panel.m_aspectRatioCheckbox}
             className="imgc-check"
             onChange={(aChecked) => panel.ToggleAspectRatioLock(aChecked)}
@@ -237,8 +240,8 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
         </fieldset>
 
         <fieldset className="imgc-group">
-          <legend>Options</legend>
-          <span className="imgc-thresh-label">Black / white threshold:</span>
+          <legend>{_('Options')}</legend>
+          <span className="imgc-thresh-label">{_('Black / white threshold:')}</span>
           <Slider
             className="imgc-slider"
             min={0}
@@ -257,7 +260,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
         </fieldset>
 
         <fieldset className="imgc-group imgc-format">
-          <legend>Output Format</legend>
+          <legend>{_('Output Format')}</legend>
           {/* fgSizer2 is a wxFlexGridSizer( 5, 1, 2, 0 ): five sibling rows,
               the Layer row third. They must stay siblings, because each row's
               wxFormBuilder border differs and the stylesheet addresses them
@@ -274,7 +277,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
                 />
                 {f.id === FOOTPRINT_FMT && (
                   <div className={`imgc-layerrow${panel.m_layerEnabled ? '' : ' disabled'}`}>
-                    <span className="lbl">Layer:</span>
+                    <span className="lbl">{_('Layer:')}</span>
                     <Combo
                       className="imgc-select grow"
                       value={String(panel.m_layerCtrl)}
@@ -295,7 +298,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
           onClick={() => panel.OnExportToFile()}
           disabled={!panel.m_buttonExportFileEnabled}
         >
-          Export to File...
+          {_('Export to File...')}
         </button>
         <button
           type="button"
@@ -303,7 +306,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
           onClick={() => void panel.OnExportToClipboard()}
           disabled={!panel.m_buttonExportClipboardEnabled}
         >
-          Export to Clipboard
+          {_('Export to Clipboard')}
         </button>
       </div>
     </div>

@@ -19,6 +19,7 @@ import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import type { Grid3D } from './viewer3d_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface Viewer3DMenuState {
   grid: Grid3D;
@@ -61,9 +62,9 @@ const todo = { disabled: true } as const;
 export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuActions): Menu[] {
   //-- File menu -----------------------------------------------------------
   const fileMenu: MenuItem[] = [
-    { label: 'Export Image...', icon: 'exportImage3d', action: on.exportImage },
+    { label: _('Export Image...'), icon: 'exportImage3d', action: on.exportImage },
     { sep: true },
-    addClose('3D Viewer', on.close),
+    addClose(_('3D Viewer'), on.close),
   ];
 
   //-- Edit menu -----------------------------------------------------------
@@ -73,28 +74,40 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
 
   //-- View menu -----------------------------------------------------------
   const gridSubmenu: MenuItem[] = [
-    { label: 'No 3D Grid', checked: state.grid === 'none', action: () => on.setGrid('none') },
-    { label: '3D Grid 10mm', checked: state.grid === '10mm', action: () => on.setGrid('10mm') },
-    { label: '3D Grid 5mm', checked: state.grid === '5mm', action: () => on.setGrid('5mm') },
-    { label: '3D Grid 2.5mm', checked: state.grid === '2.5mm', action: () => on.setGrid('2.5mm') },
-    { label: '3D Grid 1mm', checked: state.grid === '1mm', action: () => on.setGrid('1mm') },
+    { label: _('No 3D Grid'), checked: state.grid === 'none', action: () => on.setGrid('none') },
+    { label: _('3D Grid 10mm'), checked: state.grid === '10mm', action: () => on.setGrid('10mm') },
+    { label: _('3D Grid 5mm'), checked: state.grid === '5mm', action: () => on.setGrid('5mm') },
+    {
+      label: _('3D Grid 2.5mm'),
+      checked: state.grid === '2.5mm',
+      action: () => on.setGrid('2.5mm'),
+    },
+    { label: _('3D Grid 1mm'), checked: state.grid === '1mm', action: () => on.setGrid('1mm') },
   ];
 
   const rotateSubmenu: MenuItem[] = [
-    { label: 'Rotate X Clockwise', icon: 'rotateXCW', action: () => on.rotate('x', true) },
-    { label: 'Rotate X Counterclockwise', icon: 'rotateXCCW', action: () => on.rotate('x', false) },
+    { label: _('Rotate X Clockwise'), icon: 'rotateXCW', action: () => on.rotate('x', true) },
+    {
+      label: _('Rotate X Counterclockwise'),
+      icon: 'rotateXCCW',
+      action: () => on.rotate('x', false),
+    },
     { sep: true },
-    { label: 'Rotate Y Clockwise', icon: 'rotateYCW', action: () => on.rotate('y', true) },
-    { label: 'Rotate Y Counterclockwise', icon: 'rotateYCCW', action: () => on.rotate('y', false) },
+    { label: _('Rotate Y Clockwise'), icon: 'rotateYCW', action: () => on.rotate('y', true) },
+    {
+      label: _('Rotate Y Counterclockwise'),
+      icon: 'rotateYCCW',
+      action: () => on.rotate('y', false),
+    },
     { sep: true },
     {
-      label: 'Rotate Z Clockwise',
+      label: _('Rotate Z Clockwise'),
       icon: 'rotateZCW',
       shortcut: 'Shift+R',
       action: () => on.rotate('z', true),
     }, // prettier-ignore
     {
-      label: 'Rotate Z Counterclockwise',
+      label: _('Rotate Z Counterclockwise'),
       icon: 'rotateZCCW',
       shortcut: 'R',
       action: () => on.rotate('z', false),
@@ -103,20 +116,20 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
 
   const moveSubmenu: MenuItem[] = [
     {
-      label: 'Move Board Left',
+      label: _('Move Board Left'),
       icon: 'moveLeft3d',
       shortcut: 'Left',
       action: () => on.move('left'),
     },
     {
-      label: 'Move Board Right',
+      label: _('Move Board Right'),
       icon: 'moveRight3d',
       shortcut: 'Right',
       action: () => on.move('right'),
     }, // prettier-ignore
-    { label: 'Move Board Up', icon: 'moveUp3d', shortcut: 'Up', action: () => on.move('up') },
+    { label: _('Move Board Up'), icon: 'moveUp3d', shortcut: 'Up', action: () => on.move('up') },
     {
-      label: 'Move Board Down',
+      label: _('Move Board Down'),
       icon: 'moveDown3d',
       shortcut: 'Down',
       action: () => on.move('down'),
@@ -126,29 +139,39 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
   const viewMenu: MenuItem[] = [
     { label: 'Zoom In', icon: 'zoomIn', action: on.zoomIn },
     { label: 'Zoom Out', icon: 'zoomOut', action: on.zoomOut },
-    { label: 'Zoom to Fit', icon: 'zoomFit', shortcut: 'Home', action: on.zoomFit },
-    { label: 'Refresh', icon: 'zoomRedraw', shortcut: 'F5', action: on.redraw },
+    { label: _('Zoom to Fit'), icon: 'zoomFit', shortcut: 'Home', action: on.zoomFit },
+    { label: _('Refresh'), icon: 'zoomRedraw', shortcut: 'F5', action: on.redraw },
     { sep: true },
-    { label: '3D Grid', icon: 'grid', submenu: gridSubmenu },
+    { label: _('3D Grid'), icon: 'grid', submenu: gridSubmenu },
     { sep: true },
-    { label: 'View Top', icon: 'viewTop', shortcut: 'Z', action: () => on.setView('top') },
+    { label: _('View Top'), icon: 'viewTop', shortcut: 'Z', action: () => on.setView('top') },
     {
-      label: 'View Bottom',
+      label: _('View Bottom'),
       icon: 'viewBottom',
       shortcut: 'Shift+Z',
       action: () => on.setView('bottom'),
     }, // prettier-ignore
-    { label: 'View Right', icon: 'viewRight', shortcut: 'X', action: () => on.setView('right') },
-    { label: 'View Left', icon: 'viewLeft', shortcut: 'Shift+X', action: () => on.setView('left') },
-    { label: 'View Front', icon: 'viewFront', shortcut: 'Y', action: () => on.setView('front') },
-    { label: 'View Back', icon: 'viewBack', shortcut: 'Shift+Y', action: () => on.setView('back') },
+    { label: _('View Right'), icon: 'viewRight', shortcut: 'X', action: () => on.setView('right') },
+    {
+      label: _('View Left'),
+      icon: 'viewLeft',
+      shortcut: 'Shift+X',
+      action: () => on.setView('left'),
+    },
+    { label: _('View Front'), icon: 'viewFront', shortcut: 'Y', action: () => on.setView('front') },
+    {
+      label: _('View Back'),
+      icon: 'viewBack',
+      shortcut: 'Shift+Y',
+      action: () => on.setView('back'),
+    },
     { sep: true },
-    { label: 'Rotate Board', icon: 'rotateCW', submenu: rotateSubmenu },
-    { label: 'Flip Board', icon: 'flipView3d', shortcut: 'F', action: on.flip },
-    { label: 'Move Board', icon: 'move', submenu: moveSubmenu },
+    { label: _('Rotate Board'), icon: 'rotateCW', submenu: rotateSubmenu },
+    { label: _('Flip Board'), icon: 'flipView3d', shortcut: 'F', action: on.flip },
+    { label: _('Move Board'), icon: 'move', submenu: moveSubmenu },
     { sep: true },
     {
-      label: 'Show Appearance Manager',
+      label: _('Show Appearance Manager'),
       icon: 'showLayersManager',
       checked: state.showAppearanceManager,
       action: on.toggleLayersManager,
@@ -160,23 +183,23 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
   // "Reset to Default Settings", a separator, AddMenuLanguageList.
   const prefsMenu: MenuItem[] = [
     // Raytracing is the second renderer (render_3d_raytrace_*.cpp), deferred.
-    { label: 'Use raytracing', icon: 'toggleRaytracing', checked: state.raytracing, ...todo },
+    { label: _('Use raytracing'), icon: 'toggleRaytracing', checked: state.raytracing, ...todo },
     {
-      label: 'Preferences...',
+      label: _('Preferences...'),
       icon: 'preferences',
       shortcut: 'Ctrl+,',
       action: on.openPreferences,
     },
-    { label: 'Reset to Default Settings', icon: 'tools', action: on.resetToDefaults },
+    { label: _('Reset to Default Settings'), icon: 'tools', action: on.resetToDefaults },
     { sep: true },
     setLanguageMenuItem({ current: state.language, onSelect: on.selectLanguage }),
   ];
 
   return [
-    { label: 'File', items: fileMenu },
-    { label: 'Edit', items: editMenu },
-    { label: 'View', items: viewMenu },
-    { label: 'Preferences', items: prefsMenu },
+    { label: _('File'), items: fileMenu },
+    { label: _('Edit'), items: editMenu },
+    { label: _('View'), items: viewMenu },
+    { label: _('Preferences'), items: prefsMenu },
     // AddStandardHelpMenu( menuBar ): the same Help every frame gets.
     standardHelpMenu({ showHotkeys: on.showHotkeys, showAbout: on.showAbout }),
   ];

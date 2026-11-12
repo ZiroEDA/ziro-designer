@@ -23,12 +23,13 @@ import {
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { GERBER_FILE_IMAGE } from '../gerber_file_image.js';
 import type { GERBVIEW_FRAME } from '../gerbview_frame.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_rbScopeChoices` (`dialog_draw_layers_settings_base.cpp:88`). */
 export const DRAW_LAYERS_SCOPE_CHOICES = [
-  'Active layer',
-  'All layers',
-  'All visible layers',
+  _HKI('Active layer'),
+  _HKI('All layers'),
+  _HKI('All visible layers'),
 ] as const;
 
 /** `UNIT_BINDER::SetPrecision( 3 )` (`:40`); `setPrecision` truncates (`unit_binder.cpp:583-600`). */
@@ -44,7 +45,7 @@ export class DIALOG_DRAW_LAYERS_SETTINGS {
   private readonly m_parent: GERBVIEW_FRAME;
 
   /** `m_stLayerName`'s label: `_("dummy")` until TransferDataToWindow. */
-  m_stLayerName = 'dummy';
+  m_stLayerName = _HKI('dummy');
   /** The three wxTextCtrls' text. */
   m_tcOffsetX = '';
   m_tcOffsetY = '';

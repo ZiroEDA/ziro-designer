@@ -74,6 +74,7 @@ import {
   type EquFileList,
 } from '../cvpcb_equ_files.js';
 import './dialog_config_equfiles.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What the program's Open dialog (the account's project tree) is asked of
@@ -140,8 +141,8 @@ export function DialogConfigEquFiles({
   const [envGrid] = useState(() => {
     const g = new WX_GRID();
     g.SetTable(new wxGridStringTable(0, 2), true);
-    g.SetColLabelValue(0, 'Name');
-    g.SetColLabelValue(1, 'Value');
+    g.SetColLabelValue(0, _('Name'));
+    g.SetColLabelValue(1, _('Value'));
     return g;
   });
   useLayoutEffect(() => {
@@ -197,7 +198,7 @@ export function DialogConfigEquFiles({
     <>
       <DialogShim title={equFilesDialogTitle(proName)} onClose={onClose} className="ze-equfiles">
         <div className="ze-modal-body ze-equfiles-body">
-          <div className="ze-equfiles-label">Footprint association files:</div>
+          <div className="ze-equfiles-label">{_('Footprint association files:')}</div>
           {/* `wxLB_EXTENDED|wxLB_HSCROLL|wxLB_NEEDED_SB` with a 500 x 100
           minimum (dialog_config_equfiles_base.cpp:29-30). */}
           <div className="ze-equfiles-list" role="listbox" aria-label="Footprint association files">
@@ -218,34 +219,34 @@ export function DialogConfigEquFiles({
           <div className="ze-equfiles-buttons">
             <StdBitmapButton
               bitmap="small_folder"
-              title="Add association file"
+              title={_('Add association file')}
               onClick={() => setAddOpen(true)}
             />
             <StdBitmapButton
               bitmap="small_up"
-              title="Move up"
+              title={_('Move up')}
               onClick={() => setList(moveEquFilesUp(list))}
             />
             <StdBitmapButton
               bitmap="small_down"
-              title="Move down"
+              title={_('Move down')}
               onClick={() => setList(moveEquFilesDown(list))}
             />
             <StdBitmapButton
               bitmap="small_edit"
-              title="Edit association file"
+              title={_('Edit association file')}
               disabled
               onClick={() => {}}
             />
             <span className="ze-equfiles-gap" />
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove association file"
+              title={_('Remove association file')}
               onClick={() => setList(removeEquFiles(list))}
             />
           </div>
           <div className="ze-equfiles-label ze-equfiles-vars-label">
-            Available path substitutions:
+            {_('Available path substitutions:')}
           </div>
           {/* `m_gridEnvVars`: a WX_GRID with no column or row labels
           (`SetColLabelSize( 0 )`, `SetRowLabelSize( 0 )`), autosized. */}
@@ -258,7 +259,7 @@ export function DialogConfigEquFiles({
         </div>
         <div className="ze-modal-footer">
           <Button label="OK" isDefault onClick={() => onSave(list.files, pending)} />
-          <Button label="Cancel" onClick={onClose} />
+          <Button label={_('Cancel')} onClick={onClose} />
         </div>
       </DialogShim>
 
@@ -267,8 +268,8 @@ export function DialogConfigEquFiles({
         app's filesystem, with the local disk offered beside it. */}
       {addOpen &&
         app.OpenFileDialog({
-          title: 'Footprint Association File',
-          accept: 'Add',
+          title: _('Footprint Association File'),
+          accept: _('Add'),
           multiple: true,
           filters: [equFileWildcard()],
           extra: (

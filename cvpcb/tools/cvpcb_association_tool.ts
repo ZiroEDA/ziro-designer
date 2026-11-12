@@ -19,6 +19,7 @@ import {
   type CvpcbControl,
 } from '../cvpcb_mainframe.js';
 import { gotoNA } from './cvpcb_control.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `CVPCB_ASSOCIATION_TOOL::Associate` — assign the selected footprint to
@@ -242,7 +243,7 @@ export function pasteAssoc(
 }
 
 /** `IsOK( m_frame, _( "Delete all associations?" ) )`. */
-export const DELETE_ALL_CONFIRMATION = 'Delete all associations?';
+export const DELETE_ALL_CONFIRMATION = _HKI('Delete all associations?');
 
 /**
  * `CVPCB_ASSOCIATION_TOOL::DeleteAll` — clear every association, as one undo

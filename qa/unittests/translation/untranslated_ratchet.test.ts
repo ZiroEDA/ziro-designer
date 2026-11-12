@@ -65,6 +65,14 @@ const FRAMES: Record<string, number> = {
   eeschema: 1337,
   // 7613 -> 2030 (stage 2), the same way.
   pcbnew: 2030,
+  // The tools, the same way (stage 2): 433 -> 128, 192 -> 52, 343 -> 127, 70 -> 19,
+  // 110 -> 52, 179 -> 64.
+  gerbview: 128,
+  pagelayout_editor: 52,
+  pcb_calculator: 127,
+  bitmap2component: 19,
+  cvpcb: 52,
+  '3d-viewer': 64,
 };
 
 const MSGIDS = loadMsgids(join(ROOT, 'translation'));
@@ -90,7 +98,8 @@ describe.each(
 
   it('scans a real set of files against a real catalog', () => {
     // A ratchet that reads nothing passes forever.
-    expect(sourceFiles(dir).length).toBeGreaterThan(10);
+    // The smallest frame here, bitmap2component, has 9 source files.
+    expect(sourceFiles(dir).length).toBeGreaterThan(5);
     expect(MSGIDS.size).toBeGreaterThan(11000);
     expect(MSGIDS.has('Open Project...')).toBe(true);
     expect(MSGIDS.has('File')).toBe(true);

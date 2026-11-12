@@ -202,6 +202,7 @@ import { readEquFile } from './cvpcb_equ_files.js';
 import { DialogConfigEquFiles, type CvpcbEquFilesApp } from './dialogs/dialog_config_equfiles.js';
 import './cvpcb_mainframe_ui.css';
 import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `false` back to `boolean`, `'x'` back to `string` — see `useDialogControl`'s
  *  own `Widened` (`ui/useDialogControl.ts`), which this mirrors. */
@@ -270,7 +271,7 @@ export interface CVPCB_APP extends CvpcbDisplayFootprintsApp, CvpcbEquFilesApp {
  * title — the key everything below is filed under. One string, so the three
  * cannot drift apart and lose the saved settings.
  */
-const WINDOW_TITLE = 'Assign Footprints';
+const WINDOW_TITLE = _HKI('Assign Footprints');
 
 /** FOOTPRINTS_LISTBOX filter flags (listboxes.h). */
 const FILTER_BY_FP_FILTERS = 0x0001;
@@ -1046,17 +1047,17 @@ export function DialogAssignFootprints({
     const parts: string[] = [];
     if (filterFlags & FILTER_BY_FP_FILTERS) {
       const kw = component?.fpFilters.join(', ') ?? '';
-      parts.push(kw ? `Keywords (${kw})` : 'Keywords');
+      parts.push(kw ? `Keywords (${kw})` : _('Keywords'));
     }
     if (filterFlags & FILTER_BY_PIN_COUNT) {
       const pc = component ? String(component.pinCount) : '';
-      parts.push(pc ? `Pin Count (${pc})` : 'Pin Count');
+      parts.push(pc ? `Pin Count (${pc})` : _('Pin Count'));
     }
     if (filterFlags & FILTER_BY_LIBRARY) {
-      parts.push(selectedLibrary ? `Library (${selectedLibrary})` : 'Library');
+      parts.push(selectedLibrary ? `Library (${selectedLibrary})` : _('Library'));
     }
     if (filterText) parts.push(`Search Text (${filterText})`);
-    const head = parts.length === 0 ? 'No Filtering' : `Filtered by ${parts.join(', ')}`;
+    const head = parts.length === 0 ? _('No Filtering') : `Filtered by ${parts.join(', ')}`;
     // `msg += _( ": %i matching footprints" )` and nothing else: there is no
     // spinner and no "select a library first" here, because the pad counts come
     // from the index rather than from a download per candidate.
@@ -1162,10 +1163,10 @@ export function DialogAssignFootprints({
 
   const menus: Menu[] = [
     {
-      label: 'File',
+      label: _('File'),
       items: [
         {
-          label: 'Save to Schematic',
+          label: _('Save to Schematic'),
           icon: 'cvpcbSaveToSchematic',
           shortcut: 'Ctrl+S',
           disabled: !changed,
@@ -1180,7 +1181,7 @@ export function DialogAssignFootprints({
     // is on the symbols pane's CONTEXT menu (cvpcb_mainframe.cpp:272-279) with
     // WXK_DELETE as its own hotkey, and `deleteAll` is on the toolbar only.
     {
-      label: 'Edit',
+      label: _('Edit'),
       items: [
         {
           label: 'Undo',
@@ -1220,7 +1221,7 @@ export function DialogAssignFootprints({
     // showEquFileTable, openPreferences, a separator, then the language list.
     // Ours ended after the library table: no Preferences... and no Set Language.
     {
-      label: 'Preferences',
+      label: _('Preferences'),
       items: [
         /* No "Configure Paths...". `DIALOG_CONFIGURE_PATHS` edits the
            environment substitutions a library path is written against --
@@ -1233,7 +1234,7 @@ export function DialogAssignFootprints({
            cannot have. Greying says "not ready yet"; this one is not a promise
            the app can keep. */
         {
-          label: 'Manage Footprint Libraries...',
+          label: _('Manage Footprint Libraries...'),
           icon: 'cvpcbLibTable',
           disabled: !onSaveLibTable,
           action: () => setLibTableOpen(true),
@@ -1241,10 +1242,10 @@ export function DialogAssignFootprints({
         // `CVPCB_ACTIONS::showEquFileTable` (cvpcb_actions.cpp:53-59), between
         // the library table and Preferences.
         {
-          label: 'Manage Footprint Association Files...',
+          label: _('Manage Footprint Association Files...'),
           action: () => setEquFilesOpen(true),
         },
-        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { label: _('Preferences...'), shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
         setLanguageMenuItem({
           current: app.language,
@@ -1261,14 +1262,14 @@ export function DialogAssignFootprints({
   ];
 
   const toolbarEntries: ToolEntry[] = [
-    { id: 'cvpcbSaveToSchematic', icon: 'cvpcbSaveToSchematic', title: 'Save to Schematic' },
+    { id: 'cvpcbSaveToSchematic', icon: 'cvpcbSaveToSchematic', title: _('Save to Schematic') },
     'sep',
-    { id: 'cvpcbLibTable', icon: 'cvpcbLibTable', title: 'Manage Footprint Libraries...' },
+    { id: 'cvpcbLibTable', icon: 'cvpcbLibTable', title: _('Manage Footprint Libraries...') },
     'sep',
-    { id: 'cvpcbViewFootprint', icon: 'cvpcbViewFootprint', title: 'View Selected Footprint' },
+    { id: 'cvpcbViewFootprint', icon: 'cvpcbViewFootprint', title: _('View Selected Footprint') },
     'sep',
-    { id: 'cvpcbPrevNA', icon: 'cvpcbPrevNA', title: 'Select Previous Unassigned Symbol' },
-    { id: 'cvpcbNextNA', icon: 'cvpcbNextNA', title: 'Select Next Unassigned Symbol' },
+    { id: 'cvpcbPrevNA', icon: 'cvpcbPrevNA', title: _('Select Previous Unassigned Symbol') },
+    { id: 'cvpcbNextNA', icon: 'cvpcbNextNA', title: _('Select Next Unassigned Symbol') },
     'sep',
     { id: 'cvpcbUndo', icon: 'cvpcbUndo', title: 'Undo' },
     { id: 'cvpcbRedo', icon: 'cvpcbRedo', title: 'Redo' },
@@ -1279,19 +1280,19 @@ export function DialogAssignFootprints({
     {
       id: 'cvpcbAutoAssociate',
       icon: 'cvpcbAutoAssociate',
-      title: 'Automatically Assign Footprints',
+      title: _('Automatically Assign Footprints'),
     },
-    { id: 'cvpcbDeleteAll', icon: 'cvpcbDeleteAll', title: 'Delete All Footprint Assignments' },
+    { id: 'cvpcbDeleteAll', icon: 'cvpcbDeleteAll', title: _('Delete All Footprint Assignments') },
     'sep',
     { control: 'filtersLabel' },
     {
       id: 'cvpcbFilterFp',
       icon: 'cvpcbFilterFp',
-      title: 'Use symbol footprint filters',
+      title: _('Use symbol footprint filters'),
       toggle: true,
     },
-    { id: 'cvpcbFilterPin', icon: 'cvpcbFilterPin', title: 'Filter by pin count', toggle: true },
-    { id: 'cvpcbFilterLib', icon: 'cvpcbFilterLib', title: 'Filter by library', toggle: true },
+    { id: 'cvpcbFilterPin', icon: 'cvpcbFilterPin', title: _('Filter by pin count'), toggle: true },
+    { id: 'cvpcbFilterLib', icon: 'cvpcbFilterLib', title: _('Filter by library'), toggle: true },
     'sep',
     { control: 'filterText' },
   ];
@@ -1497,7 +1498,9 @@ export function DialogAssignFootprints({
           disabledIds={disabledIds}
           onActivate={onToolbar}
           controls={{
-            filtersLabel: <span className="ze-fpassign-filters-label">Footprint Filters:</span>,
+            filtersLabel: (
+              <span className="ze-fpassign-filters-label">{_('Footprint Filters:')}</span>
+            ),
             filterText: (
               <input
                 className="ze-search"
@@ -1521,7 +1524,7 @@ export function DialogAssignFootprints({
         <div className="ze-fpassign-body" ref={bodyRef}>
           {/* Footprint Libraries (LIBRARY_LISTBOX) */}
           <section className="ze-fpassign-pane" ref={libPaneRef} style={libPaneStyle}>
-            <div className="ze-fpassign-caption">Footprint Libraries</div>
+            <div className="ze-fpassign-caption">{_('Footprint Libraries')}</div>
             <VirtualList
               rows={libRows}
               selection={libSelection}
@@ -1555,7 +1558,7 @@ export function DialogAssignFootprints({
 
           {/* Symbol : Footprint Assignments (SYMBOLS_LISTBOX) */}
           <section className="ze-fpassign-pane" style={{ flex: 1 }}>
-            <div className="ze-fpassign-caption">Symbol : Footprint Assignments</div>
+            <div className="ze-fpassign-caption">{_('Symbol : Footprint Assignments')}</div>
             <VirtualList
               rows={symbolRows}
               selection={symbolSelection}
@@ -1593,7 +1596,7 @@ export function DialogAssignFootprints({
 
           {/* Filtered Footprints (FOOTPRINTS_LISTBOX) */}
           <section className="ze-fpassign-pane last" ref={fpPaneRef} style={fpPaneStyle}>
-            <div className="ze-fpassign-caption">Filtered Footprints</div>
+            <div className="ze-fpassign-caption">{_('Filtered Footprints')}</div>
             <VirtualList
               rows={footprintRows}
               selection={footprintSelection}
@@ -1715,7 +1718,7 @@ export function DialogAssignFootprints({
             disabled={!changed}
             onClick={() => runSave(saveAndContinueCommand())}
           />
-          <Button label="Cancel" onClick={closeWindow} />
+          <Button label={_('Cancel')} onClick={closeWindow} />
           <Button label="OK" isDefault onClick={() => runSave(okCommand())} />
         </div>
       </div>

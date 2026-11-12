@@ -45,6 +45,7 @@ import {
 } from './rs274x.js';
 import { ReadIJCoord, ReadXYCoord, scaletoIU } from './rs274_read_XY_and_IJ_coordinates.js';
 import type { X2_ATTRIBUTE, X2_ATTRIBUTE_FILEFUNCTION } from './X2_gerber_attributes.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `GERBER_DRAW_ITEMS`. */
 export type GERBER_DRAW_ITEMS = GERBER_DRAW_ITEM[];
@@ -408,7 +409,7 @@ export class GERBER_FILE_IMAGE extends EDA_ITEM {
 
     if (this.m_messagesList.length < max_messages) this.m_messagesList.push(aMessage);
     else if (this.m_messagesList.length === max_messages)
-      this.m_messagesList.push('Too many messages, some are skipped');
+      this.m_messagesList.push(_('Too many messages, some are skipped'));
   }
 
   ReadXYCoord(aText: CHAR_PTR | null, aExcellonMode = false): VECTOR2I {
@@ -534,37 +535,37 @@ export class GERBER_FILE_IMAGE extends EDA_ITEM {
     aMainFrame.ClearMsgPanel();
 
     // Display the Gerber variant (X1 / X2
-    aMainFrame.AppendMsgPanel('Format', this.m_IsX2_file ? 'X2' : 'X1');
+    aMainFrame.AppendMsgPanel(_('Format'), this.m_IsX2_file ? 'X2' : 'X1');
 
     // Display Image name (Image specific). IM command (Image Name) is deprecated
     // So non empty image name is very rare, probably never found
-    if (this.m_ImageName.length > 0) aMainFrame.AppendMsgPanel('Image name', this.m_ImageName);
+    if (this.m_ImageName.length > 0) aMainFrame.AppendMsgPanel(_('Image name'), this.m_ImageName);
 
     // Display graphic layer number used to draw this Image
     // (not a Gerber parameter but is also image specific)
     msg = `${this.m_GraphicLayer + 1}`;
-    aMainFrame.AppendMsgPanel('Graphic layer', msg);
+    aMainFrame.AppendMsgPanel(_('Graphic layer'), msg);
 
     // Display Image rotation (Image specific)
     msg = `${this.m_ImageRotation}`;
-    aMainFrame.AppendMsgPanel('Img Rot.', msg);
+    aMainFrame.AppendMsgPanel(_('Img Rot.'), msg);
 
     // Display Image polarity (Image specific)
-    msg = this.m_ImageNegative ? 'Negative' : 'Normal';
-    aMainFrame.AppendMsgPanel('Polarity', msg);
+    msg = this.m_ImageNegative ? _('Negative') : _('Normal');
+    aMainFrame.AppendMsgPanel(_('Polarity'), msg);
 
     // Display Image justification and offset for justification (Image specific)
-    msg = this.m_ImageJustifyXCenter ? 'Center' : 'Normal';
-    aMainFrame.AppendMsgPanel('X Justify', msg);
+    msg = this.m_ImageJustifyXCenter ? _('Center') : _('Normal');
+    aMainFrame.AppendMsgPanel(_('X Justify'), msg);
 
-    msg = this.m_ImageJustifyYCenter ? 'Center' : 'Normal';
-    aMainFrame.AppendMsgPanel('Y Justify', msg);
+    msg = this.m_ImageJustifyYCenter ? _('Center') : _('Normal');
+    aMainFrame.AppendMsgPanel(_('Y Justify'), msg);
 
     msg =
       `X=${aMainFrame.MessageTextFromValue(this.m_ImageJustifyOffset.x)} ` +
       `Y=${aMainFrame.MessageTextFromValue(this.m_ImageJustifyOffset.y)}`;
 
-    aMainFrame.AppendMsgPanel('Image Justify Offset', msg);
+    aMainFrame.AppendMsgPanel(_('Image Justify Offset'), msg);
   }
 
   /**

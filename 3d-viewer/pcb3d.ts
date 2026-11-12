@@ -112,6 +112,7 @@ import type {
   Viewer3dCameraOptions,
   Viewer3dRenderOptions,
 } from './viewer3d_types.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -601,7 +602,13 @@ export function mount3DViewer(
   // `RENDER_3D_OPENGL::Redraw` reports "Loading..." into the ACTIVITY field
   // before a reload (render_3d_opengl.cpp:527), so that is the field's state
   // from the moment the frame exists until the first frame is timed.
-  let status: Viewer3DStatus = { dx: 0, dy: 0, zoom: 1, activity: 'Loading...', hovered: '' };
+  let status: Viewer3DStatus = {
+    dx: 0,
+    dy: 0,
+    zoom: 1,
+    activity: wxGetTranslation('Loading...'),
+    hovered: '',
+  };
   /** `api.onStatus`, held here because the first build reports before `api` exists. */
   let onStatus: ((s: Viewer3DStatus) => void) | undefined;
   const pushStatus = (): void => {
@@ -749,12 +756,12 @@ export function mount3DViewer(
     // render_3d_opengl.cpp:527 and create_scene.cpp:690 (stats_startReloadTime). A scene whose
     // layers the 3D layer job built has reported these, and started the clock, already.
     if (!aPrebuilt) {
-      report('Loading...');
+      report(wxGetTranslation('Loading...'));
       reloadsPending++;
     }
     const startReloadTime = aPrebuilt?.startReloadTime ?? performance.now();
     const { render, bbox, empty, layerOpts } = layerInputsOf(board, renderIn);
-    if (!aPrebuilt) report('Build board outline'); // board_adapter.cpp:343
+    if (!aPrebuilt) report(wxGetTranslation('Build board outline')); // board_adapter.cpp:343
     const adapter = initAdapter(board, bbox, render.footprintHolder === true);
     const s = adapter.s;
     const to3d = (p: Vec2): [number, number] => [p.x * s, -p.y * s];
@@ -824,10 +831,10 @@ export function mount3DViewer(
      */
     const materialMode = render.materialMode ?? 0;
 
-    if (!aPrebuilt) report('Create layers'); // board_adapter.cpp:579
+    if (!aPrebuilt) report(wxGetTranslation('Create layers')); // board_adapter.cpp:579
     const built =
       aPrebuilt?.built ?? buildBoard3dLayers(board, bbox, { ...layerOpts, empty, report });
-    report('Load OpenGL: board'); // create_scene.cpp:704
+    report(wxGetTranslation('Load OpenGL: board')); // create_scene.cpp:704
     const showThickness = render.copperThickness !== false;
 
     const disposables: { dispose(): void }[] = [];
@@ -907,7 +914,7 @@ export function mount3DViewer(
       }
     };
 
-    report('Load OpenGL: holes and vias'); // create_scene.cpp:754
+    report(wxGetTranslation('Load OpenGL: holes and vias')); // create_scene.cpp:754
     // m_padHoles: the plated barrels, F_Cu top to B_Cu bottom, copper material
     // (drawn first, `setLayerMaterial( B_Cu )`).
     {
@@ -949,7 +956,7 @@ export function mount3DViewer(
       addMesh(toGeometry(buf), makeFixedFunctionMaterial(mats.copper, lights), RENDER_ORDER.holes);
     }
 
-    report('Load OpenGL: layers'); // create_scene.cpp:811
+    report(wxGetTranslation('Load OpenGL: layers')); // create_scene.cpp:811
     // Display copper and tech layers
     for (const layer of Object.keys(built.layers) as Layer3d[]) {
       const polys = built.layers[layer];
@@ -1178,7 +1185,7 @@ export function mount3DViewer(
     const modelsGroup = new THREE.Group();
     scene.add(modelsGroup);
     const placeholder = aPrebuilt?.placeholder === true;
-    if (!placeholder) report('Loading 3D models...'); // create_scene.cpp:937
+    if (!placeholder) report(wxGetTranslation('Loading 3D models...')); // create_scene.cpp:937
     const components = placeholder
       ? { ready: Promise.resolve(), dispose: (): void => {} }
       : mountComponents(
@@ -1274,11 +1281,11 @@ export function mount3DViewer(
     aGeneration: number,
   ): Promise<{ built: Board3dLayers; startReloadTime: number } | null> => {
     const report = activityReporter;
-    report('Loading...');
+    report(wxGetTranslation('Loading...'));
     const startReloadTime = performance.now();
     const { bbox, empty, layerOpts } = layerInputsOf(aBoard, aRender);
-    report('Build board outline'); // board_adapter.cpp:343
-    report('Create layers'); // board_adapter.cpp:579
+    report(wxGetTranslation('Build board outline')); // board_adapter.cpp:343
+    report(wxGetTranslation('Create layers')); // board_adapter.cpp:579
     const result = await RunBoard3dLayersJob(
       aBoard,
       bbox,

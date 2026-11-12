@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ziroeda/common": "workspace:*",
+    "@ziroeda/include": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/potrace": "workspace:*",
     "@ziroeda/wx": "workspace:*",

@@ -17,6 +17,7 @@
 
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -29,14 +30,14 @@ const todo = { disabled: true } as const;
 
 /** TOP_MAIN toolbar (the only one). */
 export const VIEWER3D_TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'reloadBoard3d', icon: 'reloadBoard3d', title: 'Reload board' },
+  { id: 'reloadBoard3d', icon: 'reloadBoard3d', title: _HKI('Reload board') },
   sep,
-  { id: 'copyToClipboard3d', icon: 'copyToClipboard3d', title: 'Copy 3D image to clipboard' },
+  { id: 'copyToClipboard3d', icon: 'copyToClipboard3d', title: _HKI('Copy 3D image to clipboard') },
   sep,
   {
     id: 'toggleRaytracing',
     icon: 'toggleRaytracing',
-    title: 'Render current view using Raytracing',
+    title: _HKI('Render current view using Raytracing'),
     toggle: true,
     ...todo,
   }, // prettier-ignore
@@ -55,12 +56,12 @@ export const VIEWER3D_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'rotateZCW', icon: 'rotateZCW', title: 'Rotate Z clockwise' },
   { id: 'rotateZCCW', icon: 'rotateZCCW', title: 'Rotate Z counterclockwise' },
   sep,
-  { id: 'flipView3d', icon: 'flipView3d', title: 'Flip board view' },
+  { id: 'flipView3d', icon: 'flipView3d', title: _HKI('Flip board view') },
   sep,
   { id: 'moveLeft3d', icon: 'moveLeft3d', title: 'Move left' },
   { id: 'moveRight3d', icon: 'moveRight3d', title: 'Move right' },
-  { id: 'moveUp3d', icon: 'moveUp3d', title: 'Move up' },
-  { id: 'moveDown3d', icon: 'moveDown3d', title: 'Move down' },
+  { id: 'moveUp3d', icon: 'moveUp3d', title: _HKI('Move up') },
+  { id: 'moveDown3d', icon: 'moveDown3d', title: _HKI('Move down') },
   sep,
   { id: 'toggleOrtho', icon: 'toggleOrtho', title: 'Use orthographic projection', toggle: true },
   sep,

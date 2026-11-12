@@ -48,6 +48,7 @@ import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
 import type { PL_EDITOR_FRAME, PL_FILES_IO_ID } from './pl_editor_frame.js';
 import { PlDataModel } from './pl_data_model.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `_( "File '%s' loaded" )` — Open Recent only (files.cpp:82). */
 export function dsFileLoadedMsg(path: string): string {
@@ -108,13 +109,13 @@ export const DS_OUTDATED_FORMAT_INFOBAR =
   'It will be converted to the new format when saved.';
 
 /** `wxFileDialog( this, _( "Open Drawing Sheet" ), … )` (files.cpp:161). */
-export const DS_OPEN_DIALOG_TITLE = 'Open Drawing Sheet';
+export const DS_OPEN_DIALOG_TITLE = _HKI('Open Drawing Sheet');
 
 /** `_( "Append Existing Drawing Sheet" )` (files.cpp:132). */
-export const DS_APPEND_DIALOG_TITLE = 'Append Existing Drawing Sheet';
+export const DS_APPEND_DIALOG_TITLE = _HKI('Append Existing Drawing Sheet');
 
 /** `_( "Save Drawing Sheet As" )` (files.cpp:203). */
-export const DS_SAVE_AS_DIALOG_TITLE = 'Save Drawing Sheet As';
+export const DS_SAVE_AS_DIALOG_TITLE = _HKI('Save Drawing Sheet As');
 
 /**
  * `if( filename.IsEmpty() && id == wxID_SAVE ) id = wxID_SAVEAS;`
@@ -136,8 +137,9 @@ export function dsNeedsUnsavedGuard(command: 'new' | 'open' | 'append'): boolean
 // ---- the PL_EDITOR_FRAME members files.cpp defines --------------------------
 
 /** `HandleUnsavedChanges`' question, New / Open / a history row (files.cpp:61-63, :107-108). */
-export const DS_SAVE_CHANGES_QUESTION =
-  'The current drawing sheet has been modified. Save changes?';
+export const DS_SAVE_CHANGES_QUESTION = _HKI(
+  'The current drawing sheet has been modified. Save changes?',
+);
 
 /**
  * `PL_EDITOR_FRAME::OnFileHistory( event )` (files.cpp:55-86), from the

@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -13,8 +14,8 @@
 export const AWG_NAMES: readonly string[] = [
   'AWG0000',
   'AWG000',
-  'AWG00',
-  'AWG0',
+  _HKI('AWG00'),
+  _HKI('AWG0'),
   ...Array.from({ length: 30 }, (_, i) => `AWG${i + 1}`),
 ];
 

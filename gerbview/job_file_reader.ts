@@ -26,6 +26,7 @@ import {
 import { FILE, LINE_BUFFER, ReadFileText } from './libc.js';
 import { GERBVIEW_JOB_FILTERS } from '@ziroeda/common/wildcards_and_files_ext.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class GERBER_JOBFILE_READER {
   private m_reporter: REPORTER | null;
@@ -86,7 +87,7 @@ export class GERBER_JOBFILE_READER {
       }
     } else {
       this.m_reporter?.reportTail(
-        'This job file uses an outdated format. Please recreate it.',
+        _('This job file uses an outdated format. Please recreate it.'),
         RPT_SEVERITY_WARNING,
       );
 
@@ -124,7 +125,7 @@ export async function LoadGerberJobFile(
 
   if (filename === '') {
     const chosen = await this.Host().FileDialog(
-      'Open Gerber Job File',
+      _('Open Gerber Job File'),
       GERBVIEW_JOB_FILTERS,
       false,
       0,
@@ -162,7 +163,8 @@ export async function LoadGerberJobFile(
 
   this.SortLayersByX2Attributes();
 
-  if (reporter.HasMessage()) await this.Host().HtmlMessageBox('Messages', reporter.GetMessages());
+  if (reporter.HasMessage())
+    await this.Host().HtmlMessageBox(_('Messages'), reporter.GetMessages());
 
   return success;
 }

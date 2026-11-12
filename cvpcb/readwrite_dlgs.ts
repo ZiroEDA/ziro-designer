@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -10,7 +11,7 @@
 // ----- saving ---------------------------------------------------------------
 
 /** `SetStatusText( _( "Schematic saved" ), 1 )` — the second status line. */
-export const SCHEMATIC_SAVED_STATUS = 'Schematic saved';
+export const SCHEMATIC_SAVED_STATUS = _HKI('Schematic saved');
 
 /** What a save command asks the frame to do. */
 export interface CvpcbSaveEffect {

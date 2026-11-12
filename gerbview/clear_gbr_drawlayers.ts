@@ -12,12 +12,13 @@ import { IsOK } from '@ziroeda/common/confirm.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { GERBVIEW_FRAME } from './gerbview_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export async function Clear_DrawLayers(this: GERBVIEW_FRAME, query: boolean): Promise<boolean> {
   if (this.GetGerberLayout() === null) return false;
 
   if (query && this.GetScreen()?.IsContentModified()) {
-    if (!(await IsOK('Current data will be lost?'))) return false;
+    if (!(await IsOK(_('Current data will be lost?')))) return false;
   }
 
   if (this.GetCanvas()) {

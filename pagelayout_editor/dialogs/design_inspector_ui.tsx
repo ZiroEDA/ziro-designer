@@ -23,6 +23,7 @@ import {
   xpmRuns,
   type XpmIcon,
 } from './design_inspector.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * One XPM, drawn at its native 12 x 12 with square pixels.
@@ -172,7 +173,7 @@ export function DesignInspector({
       <div className="ze-modal-footer">
         {/* m_sdbSizer holds exactly one button, wxID_CANCEL
               (dialog_design_inspector_base.cpp:60-63). */}
-        <Button label="Cancel" onClick={onClose} />
+        <Button label={_('Cancel')} onClick={onClose} />
       </div>
     </DialogShim>
   );

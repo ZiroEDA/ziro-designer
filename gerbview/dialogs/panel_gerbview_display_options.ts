@@ -15,6 +15,7 @@
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import type { GBR_PREFS_CONTEXT } from '../gerbview.js';
 import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The seven Page Size radios, in the base file's own order, each paired with
@@ -32,13 +33,13 @@ import { GERBVIEW_DEFAULTS } from '../gerbview_settings.js';
  * GerbView opens on.
  */
 export const GBR_PAGE_SIZE_CHOICES: readonly (readonly [string, string])[] = [
-  ['GERBER', 'Full size'],
-  ['A4', 'Size A4'],
-  ['A3', 'Size A3'],
-  ['A2', 'Size A2'],
-  ['A', 'Size A'],
-  ['B', 'Size B'],
-  ['C', 'Size C'],
+  ['GERBER', _HKI('Full size')],
+  ['A4', _HKI('Size A4')],
+  ['A3', _HKI('Size A3')],
+  ['A2', _HKI('Size A2')],
+  ['A', _HKI('Size A')],
+  ['B', _HKI('Size B')],
+  ['C', _HKI('Size C')],
 ];
 
 /**

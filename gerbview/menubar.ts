@@ -51,6 +51,7 @@ import {
   type HelpMenuToolManager,
 } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -150,57 +151,57 @@ function fileMenu(h: GerbviewMenuHandlers): Menu {
   const recent = (label: string): MenuItem => ({ label, disabled: true, submenu: [] });
 
   return {
-    label: 'File',
+    label: _('File'),
     items: [
       {
-        label: 'Open Autodetected File(s)...',
+        label: _('Open Autodetected File(s)...'),
         icon: 'gerbOpen',
-        tooltip: 'Open Autodetected file(s) on a new layer.',
+        tooltip: _('Open Autodetected file(s) on a new layer.'),
         action: h.openAutodetected,
         shortcut: 'Ctrl+O',
       },
       {
-        label: 'Open Gerber Plot File(s)...',
+        label: _('Open Gerber Plot File(s)...'),
         icon: 'gerbOpen',
-        tooltip: 'Open Gerber plot file(s) on a new layer.',
+        tooltip: _('Open Gerber plot file(s) on a new layer.'),
         action: h.openGerber,
       },
-      recent('Open Recent Gerber File'),
+      recent(_('Open Recent Gerber File')),
       {
-        label: 'Open Excellon Drill File(s)...',
+        label: _('Open Excellon Drill File(s)...'),
         icon: 'gerbOpenDrill',
-        tooltip: 'Open Excellon drill file(s) on a new layer.',
+        tooltip: _('Open Excellon drill file(s) on a new layer.'),
         action: h.openDrillFile,
       },
-      recent('Open Recent Drill File'),
+      recent(_('Open Recent Drill File')),
       {
-        label: 'Open Gerber Job File...',
+        label: _('Open Gerber Job File...'),
         icon: 'gerbOpenJob',
-        tooltip: 'Open a Gerber job file and its associated gerber plot files',
+        tooltip: _('Open a Gerber job file and its associated gerber plot files'),
         action: h.openJobFile,
       },
-      recent('Open Recent Job File'),
+      recent(_('Open Recent Job File')),
       {
-        label: 'Open Zip Archive File...',
+        label: _('Open Zip Archive File...'),
         icon: 'gerbOpenZip',
-        tooltip: 'Open a zipped archive (Gerber and Drill) file',
+        tooltip: _('Open a zipped archive (Gerber and Drill) file'),
         action: h.openZipFile,
       },
-      recent('Open Recent Zip File'),
+      recent(_('Open Recent Zip File')),
       SEP,
-      { label: 'Clear All Layers', icon: 'gerbClear', action: h.clearAllLayers },
-      { label: 'Reload All Layers', icon: 'gerbReload', action: h.reloadAllLayers },
+      { label: _('Clear All Layers'), icon: 'gerbClear', action: h.clearAllLayers },
+      { label: _('Reload All Layers'), icon: 'gerbReload', action: h.reloadAllLayers },
       SEP,
       {
-        label: 'Export to PCB Editor...',
+        label: _('Export to PCB Editor...'),
         icon: 'gerbExportToPcb',
-        tooltip: 'Export data as a KiCad PCB file',
+        tooltip: _('Export data as a KiCad PCB file'),
         action: h.exportToPcbnew,
       },
       SEP,
-      { label: 'Print...', icon: 'print', action: h.print, shortcut: 'Ctrl+P' },
+      { label: _('Print...'), icon: 'print', action: h.print, shortcut: 'Ctrl+P' },
       SEP,
-      addQuitOrClose('Gerber Viewer', h.quit),
+      addQuitOrClose(_('Gerber Viewer'), h.quit),
     ],
   };
 }
@@ -212,33 +213,33 @@ function fileMenu(h: GerbviewMenuHandlers): Menu {
  */
 function viewMenu(h: GerbviewMenuHandlers): Menu {
   return {
-    label: 'View',
+    label: _('View'),
     items: [
       { label: 'Zoom In', icon: 'zoomIn', action: h.zoomInCenter },
       { label: 'Zoom Out', icon: 'zoomOut', action: h.zoomOutCenter },
       {
-        label: 'Zoom to Fit',
+        label: _('Zoom to Fit'),
         icon: 'zoomFit',
         action: h.zoomFitScreen,
         shortcut: 'Home',
-        tooltip: 'Zoom to worksheet area if exists or edited object',
+        tooltip: _('Zoom to worksheet area if exists or edited object'),
       },
       {
-        label: 'Zoom to Selection Area',
+        label: _('Zoom to Selection Area'),
         icon: 'zoomTool',
         action: h.zoomTool,
         shortcut: 'Ctrl+F5',
-        tooltip: 'Zoom to an area selection created by a mouse drag',
+        tooltip: _('Zoom to an area selection created by a mouse drag'),
       },
-      { label: 'Refresh', icon: 'zoomRedraw', action: h.zoomRedraw, shortcut: 'F5' },
+      { label: _('Refresh'), icon: 'zoomRedraw', action: h.zoomRedraw, shortcut: 'F5' },
       SEP,
-      check(h, 'toggleGrid', 'Show Grid', {
+      check(h, 'toggleGrid', _('Show Grid'), {
         icon: 'toggleGrid',
-        tooltip: 'Display background grid in the edit window',
+        tooltip: _('Display background grid in the edit window'),
       }),
-      check(h, 'togglePolar', 'Polar Coordinates', {
+      check(h, 'togglePolar', _('Polar Coordinates'), {
         icon: 'gerbTogglePolar',
-        tooltip: 'Switch between polar and cartesian coordinate systems',
+        tooltip: _('Switch between polar and cartesian coordinate systems'),
       }),
       {
         // `unitsSubMenu->SetTitle( _( "&Units" ) )` (`menubar.cpp:180`).
@@ -252,29 +253,29 @@ function viewMenu(h: GerbviewMenuHandlers): Menu {
         ],
       },
       SEP,
-      check(h, 'flashedSketch', 'Sketch Flashed Items', {
+      check(h, 'flashedSketch', _('Sketch Flashed Items'), {
         icon: 'gerbFlashedSketch',
         shortcut: 'F',
-        tooltip: 'Show flashed items in outline mode',
+        tooltip: _('Show flashed items in outline mode'),
       }),
-      check(h, 'linesSketch', 'Sketch Lines', {
+      check(h, 'linesSketch', _('Sketch Lines'), {
         icon: 'gerbLinesSketch',
         shortcut: 'L',
-        tooltip: 'Show lines in outline mode',
+        tooltip: _('Show lines in outline mode'),
       }),
-      check(h, 'polygonsSketch', 'Sketch Polygons', {
+      check(h, 'polygonsSketch', _('Sketch Polygons'), {
         icon: 'gerbPolygonsSketch',
         shortcut: 'P',
-        tooltip: 'Show polygons in outline mode',
+        tooltip: _('Show polygons in outline mode'),
       }),
-      check(h, 'showDcodes', 'Show DCodes', {
+      check(h, 'showDcodes', _('Show DCodes'), {
         icon: 'gerbShowDcodes',
         shortcut: 'D',
-        tooltip: 'Show dcode numbers',
+        tooltip: _('Show dcode numbers'),
       }),
-      check(h, 'showNegativeObjects', 'Ghost Negative Objects', {
+      check(h, 'showNegativeObjects', _('Ghost Negative Objects'), {
         icon: 'gerbNegativeObjects',
-        tooltip: 'Show negative objects in ghost color',
+        tooltip: _('Show negative objects in ghost color'),
       }),
       // GERBVIEW_ACTIONS::toggleForceOpacityMode, live since the renderer
       // stopped compositing at a permanent 0.8 and started drawing opaque:
@@ -284,24 +285,24 @@ function viewMenu(h: GerbviewMenuHandlers): Menu {
       // layer's COLOR4D (`gerbview_painter.cpp:63-66`). The value is the
       // `Forced opacity:` spin control on Preferences > Gerber Viewer >
       // Display Options.
-      check(h, 'forceOpacityMode', 'Show with Forced Opacity Mode', {
+      check(h, 'forceOpacityMode', _('Show with Forced Opacity Mode'), {
         icon: 'gerbDiffMode',
-        tooltip: 'Show layers using opacity color forced mode',
+        tooltip: _('Show layers using opacity color forced mode'),
       }),
-      check(h, 'xorMode', 'Show in XOR Mode', {
+      check(h, 'xorMode', _('Show in XOR Mode'), {
         icon: 'gerbDiffMode',
-        tooltip: 'Show layers in exclusive-or compare mode',
+        tooltip: _('Show layers in exclusive-or compare mode'),
       }),
-      check(h, 'highContrast', 'Inactive Layer View Mode', {
+      check(h, 'highContrast', _('Inactive Layer View Mode'), {
         icon: 'gerbHighContrast',
-        tooltip: 'Toggle inactive layers between normal and dimmed',
+        tooltip: _('Toggle inactive layers between normal and dimmed'),
       }),
-      check(h, 'flipView', 'Flip Gerber View', {
+      check(h, 'flipView', _('Flip Gerber View'), {
         icon: 'gerbFlipView',
-        tooltip: 'Show as mirror image',
+        tooltip: _('Show as mirror image'),
       }),
       SEP,
-      check(h, 'showLayerManager', 'Show Layers Manager', { icon: 'gerbLayerManager' }),
+      check(h, 'showLayerManager', _('Show Layers Manager'), { icon: 'gerbLayerManager' }),
     ],
   };
 }
@@ -312,12 +313,12 @@ function viewMenu(h: GerbviewMenuHandlers): Menu {
  */
 function toolsMenu(h: GerbviewMenuHandlers): Menu {
   return {
-    label: 'Tools',
+    label: _('Tools'),
     items: [
       {
-        label: 'List DCodes...',
+        label: _('List DCodes...'),
         icon: 'gerbDcodeList',
-        tooltip: 'List D-codes defined in Gerber files',
+        tooltip: _('List D-codes defined in Gerber files'),
         action: h.showDCodes,
       },
       // GERBVIEW_ACTIONS::showSource shells out to the user's text editor -
@@ -326,19 +327,19 @@ function toolsMenu(h: GerbviewMenuHandlers): Menu {
       // text editor to hand a path to, so this is greyed in its upstream
       // position rather than replaced with something upstream does not do.
       {
-        label: 'Show Source...',
+        label: _('Show Source...'),
         disabled: true,
-        tooltip: 'Show source file for the current layer',
+        tooltip: _('Show source file for the current layer'),
       },
       {
-        label: 'Measure Tool',
+        label: _('Measure Tool'),
         icon: 'measureTool',
         action: h.measureTool,
         shortcut: 'Ctrl+Shift+M',
-        tooltip: 'Interactively measure distance between points',
+        tooltip: _('Interactively measure distance between points'),
       },
       SEP,
-      { label: 'Clear Current Layer...', action: h.clearLayer },
+      { label: _('Clear Current Layer...'), action: h.clearLayer },
     ],
   };
 }
@@ -350,13 +351,13 @@ function toolsMenu(h: GerbviewMenuHandlers): Menu {
  */
 function preferencesMenu(h: GerbviewMenuHandlers): Menu {
   return {
-    label: 'Preferences',
+    label: _('Preferences'),
     items: [
       {
-        label: 'Preferences...',
+        label: _('Preferences...'),
         icon: 'preferences',
         shortcut: 'Ctrl+,',
-        tooltip: 'Show preferences for all open tools',
+        tooltip: _('Show preferences for all open tools'),
         action: () => h.toolManager.RunAction(ACTIONS.openPreferences),
       },
       SEP,

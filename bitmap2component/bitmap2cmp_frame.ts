@@ -48,6 +48,8 @@ import {
   type OUTPUT_FMT_ID,
   type STRING_BUFFER,
 } from './bitmap2component.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The window's services: the panel's, plus the frame's own dialogs and bars. */
 export interface BITMAP2CMP_FRAME_UI extends BITMAP2CMP_PANEL_UI {
@@ -95,25 +97,25 @@ interface EXPORT_SPEC {
 
 const EXPORTS: Record<'wks' | 'ps' | 'sym' | 'mod', EXPORT_SPEC> = {
   wks: {
-    title: 'Create Drawing Sheet File',
+    title: _HKI('Create Drawing Sheet File'),
     filters: () => [drawingSheetWildcard()],
     ext: 'kicad_wks',
     format: DRAWING_SHEET_FMT,
   },
   ps: {
-    title: 'Create PostScript File',
+    title: _HKI('Create PostScript File'),
     filters: () => [psFileWildcard()],
     ext: 'ps',
     format: POSTSCRIPT_FMT,
   },
   sym: {
-    title: 'Create Symbol Library',
+    title: _HKI('Create Symbol Library'),
     filters: () => [kicadSymbolLibWildcard()],
     ext: 'kicad_sym',
     format: SYMBOL_FMT,
   },
   mod: {
-    title: 'Create Footprint Library',
+    title: _HKI('Create Footprint Library'),
     filters: () => [kicadFootprintFileWildcard()],
     ext: 'kicad_mod',
     format: FOOTPRINT_FMT,
@@ -187,7 +189,7 @@ export class BITMAP2CMP_FRAME extends KIWAY_PLAYER {
 
     if (this.m_srcFileName) title = `${fullName(this.m_srcFileName)} — `;
 
-    title += 'Image Converter';
+    title += _('Image Converter');
     return title;
   }
 
@@ -209,7 +211,7 @@ export class BITMAP2CMP_FRAME extends KIWAY_PLAYER {
 
   /** Load Source Image, File > Open (`ACTIONS::open` through BITMAP2CMP_CONTROL). */
   async OnLoadFile(): Promise<void> {
-    const file = await this.m_ui.ChooseImageFile('Choose Image', [imageFileWildcard()]);
+    const file = await this.m_ui.ChooseImageFile(_('Choose Image'), [imageFileWildcard()]);
 
     if (!file) return;
 

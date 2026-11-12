@@ -23,9 +23,17 @@ import { drawSheetIUScale } from '@ziroeda/common/eda_units.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_SELECTION_TOOL } from '../tools/pl_selection_tool.js';
 import { PlDataModel } from '../pl_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The five `SetColLabelValue` strings, in `COL_INDEX` order. */
-export const DS_INSPECTOR_COLUMNS: readonly string[] = ['-', 'Type', 'Count', 'Comment', 'Text'];
+export const DS_INSPECTOR_COLUMNS: readonly string[] = [
+  '-',
+  'Type',
+  'Count',
+  _HKI('Comment'),
+  'Text',
+];
 
 /** The title of an unsaved / built-in sheet (design_inspector.cpp:220). */
 export const DS_INSPECTOR_DEFAULT_TITLE = '<default drawing sheet>';
@@ -96,7 +104,7 @@ export class DIALOG_INSPECTOR {
     const page_sizeIU = this.m_editorFrame.GetPageSizeIU();
     this.m_rows.push({
       number: 1,
-      type: 'Layout',
+      type: _('Layout'),
       count: '-',
       // Display page format name.
       comment: page_info.GetTypeAsString(),

@@ -11,6 +11,8 @@
  */
 
 import { ESeriesId, eseriesValues } from './eseries.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** Search-space bounds, as in KiCad (`RES_EQUIV_CALC_FIRST/LAST_VALUE`). */
 export const RES_EQUIV_FIRST_VALUE = 10;
@@ -354,10 +356,10 @@ export function resEquivCalc(
  * An absent solution takes "Not worth using" in the formula cell and leaves
  * this one EMPTY, which is `RES_NOT_WORTH_USING` below.
  */
-export const RES_NOT_WORTH_USING = 'Not worth using';
+export const RES_NOT_WORTH_USING = _HKI('Not worth using');
 
 export function resApproximationText(errorPct: number): string {
-  if (Math.abs(errorPct) < 1e-12) return 'Exact';
+  if (Math.abs(errorPct) < 1e-12) return _('Exact');
   if (Math.abs(errorPct) < 0.01) return '<0.01';
   return `${errorPct >= 0 ? '+' : ''}${errorPct.toFixed(2)}`;
 }

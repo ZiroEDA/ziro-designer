@@ -43,6 +43,7 @@ import {
   type DIALOG_MAP_GERBER_LAYERS_TO_PCB,
   mappedLayerSizingLabels,
 } from './dialog_map_gerber_layers_to_pcb.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const COMBO_OPTIONS = COPPER_LAYERS_COUNT_CHOICES.map((label, i) => ({ value: String(i), label }));
 
@@ -98,7 +99,7 @@ export function DialogMapGerberLayersToPcb({
           void dlg.OnSelectLayer(ii).then(refresh);
         }}
       >
-        ...
+        {_('...')}
       </button>,
       <span
         key={`t${ii}`}
@@ -119,10 +120,10 @@ export function DialogMapGerberLayersToPcb({
   for (let ii = 0; ii < count; ii++) (ii < half ? left : right).push(...row(ii));
 
   return (
-    <DialogShim title="Layer Selection" onClose={() => onClose(false)} className="ze-mapgbr">
+    <DialogShim title={_('Layer Selection')} onClose={() => onClose(false)} className="ze-mapgbr">
       <div className="ze-mapgbr-upper">
         <div className="ze-mapgbr-selection">
-          <span className="ze-mapgbr-cell">Layer selection:</span>
+          <span className="ze-mapgbr-cell">{_('Layer selection:')}</span>
           <div className="ze-mapgbr-list">
             <span className="ze-mapgbr-indent" />
             <div className="ze-mapgbr-grid">{left}</div>
@@ -131,10 +132,10 @@ export function DialogMapGerberLayersToPcb({
           </div>
         </div>
         <div className="ze-mapgbr-right">
-          <span className="ze-mapgbr-lyrcnt-label">Copper layers count:</span>
+          <span className="ze-mapgbr-lyrcnt-label">{_('Copper layers count:')}</span>
           <Combo
             className="ze-mapgbr-lyrcnt"
-            ariaLabel="Copper layers count:"
+            ariaLabel={_('Copper layers count:')}
             value={String(dlg.m_comboCopperLayersCount)}
             options={COMBO_OPTIONS}
             onChange={(v) => {
@@ -144,7 +145,7 @@ export function DialogMapGerberLayersToPcb({
           />
           <span className="ze-mapgbr-stretch" />
           <Button
-            label="Store Choice"
+            label={_('Store Choice')}
             className="ze-mapgbr-button"
             onClick={() => {
               dlg.OnStoreSetup();
@@ -152,7 +153,7 @@ export function DialogMapGerberLayersToPcb({
             }}
           />
           <Button
-            label="Get Stored Choice"
+            label={_('Get Stored Choice')}
             disabled={!dlg.m_buttonRetrieveEnabled}
             className="ze-mapgbr-button"
             onClick={() => {
@@ -161,7 +162,7 @@ export function DialogMapGerberLayersToPcb({
             }}
           />
           <Button
-            label="Reset"
+            label={_('Reset')}
             className="ze-mapgbr-button"
             onClick={() => {
               dlg.OnResetClick();

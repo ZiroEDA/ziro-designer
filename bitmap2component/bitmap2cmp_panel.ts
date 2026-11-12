@@ -45,6 +45,8 @@ import {
   wxImageResolution,
 } from '@ziroeda/wx/wx_image.js';
 import { wxStringToDouble } from '@ziroeda/wx/wxstring.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** the image DPI used in formats that do not define a DPI [data] */
 export const DEFAULT_DPI = 300;
@@ -189,25 +191,25 @@ export class IMAGE_SIZE {
 }
 
 /** `m_PixelUnit`'s choices, appended in the constructor. [data] */
-export const PIXEL_UNIT_CHOICES = ['mm', 'Inch', 'DPI'] as const;
+export const PIXEL_UNIT_CHOICES = [_HKI('mm'), _HKI('Inch'), _HKI('DPI')] as const;
 
 /** `m_layerCtrl`'s choices (`bitmap2cmp_panel_base.cpp`). [data] */
 export const LAYER_CHOICES = [
   'F.Cu',
-  'F.Silkscreen',
+  _HKI('F.Silkscreen'),
   'F.Mask',
-  'User.Drawings',
-  'User.Comments',
-  'User.Eco1',
-  'User.Eco2',
+  _HKI('User.Drawings'),
+  _HKI('User.Comments'),
+  _HKI('User.Eco1'),
+  _HKI('User.Eco2'),
   'F.Fab',
 ] as const;
 
 /** The notebook pages, in `AddPage` order. [data] */
 export const NOTEBOOK_PAGES = [
-  'Original Picture',
-  'Greyscale Picture',
-  'Black && White Picture',
+  _HKI('Original Picture'),
+  _HKI('Greyscale Picture'),
+  _HKI('Black && White Picture'),
 ] as const;
 
 /**
@@ -682,7 +684,7 @@ export class BITMAP2CMP_PANEL {
 
     // Write buffer to the clipboard
     if (!(await this.m_ui.SetClipboardText(buffer.value)))
-      this.m_ui.MessageBox('Unable to export to the Clipboard');
+      this.m_ui.MessageBox(_('Unable to export to the Clipboard'));
   }
 
   /**
@@ -699,7 +701,7 @@ export class BITMAP2CMP_PANEL {
     const potrace_bitmap = bm_new(w, h);
 
     if (!potrace_bitmap) {
-      this.m_ui.MessageBox('Error allocating memory for potrace bitmap');
+      this.m_ui.MessageBox(_('Error allocating memory for potrace bitmap'));
       return;
     }
 
@@ -754,7 +756,7 @@ export class BITMAP2CMP_PANEL {
     );
 
     if (reporter.hasMessage())
-      this.m_ui.MessageBox(reporter.lines.map((l) => l.message).join('\n'), 'Errors');
+      this.m_ui.MessageBox(reporter.lines.map((l) => l.message).join('\n'), _('Errors'));
   }
 
   /** A radio button's wxEVT_COMMAND_RADIOBUTTON_SELECTED: `aFormat`'s button was chosen. */
@@ -785,9 +787,10 @@ export class BITMAP2CMP_PANEL {
 }
 
 /** `DROP_FILE`'s question. [data] */
-export const REPLACE_LOADED_FILE_CAPTION = 'Replace Loaded File?';
-export const REPLACE_LOADED_FILE_MESSAGE =
-  'There is already a file loaded. Do you want to replace it?';
+export const REPLACE_LOADED_FILE_CAPTION = _HKI('Replace Loaded File?');
+export const REPLACE_LOADED_FILE_MESSAGE = _HKI(
+  'There is already a file loaded. Do you want to replace it?',
+);
 
 /**
  * `DROP_FILE`: the drop target on each of the three notebook pages. Asks

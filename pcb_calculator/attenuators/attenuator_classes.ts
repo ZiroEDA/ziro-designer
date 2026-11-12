@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -37,28 +38,28 @@ export interface AttenuatorInfo {
 export const ATTENUATORS: readonly AttenuatorInfo[] = [
   {
     type: AttenuatorType.PI,
-    name: 'Pi',
+    name: _HKI('Pi'),
     hasZout: true,
     hasAttenuation: true,
     resistorLabels: ['R1', 'R2', 'R3'],
   },
   {
     type: AttenuatorType.TEE,
-    name: 'Tee',
+    name: _HKI('Tee'),
     hasZout: true,
     hasAttenuation: true,
     resistorLabels: ['R1', 'R2', 'R3'],
   },
   {
     type: AttenuatorType.BRIDGED_TEE,
-    name: 'Bridged tee',
+    name: _HKI('Bridged tee'),
     hasZout: false,
     hasAttenuation: true,
     resistorLabels: ['R1', 'R2'],
   },
   {
     type: AttenuatorType.SPLITTER,
-    name: 'Resistive splitter',
+    name: _HKI('Resistive splitter'),
     hasZout: false,
     hasAttenuation: false,
     resistorLabels: ['R1', 'R2', 'R3'],

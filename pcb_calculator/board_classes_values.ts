@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -19,9 +20,9 @@ export interface BoardClassRow {
 const NA = Number.NaN;
 
 export const BOARD_CLASS_ROWS: readonly BoardClassRow[] = [
-  { label: 'Lines width', mm: [0.8, 0.5, 0.31, 0.21, 0.15, 0.12] },
+  { label: _HKI('Lines width'), mm: [0.8, 0.5, 0.31, 0.21, 0.15, 0.12] },
   { label: 'Minimum clearance', mm: [0.68, 0.5, 0.31, 0.21, 0.15, 0.12] },
-  { label: 'Via: (diameter - drill)', mm: [NA, NA, 0.45, 0.34, 0.24, 0.2] },
-  { label: 'Plated Pad: (diameter - drill)', mm: [1.19, 0.78, 0.6, 0.49, 0.39, 0.35] },
-  { label: 'NP Pad: (diameter - drill)', mm: [1.57, 1.13, 0.9, NA, NA, NA] },
+  { label: _HKI('Via: (diameter - drill)'), mm: [NA, NA, 0.45, 0.34, 0.24, 0.2] },
+  { label: _HKI('Plated Pad: (diameter - drill)'), mm: [1.19, 0.78, 0.6, 0.49, 0.39, 0.35] },
+  { label: _HKI('NP Pad: (diameter - drill)'), mm: [1.57, 1.13, 0.9, NA, NA, NA] },
 ];
