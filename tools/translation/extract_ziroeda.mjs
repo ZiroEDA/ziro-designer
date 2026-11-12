@@ -260,9 +260,7 @@ function main() {
     }
     // English is the msgid itself: it has nothing to fill.
     const gaps = lang === 'en' ? [] : [...kicadUsed].filter(([id]) => !translated.has(id));
-    const forLang = new Map(
-      [...sorted, ...gaps].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-    );
+    const forLang = new Map([...sorted, ...gaps].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
     gapCounts.push(`${lang} ${gaps.length}`);
     writeFileSync(
       path,
