@@ -136,7 +136,7 @@ export function DialogPasteSpecial({
       </div>
       <div className="ze-modal-footer">
         <Button label={_('Cancel')} onClick={onCancel} />
-        <Button label="OK" isDefault onClick={() => onOk(mode, clearNets)} />
+        <Button label={_('OK')} isDefault onClick={() => onOk(mode, clearNets)} />
       </div>
     </DialogShim>
   );

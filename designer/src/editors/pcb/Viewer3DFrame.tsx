@@ -845,7 +845,7 @@ export function Viewer3DFrame({
   }, [onClose]);
 
   return (
-    <div className="ze-frame ze-frame-3d" role="dialog" aria-label="3D Viewer">
+    <div className="ze-frame ze-frame-3d" role="dialog" aria-label={_('3D Viewer')}>
       <MenuBar
         menus={menus}
         leftSlot={

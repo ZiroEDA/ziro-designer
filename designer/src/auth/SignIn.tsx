@@ -304,7 +304,7 @@ export function SignInDialog({
         }
       >
         {!gate && (
-          <span className="ze-auth-close" title="Close" onClick={close}>
+          <span className="ze-auth-close" title={_('Close')} onClick={close}>
             ✕
           </span>
         )}
@@ -477,7 +477,7 @@ export function SignInDialog({
               from the account menu, so this never comes up again.
             </p>
             <div className="ze-auth-recovery-actions">
-              <Button label="Back" onClick={() => setNoRecoveryKey(false)} />
+              <Button label={_('Back')} onClick={() => setNoRecoveryKey(false)} />
               <Button
                 label="I remember my password"
                 isDefault

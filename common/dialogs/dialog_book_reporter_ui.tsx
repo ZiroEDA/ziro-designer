@@ -24,6 +24,7 @@ import type {
   BOOK_REPORTER_PANEL_ITEM,
   DIALOG_BOOK_REPORTER,
 } from './dialog_book_reporter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type { BOOK_REPORTER_PAGE };
 
@@ -85,7 +86,7 @@ export function DialogBookReporter({
         </div>
       </div>
       <div className="ze-modal-footer ze-bookreporter-buttons">
-        <Button label="OK" isDefault onClick={onClose} />
+        <Button label={_('OK')} isDefault onClick={onClose} />
       </div>
     </DialogShim>
   );

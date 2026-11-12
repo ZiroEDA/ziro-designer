@@ -51,7 +51,7 @@ export function HotkeyListDialog({
         <PanelHotkeysEditor actions={actions} readOnly overrides={edit} onChange={setEdit}>
           {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
           <Button label={_('Cancel')} onClick={onClose} />
-          <Button label="OK" onClick={onOk} />
+          <Button label={_('OK')} onClick={onOk} />
         </PanelHotkeysEditor>
       </div>
     </DialogShim>

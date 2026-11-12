@@ -459,7 +459,7 @@ export function PluginManagerDialog({
             </button>
           </>
         )}
-        <Button label="Close" onClick={onClose} />
+        <Button label={_('Close')} onClick={onClose} />
       </div>
     </DialogShim>
   );

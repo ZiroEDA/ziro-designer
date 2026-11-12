@@ -870,7 +870,8 @@ describe('a page that is not resettable has no reset', () => {
     const src = read('dialogs/PreferencesDialog.tsx');
     expect(src).toContain('const resettable = panel?.reset !== undefined;');
     expect(src).toContain('disabled={!resettable}');
-    expect(src).toMatch(/Reset \$\{labelOf\(page\)[^}]*\} to Defaults/);
+    // `wxString::Format( _( "Reset %s to Defaults" ), name )` (:341), the name as the tree shows it.
+    expect(src).toMatch(/wxFormat\(_\('Reset %s to Defaults'\), _\(labelOf\(page\)/);
   });
 
   it('the shell never names a settings field of its own', () => {

@@ -41,6 +41,7 @@
 import { useEffect, useRef, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 import { Button } from '@ziroeda/wx/controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * One message's markup, as `<li>` content.
@@ -124,7 +125,7 @@ export function HtmlMessageBox({
             (dialog_display_html_text_base.cpp:23-28): the shared right-aligned
             footer, not the native message box's full-width row. */}
       <div className="ze-modal-footer">
-        <Button label="OK" isDefault buttonRef={okRef} onClick={onClose} />
+        <Button label={_('OK')} isDefault buttonRef={okRef} onClick={onClose} />
       </div>
     </DialogShim>
   );

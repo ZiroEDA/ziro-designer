@@ -258,7 +258,7 @@ export function DialogConfigEquFiles({
           />
         </div>
         <div className="ze-modal-footer">
-          <Button label="OK" isDefault onClick={() => onSave(list.files, pending)} />
+          <Button label={_('OK')} isDefault onClick={() => onSave(list.files, pending)} />
           <Button label={_('Cancel')} onClick={onClose} />
         </div>
       </DialogShim>

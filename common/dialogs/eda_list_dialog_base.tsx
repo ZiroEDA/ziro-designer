@@ -73,7 +73,7 @@ export function EDA_LIST_DIALOG_BASE(p: EDA_LIST_DIALOG_BASE_PROPS): JSX.Element
                   value={p.nameRow.value}
                   onChange={p.nameRow.onChange}
                   inputRef={p.nameRow.inputRef}
-                  ariaLabel="Name"
+                  ariaLabel={_('Name')}
                 />
               </SizerItem>
             </BoxSizer>

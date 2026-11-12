@@ -252,7 +252,7 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
             onChange={(v) => panel.OnThresholdChange(v)}
           />
           <CheckBox
-            label="Negative"
+            label={_('Negative')}
             checked={panel.m_checkNegative}
             className="imgc-check"
             onChange={(aChecked) => panel.OnNegativeClicked(aChecked)}

@@ -1719,7 +1719,7 @@ export function DialogAssignFootprints({
             onClick={() => runSave(saveAndContinueCommand())}
           />
           <Button label={_('Cancel')} onClick={closeWindow} />
-          <Button label="OK" isDefault onClick={() => runSave(okCommand())} />
+          <Button label={_('OK')} isDefault onClick={() => runSave(okCommand())} />
         </div>
       </div>
     </div>

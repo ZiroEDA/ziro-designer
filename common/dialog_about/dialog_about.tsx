@@ -250,7 +250,7 @@ export function DIALOG_ABOUT({
           </div>
         </div>
         <div className="ze-about-buttons">
-          <Button label="OK" isDefault onClick={onClose} />
+          <Button label={_('OK')} isDefault onClick={onClose} />
         </div>
       </DialogShim>
       {clipboardError && (

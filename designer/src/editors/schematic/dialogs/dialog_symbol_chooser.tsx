@@ -93,7 +93,7 @@ export function DialogSymbolChooser({
           and the order every other dialog here already uses. This one had
           them the other way round. */}
         <Button label={_('Cancel')} onClick={onCancel} />
-        <Button label="OK" isDefault onClick={accept} />
+        <Button label={_('OK')} isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

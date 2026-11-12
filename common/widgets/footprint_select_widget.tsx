@@ -81,7 +81,7 @@ export function FootprintSelectWidget({
       items={footprintChoiceItems(defaultFootprint, items)}
       value={value}
       disabled={disabled}
-      ariaLabel="Footprint"
+      ariaLabel={_('Footprint')}
       onChange={onFootprintSelected}
     />
   );

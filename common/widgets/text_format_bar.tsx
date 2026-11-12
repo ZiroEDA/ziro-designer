@@ -102,13 +102,13 @@ export function TextFormatBar({
       <BitmapButtonSeparator />
       <BitmapButton
         bitmap="text_bold"
-        tooltip="Bold"
+        tooltip={_('Bold')}
         checked={bold}
         onClick={() => onBold(!bold)}
       />
       <BitmapButton
         bitmap="text_italic"
-        tooltip="Italic"
+        tooltip={_('Italic')}
         checked={italic}
         onClick={() => onItalic(!italic)}
       />
@@ -139,7 +139,7 @@ export function TextFormatBar({
       {onMirrored ? (
         <BitmapButton
           bitmap="text_mirrored"
-          tooltip="Mirrored"
+          tooltip={_('Mirrored')}
           checked={mirrored === true}
           onClick={() => onMirrored(!mirrored)}
         />

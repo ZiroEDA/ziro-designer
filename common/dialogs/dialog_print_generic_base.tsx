@@ -122,7 +122,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                   <StaticBoxSizer label={_('Scale')} orient={wxVERTICAL}>
                     <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                       <RadioButton
-                        label="1:1"
+                        label={_('1:1')}
                         name="m_scale"
                         checked={p.scaleMode === '1:1'}
                         onChange={() => p.onScaleMode('1:1')}

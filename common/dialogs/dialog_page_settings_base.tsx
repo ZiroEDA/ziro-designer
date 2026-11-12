@@ -43,6 +43,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 type UNIT_FIELD = Parameters<typeof UnitField>[0];
 
@@ -139,7 +140,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   {/* m_paperSizeComboBox: wxChoice */}
                   <Combo
-                    ariaLabel="Size"
+                    ariaLabel={_('Size')}
                     value={p.m_paperSizeComboBox}
                     options={p.paperChoices}
                     onChange={p.onPaperSize}
@@ -152,7 +153,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <Combo
-                    ariaLabel="Orientation"
+                    ariaLabel={_('Orientation')}
                     value={p.m_orientationComboBox}
                     options={[
                       { value: 'landscape', label: _('Landscape') },
@@ -249,11 +250,11 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                   {/* SheetInfoSizer */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALL} border={5} shown={p.talliesShown}>
-                      <StaticText label={`Number of sheets: ${p.sheetCount}`} />
+                      <StaticText label={wxFormat(_('Number of sheets: %d'), p.sheetCount)} />
                     </SizerItem>
                     <Spacer width={5} height={5} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALL} border={5} shown={p.talliesShown}>
-                      <StaticText label={`Sheet number: ${p.sheetNumber}`} />
+                      <StaticText label={wxFormat(_('Sheet number: %d'), p.sheetNumber)} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>

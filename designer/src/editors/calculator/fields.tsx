@@ -329,7 +329,7 @@ export function Modal({
       >
         <div className="calc-modal-head">
           <span>{title}</span>
-          <button type="button" className="calc-modal-x" onClick={onClose} aria-label="Close">
+          <button type="button" className="calc-modal-x" onClick={onClose} aria-label={_('Close')}>
             ✕
           </button>
         </div>

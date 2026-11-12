@@ -43,7 +43,7 @@ export function PanelBoardClass(): JSX.Element {
           the grid's column-label strip rather than above the grid. */}
       <div className="bc-units">
         <Combo
-          ariaLabel="Unit"
+          ariaLabel={wxGetTranslation('Unit')}
           value={String(unitIdx)}
           options={LEN_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
           onChange={(v) => setUnitIdx(Number(v))}

@@ -216,7 +216,7 @@ export function DialogGridSettings({
         every other dialog here renders it through `.ze-modal-footer`. */}
       <div className="ze-modal-footer">
         <Button label={_('Cancel')} onClick={onCancel} />
-        <Button label="OK" isDefault onClick={accept} />
+        <Button label={_('OK')} isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

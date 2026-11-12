@@ -214,7 +214,7 @@ export function PanelViaSize(): JSX.Element {
             onUnitIdx={(i) => set('clearance_diameter_units', i)}
           />
           <NumField
-            label="Z0:"
+            label={_('Z0:')}
             title={_('Characteristic impedance of conductor')}
             units={RES_UNITS}
             base={z0Ohm}

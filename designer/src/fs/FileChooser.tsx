@@ -611,7 +611,7 @@ export function FileChooser({
           <button
             type="button"
             className={`ze-btn ze-chooser-search${searching ? ' primary' : ''}`}
-            title="Search"
+            title={_('Search')}
             aria-pressed={searching}
             onClick={() => {
               setSearching((s) => !s);
@@ -663,7 +663,7 @@ export function FileChooser({
               <button
                 type="button"
                 className="ze-chooser-nav"
-                title="Back"
+                title={_('Back')}
                 disabled={history.past.length === 0}
                 onClick={back}
               >

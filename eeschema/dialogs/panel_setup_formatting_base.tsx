@@ -190,9 +190,10 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                     flag={wxALIGN_CENTER_VERTICAL | wxEXPAND}
                     border={5}
                   >
+                    {/* `{ _("None"), _("Smallest"), ... }` (panel_setup_formatting_base.cpp:140-150). */}
                     <Choice
                       ariaLabel="Junction dot size"
-                      choices={p.junctionDotChoices}
+                      choices={p.junctionDotChoices.map((c) => _(c))}
                       choice={p.m_choiceJunctionDotSize}
                     />
                   </SizerItem>
@@ -207,7 +208,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   >
                     <Choice
                       ariaLabel="Hop-over size"
-                      choices={p.hopOverChoices}
+                      choices={p.hopOverChoices.map((c) => _(c))}
                       choice={p.m_choiceHopOverSize}
                     />
                   </SizerItem>
@@ -355,7 +356,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <Choice
                       ariaLabel="Range (voltages)"
-                      choices={p.vRangeChoices}
+                      choices={p.vRangeChoices.map((c) => _(c))}
                       choice={p.m_vRangeCtrl}
                     />
                   </SizerItem>
@@ -380,7 +381,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   <SizerItem flag={wxBOTTOM | wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <Choice
                       ariaLabel="Range (currents)"
-                      choices={p.iRangeChoices}
+                      choices={p.iRangeChoices.map((c) => _(c))}
                       choice={p.m_iRangeCtrl}
                     />
                   </SizerItem>

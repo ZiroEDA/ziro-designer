@@ -171,7 +171,7 @@ export function SearchPane({
           ref={menuBtnRef}
           type="button"
           className="ze-lp-iconbtn"
-          title="Options"
+          title={_('Options')}
           onClick={() => {
             const r = menuBtnRef.current?.getBoundingClientRect();
             if (r) setMenuAt({ x: r.left, y: r.bottom });

@@ -111,7 +111,7 @@ export function EDA_REORDERABLE_LIST_DIALOG({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <Button label="OK" isDefault onClick={() => onOk(enabledList)} />
+        <Button label={_('OK')} isDefault onClick={() => onOk(enabledList)} />
         <Button label={_('Cancel')} onClick={onCancel} />
       </div>
     </DialogShim>

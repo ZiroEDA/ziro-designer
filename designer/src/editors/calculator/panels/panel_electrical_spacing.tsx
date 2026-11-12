@@ -89,7 +89,7 @@ function PanelIpc2221(): JSX.Element {
       <div className="es-ipc-left">
         <span>{_('Unit:')}</span>
         <Combo
-          ariaLabel="Unit"
+          ariaLabel={_('Unit')}
           value={String(unitIdx)}
           options={LEN_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
           onChange={(v) => setUnitIdx(Number(v))}

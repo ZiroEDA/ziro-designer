@@ -123,7 +123,7 @@ export function PANEL_IMAGE_EDITOR({
           value={scaleText}
           onChange={(aValue) => onScaleText(aValue)}
           className="ze-input ze-imgedit-scale"
-          ariaLabel="Scale"
+          ariaLabel={_('Scale')}
         />
         <StaticText label={_('PPI:')} />
         <span className="ze-imgedit-ppi">{ppi}</span>

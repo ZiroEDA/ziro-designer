@@ -36,6 +36,7 @@ import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
@@ -463,7 +464,7 @@ export function PreferencesDialog({
   // this only knows whether the page has one. See prefs/reset.ts.
   const resettable = panel?.reset !== undefined;
   const resetLabel = resettable
-    ? `Reset ${labelOf(page) ?? ''} to Defaults`
+    ? wxFormat(_('Reset %s to Defaults'), _(labelOf(page) ?? ''))
     : _('Reset to Defaults');
   const resetPage = (): void => {
     panel?.reset?.(ctx);
@@ -517,7 +518,7 @@ export function PreferencesDialog({
           */}
           <span style={{ flex: 1 }} />
           <Button label={_('Cancel')} onClick={onClose} />
-          <Button label="OK" isDefault onClick={() => ok()} />
+          <Button label={_('OK')} isDefault onClick={() => ok()} />
         </div>
       </DialogShim>
 

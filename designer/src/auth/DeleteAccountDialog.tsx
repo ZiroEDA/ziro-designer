@@ -295,7 +295,7 @@ export function DeleteAccountDialog({
           okLabel={busy ? 'Deleting...' : okLabel}
           okDisabled={okDisabled}
         >
-          {step !== 'reason' && <Button label="Back" disabled={busy} onClick={back} />}
+          {step !== 'reason' && <Button label={_('Back')} disabled={busy} onClick={back} />}
         </StdDialogButtons>
       </form>
     </DialogShim>

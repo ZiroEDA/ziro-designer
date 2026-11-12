@@ -165,7 +165,7 @@ export function PanelFusingCurrent(): JSX.Element {
         <span className="calc-unit">°C</span>
 
         <span />
-        <span className="calc-field-label" title="Copper">
+        <span className="calc-field-label" title={_('Copper')}>
           {_('Melting point:')}
         </span>
         <TextCtrl

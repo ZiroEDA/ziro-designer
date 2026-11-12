@@ -25,6 +25,7 @@ import { DialogShim } from '../dialog_shim.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
 import { PagedDialogTree } from './wx_treebook.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -203,7 +204,9 @@ export function PagedDialog({
 
   const resetLabel =
     active?.resettable && active.label
-      ? `Reset ${active.label} to Defaults`
+      ? // `wxString::Format( _( "Reset %s to Defaults" ), name )` (paged_dialog.cpp:341), the page's
+        // name as its tree shows it.
+        wxFormat(_('Reset %s to Defaults'), _(active.label))
       : _('Reset to Defaults');
 
   return (
@@ -270,7 +273,7 @@ export function PagedDialog({
         )}
         <div className="ze-paged-footer-spacer" />
         <Button label={_('Cancel')} onClick={onCancel} />
-        <Button label="OK" isDefault onClick={handleOk} />
+        <Button label={_('OK')} isDefault onClick={handleOk} />
       </div>
     </DialogShim>
   );

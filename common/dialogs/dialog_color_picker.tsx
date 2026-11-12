@@ -508,7 +508,7 @@ export function DialogColorPicker({
                   <Slider
                     vertical
                     labels
-                    ariaLabel="Value"
+                    ariaLabel={_('Value')}
                     min={0}
                     max={255}
                     value={Math.round(hsv.val * 255)}
@@ -626,7 +626,7 @@ export function DialogColorPicker({
           then OK - and OK is the affirmative default. */}
         <div className="ze-modal-footer">
           <Button label={_('Cancel')} onClick={() => onDone(null)} />
-          <Button label="OK" isDefault onClick={() => onDone(color)} />
+          <Button label={_('OK')} isDefault onClick={() => onDone(color)} />
         </div>
       </div>
     </DialogShim>

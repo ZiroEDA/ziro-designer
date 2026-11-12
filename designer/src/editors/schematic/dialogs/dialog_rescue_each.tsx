@@ -180,7 +180,7 @@ export function DialogRescueEach({
           )}
           <div className="spacer" />
           <Button
-            label="OK"
+            label={_('OK')}
             isDefault
             onClick={() => onOk(candidates.filter((c) => accepted.has(c.requestedId)))}
           />
