@@ -244,6 +244,55 @@ describe("a browser's own injected script", () => {
     expect(reported('fn@http://127.0.0.1:5199/@fs/home/x/pcbnew/board.ts?t=1:3:4')).toBe(true);
   });
 
+  it("a fetch that failed inside an extension's fetch wrapper is not reported (Sentry 1S)", () => {
+    const reported = (aMessage: string, aStack: string, aName = 'TypeError'): boolean => {
+      const h = harness();
+      const err = Object.assign(new Error(aMessage), { name: aName });
+      err.stack = `${aName}: ${aMessage}\n${aStack}`;
+      h.target.fire('unhandledrejection', { reason: err });
+      return h.captured.length === 1;
+    };
+    const OURS = 'https://designer.ziroeda.com/assets/index-DOU2pZqU.js';
+    // Innermost first: the SDK's fetch wrapper (bundled with ours), the extension's two frames,
+    // then the usage counts' send() and the interval that called it.
+    const THROUGH_EXTENSION =
+      `    at ${OURS}:9:45\n` +
+      '    at s.fetch (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/libs/requests.js:1:3633)\n' +
+      '    at chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:26619\n' +
+      `    at send (${OURS}:93:8)\n` +
+      `    at ${OURS}:134:7`;
+    expect(reported('Failed to fetch (us.i.posthog.com)', THROUGH_EXTENSION)).toBe(false);
+    // Firefox and Safari word it their own way.
+    expect(
+      reported(
+        'NetworkError when attempting to fetch resource.',
+        `fetch@moz-extension://abc/wrap.js:1:2\nsend@${OURS}:93:8`,
+      ),
+    ).toBe(false);
+    expect(
+      reported('Load failed', `fetch@safari-web-extension://abc/w.js:1:2\nsend@${OURS}:93:8`),
+    ).toBe(false);
+    // With no extension in the way, a fetch of ours left uncaught is ours.
+    expect(
+      reported(
+        'Failed to fetch (api.example.com)',
+        `    at ${OURS}:9:45\n    at load (${OURS}:7:1)`,
+      ),
+    ).toBe(true);
+    // An extension that only CALLED our code - it wraps a listener - leaves our failure ours.
+    expect(
+      reported(
+        'Failed to fetch',
+        `    at load (${OURS}:7:1)\n    at chrome-extension://abc/listener.js:1:2`,
+      ),
+    ).toBe(true);
+    // Any other failure through the wrapper - our bad arguments - is still ours to see.
+    expect(reported("Failed to execute 'fetch' on 'Window': Invalid URL", THROUGH_EXTENSION)).toBe(
+      true,
+    );
+    expect(reported('Failed to fetch', THROUGH_EXTENSION, 'Error')).toBe(true);
+  });
+
   it("a string the host app evaluates in the page is not reported (Sentry 1P, Zalo's webview)", () => {
     const reported = (aStack: string): boolean => {
       const h = harness();

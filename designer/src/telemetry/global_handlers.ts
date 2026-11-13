@@ -94,11 +94,7 @@ function fromInjectedScript(err: unknown): boolean {
   if (!(err instanceof Error) || !err.stack) return false;
 
   const lines = err.stack.split('\n').map((line) => line.trim());
-
-  // "at fn (url:line:col)" (V8) or "fn@url:line:col" (SpiderMonkey, JavaScriptCore).
-  const urls = lines
-    .map((line) => /(?:\(|@|at )([a-z][a-z0-9+.-]*:[^\s)]*?)(?::\d+){1,2}\)?\s*$/i.exec(line)?.[1])
-    .filter((u): u is string => !!u);
+  const urls = stackUrls(lines);
 
   if (!urls.every(isInjected)) return false;
   if (urls.length > 0) return true;
@@ -107,6 +103,43 @@ function fromInjectedScript(err: unknown): boolean {
   const frames = lines.filter((line) => line.startsWith('at '));
 
   return frames.length > 0 && frames.every((line) => EVALUATED_BY_HOST.test(line));
+}
+
+/**
+ * The file of each frame that names one, innermost first: "at fn (url:line:col)" (V8) or
+ * "fn@url:line:col" (SpiderMonkey, JavaScriptCore).
+ */
+function stackUrls(aLines: readonly string[]): string[] {
+  return aLines
+    .map((line) => /(?:\(|@|at )([a-z][a-z0-9+.-]*:[^\s)]*?)(?::\d+){1,2}\)?\s*$/i.exec(line)?.[1])
+    .filter((u): u is string => !!u);
+}
+
+/**
+ * A fetch that failed on the network, as each engine words it; Sentry's fetch instrumentation adds
+ * the host - "Failed to fetch (us.i.posthog.com)".
+ */
+const FETCH_FAILED =
+  /^(?:Failed to fetch|NetworkError when attempting to fetch resource|Load failed)\b/;
+
+/**
+ * Whether \a err is a fetch that failed inside an extension's wrapper of `fetch`, called from
+ * ours: an injected frame sits inside one of ours. The rejection left unhandled is the wrapper's
+ * own - ours had its catch (Sentry 1S, the usage counts' `fetch(...).catch()` through a Chrome
+ * extension's `libs/requests.js`). The same failure with no extension in the way names no
+ * injected frame, and is still reported.
+ */
+function fetchFailedInInjectedWrapper(err: unknown): boolean {
+  if (!(err instanceof Error) || err.name !== 'TypeError' || !err.stack) return false;
+  if (!FETCH_FAILED.test(err.message)) return false;
+
+  const urls = stackUrls(err.stack.split('\n').map((line) => line.trim()));
+  let outermostOurs = -1;
+  urls.forEach((u, i) => {
+    if (!isInjected(u)) outermostOurs = i;
+  });
+
+  return urls.some((u, i) => i < outermostOurs && isInjected(u));
 }
 
 /** What an error is "the same as", for de-duplication. */
@@ -148,7 +181,7 @@ export function installGlobalErrorHandlers(opts: GlobalHandlerOptions = {}): () 
       }
       // A browser's own injected script failing (an in-app browser's logger losing its bridge)
       // is not this app's error.
-      if (fromInjectedScript(err)) return;
+      if (fromInjectedScript(err) || fetchFailedInInjectedWrapper(err)) return;
 
       const sig = signatureOf(err);
       // The same failure firing every frame is one fact, not a thousand.
