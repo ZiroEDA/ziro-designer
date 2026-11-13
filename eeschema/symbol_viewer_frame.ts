@@ -312,7 +312,8 @@ export class SYMBOL_VIEWER_FRAME extends SCH_BASE_FRAME {
         void this.hooks.ensureSymbol(SYMBOL_VIEWER_FRAME.m_currentSymbol).then((aLoaded) => {
           if (this.m_fetching === wanted) this.m_fetching = null;
 
-          if (aLoaded) this.updatePreviewSymbol();
+          // Closed while the file was on its way: the window and its canvas are gone (Sentry 1T).
+          if (aLoaded && this.GetCanvas()) this.updatePreviewSymbol();
         });
       }
     }
@@ -343,8 +344,12 @@ export class SYMBOL_VIEWER_FRAME extends SCH_BASE_FRAME {
       this.AppendMsgPanel(_('Keywords'), this.m_previewItem.GetKeyWords());
     }
 
-    this.m_toolManager?.RunAction(ACTIONS.zoomFitScreen);
-    this.GetCanvas()?.Refresh();
+    // KiCad's frame always has its canvas; ours is built after the window opens, and the canvas
+    // half draws the selected symbol again when it is (Zoom to Fit with no view throws).
+    if (view) {
+      this.m_toolManager?.RunAction(ACTIONS.zoomFitScreen);
+      this.GetCanvas()?.Refresh();
+    }
 
     this.updateUnitChoice();
     this.updateBodyStyleChoice();

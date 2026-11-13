@@ -668,6 +668,22 @@ describe('a hosted library (items preloaded, files fetched on use)', () => {
     expect(t.frame.m_previewItem?.GetName()).toBe('REG');
   });
 
+  it('closed while the file is on its way: draws nothing, and does not throw (Sentry 1T)', async () => {
+    hosted();
+    clickLib('Gamma');
+    clickSymbol('REG');
+
+    // What the window's unmount does: the canvas goes, the frame stays referenced by the fetch.
+    t.frame.SetCanvas(null);
+
+    arrive();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(t.frame.m_previewItem).toBeNull();
+    // Nor does a preview asked for with no canvas - before it is built, or after it is gone.
+    expect(() => t.frame.updatePreviewSymbol()).not.toThrow();
+  });
+
   it('drops a fetch the browser has moved on from', async () => {
     hosted();
     clickLib('Gamma');
