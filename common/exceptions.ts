@@ -3,15 +3,12 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `include/ki_exception.h` / `common/exceptions.cpp`: the exception classes
- * the file readers throw. `PARSE_ERROR` lives with the lexer in
- * `dsnlexer.ts` (its one constructor site) and is re-exported here.
+ * the file readers throw. `dsnlexer.ts` re-exports `PARSE_ERROR`, its one
+ * constructor site.
  */
 
-import { PARSE_ERROR } from './dsnlexer.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { wxFormat } from '@ziroeda/wx/wxstring.js';
-
-export { PARSE_ERROR };
 
 /**
  * Hold a translatable error message and may be used when throwing exceptions
@@ -56,6 +53,33 @@ export class IO_ERROR extends Error {
   /** A composite of Problem() and Where() */
   What(): string {
     return this.where === '' ? this.problem : `${this.problem}\n${this.where}`;
+  }
+}
+
+/**
+ * `PARSE_ERROR` (include/ki_exception.h): `struct PARSE_ERROR : public IO_ERROR`, so every
+ * `catch( IO_ERROR& )` takes it - a library that will not parse is one that will not load. Here
+ * it extended Error, and a user's broken .kicad_sym escaped the symbol preload uncaught
+ * (Sentry 1W). Its Problem() is the composite, as `PARSE_ERROR::init` builds it.
+ */
+export class PARSE_ERROR extends IO_ERROR {
+  constructor(
+    message: string,
+    readonly source: string,
+    readonly inputLine: string,
+    readonly lineNumber: number,
+    readonly byteIndex: number,
+  ) {
+    super(`${message} in '${source}', line ${lineNumber}, offset ${byteIndex}`);
+    this.name = 'PARSE_ERROR';
+    this.parseProblem = message;
+  }
+
+  private readonly parseProblem: string;
+
+  /** `ParseProblem()`: the problem alone, without where it was. */
+  ParseProblem(): string {
+    return this.parseProblem;
   }
 }
 

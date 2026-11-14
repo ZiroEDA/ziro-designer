@@ -46,7 +46,6 @@ import { GetSelectedItemsAsText } from './sch_tool_utils.js';
 import { GetClipboardUTF8, SaveClipboard } from '@ziroeda/common/clipboard.js';
 import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
-import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { IS_NEW, IS_PASTED, SELECTED, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
@@ -1129,9 +1128,8 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
 
       newPart = newParts[0];
     } catch (e) {
-      // catch( IO_ERROR& ): upstream's PARSE_ERROR is an IO_ERROR, ours does not derive from it
-      // yet, so both are named.
-      if (!(e instanceof IO_ERROR) && !(e instanceof PARSE_ERROR)) throw e;
+      // catch( IO_ERROR& ): a PARSE_ERROR is one.
+      if (!(e instanceof IO_ERROR)) throw e;
 
       // If it's not a symbol then paste as text
       newPart = new LIB_SYMBOL('dummy_part');

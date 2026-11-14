@@ -1,3 +1,4 @@
+import { PARSE_ERROR } from './exceptions.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { wxFormat } from '@ziroeda/wx/wxstring.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,27 +41,8 @@ export enum T {
 /** A token: a structural `T`, or an unquoted word as itself. */
 export type Tok = T | string;
 
-/** `PARSE_ERROR` (include/ki_exception.h). */
-export class PARSE_ERROR extends Error {
-  constructor(
-    message: string,
-    readonly source: string,
-    readonly inputLine: string,
-    readonly lineNumber: number,
-    readonly byteIndex: number,
-  ) {
-    super(`${message} in '${source}', line ${lineNumber}, offset ${byteIndex}`);
-    this.name = 'PARSE_ERROR';
-    this.problem = message;
-  }
-
-  private readonly problem: string;
-
-  /** `ParseProblem()`: the problem alone, without where it was. */
-  ParseProblem(): string {
-    return this.problem;
-  }
-}
+/** `PARSE_ERROR` (include/ki_exception.h), an IO_ERROR: it lives with IO_ERROR in exceptions.ts. */
+export { PARSE_ERROR };
 
 /**
  * Test for whitespace. Our whitespace, by our definition, is a subset of

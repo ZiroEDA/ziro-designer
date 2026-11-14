@@ -11,7 +11,6 @@
  * resolutions of the IMPORT_SYMBOL_SELECT this hands it (SYMBOL_IMPORT_MANAGER is its logic).
  */
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
-import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { ESCAPE_CONTEXT, EscapeString } from '@ziroeda/common/string_utils.js';
 import { wxFD_FILE_MUST_EXIST, wxFD_OPEN } from '@ziroeda/wx/defs.js';
@@ -127,16 +126,10 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
           importedCount++;
         }
       } catch (ioe) {
-        // catch( const IO_ERROR& ), which upstream's PARSE_ERROR derives from (ours does not yet).
-        if (!(ioe instanceof IO_ERROR) && !(ioe instanceof PARSE_ERROR)) throw ioe;
+        // catch( const IO_ERROR& ): a PARSE_ERROR is one.
+        if (!(ioe instanceof IO_ERROR)) throw ioe;
 
-        DisplayErrorMessage(
-          wxFormat(
-            _("Cannot import symbol '%s': %s"),
-            symbolName,
-            ioe instanceof IO_ERROR ? ioe.What() : ioe.message,
-          ),
-        );
+        DisplayErrorMessage(wxFormat(_("Cannot import symbol '%s': %s"), symbolName, ioe.What()));
       }
     }
 

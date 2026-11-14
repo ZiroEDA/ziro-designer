@@ -137,6 +137,28 @@ describe('SYMBOL_LIBRARY_ADAPTER', () => {
     expect(a.LoadOne('Nope')?.error?.message).toBe('Library Nope not found');
   });
 
+  it('a library that will not parse records its error, and AsyncLoad goes on to the next (Sentry 1W)', () => {
+    // A user's own .kicad_sym, broken: PARSE_ERROR is an IO_ERROR (ki_exception.h), so the load
+    // marks the library failed as KiCad does - it escaped the preload's timer, uncaught.
+    const fs = new MEMORY_FILESYSTEM();
+    fs.Write(
+      'bad.kicad_sym',
+      new TextEncoder().encode('(kicad_symbol_lib (version 20241209) (generator "x") stray)'),
+    );
+    const undo = wxMountFileSystem('/user', fs);
+    try {
+      const a = adapter(row('Bad', '/user/bad.kicad_sym') + row('All', '/libs/all.kicad_sym'));
+
+      expect(() => a.AsyncLoad()).not.toThrow();
+      const bad = a.GetLibraryStatus('Bad');
+      expect(bad?.load_status).toBe(LOAD_STATUS.LOAD_ERROR);
+      expect(bad?.error?.message).toMatch(/in '\/user\/bad\.kicad_sym', line 1, offset \d+/);
+      expect(a.GetLibraryStatus('All')?.load_status).toBe(LOAD_STATUS.LOADED);
+    } finally {
+      undo();
+    }
+  });
+
   it('an unknown type cannot make a plugin', () => {
     const a = adapter(row('X', '/libs/all.kicad_sym', 'Bogus'));
 

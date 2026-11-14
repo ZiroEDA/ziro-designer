@@ -178,7 +178,6 @@ import {
   ShowKicadMessageDialog,
 } from '@ziroeda/common/confirm.js';
 import { GetClipboardUTF8, SetClipboardFromText } from '@ziroeda/common/clipboard.js';
-import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { wxCENTER, wxICON_WARNING, wxOK, wxYES_NO } from '@ziroeda/wx/defs.js';
@@ -1063,10 +1062,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       try {
         newSymbols = SCH_IO_KICAD_SEXPR.ParseLibSymbols(clipboardData, 'Clipboard');
       } catch (e) {
-        // catch( IO_ERROR& ), which upstream's PARSE_ERROR derives from (ours does not yet).
-        if (!(e instanceof IO_ERROR) && !(e instanceof PARSE_ERROR)) throw e;
+        // catch( IO_ERROR& ): a PARSE_ERROR is one.
+        if (!(e instanceof IO_ERROR)) throw e;
 
-        console.info(`Can not paste: ${e instanceof IO_ERROR ? e.Problem() : e.ParseProblem()}`);
+        console.info(`Can not paste: ${e.Problem()}`);
       }
     } else {
       const srcSymbol = libMgr.GetBufferedSymbol(libId.GetLibItemName(), lib);
@@ -1394,12 +1393,12 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       try {
         old_symbol = pi.LoadSymbol(fullPath, symbol.GetName());
       } catch (ioe) {
-        if (!(ioe instanceof IO_ERROR) && !(ioe instanceof PARSE_ERROR)) throw ioe;
+        // catch( const IO_ERROR& ): a PARSE_ERROR is one.
+        if (!(ioe instanceof IO_ERROR)) throw ioe;
 
         DisplayErrorMessage(
           wxFormat(_("Error occurred attempting to load symbol library file '%s'."), fullPath),
-          // catch( const IO_ERROR& ), which upstream's PARSE_ERROR derives from (ours does not yet).
-          ioe instanceof IO_ERROR ? ioe.What() : ioe.message,
+          ioe.What(),
         );
         return;
       }
