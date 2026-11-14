@@ -142,6 +142,26 @@ function fetchFailedInInjectedWrapper(err: unknown): boolean {
   return urls.some((u, i) => i < outermostOurs && isInjected(u));
 }
 
+/**
+ * A WebExtension's messaging failing, as each engine words it: Safari's "Invalid call to
+ * runtime.sendMessage(). Tab not found.", Chrome's and Firefox's "Could not establish connection.
+ * Receiving end does not exist.", Chrome's "Extension context invalidated.". The app calls none
+ * of these APIs.
+ */
+const EXTENSION_MESSAGING =
+  /\bruntime\.(?:sendMessage|connect)\(\)|Receiving end does not exist|Extension context invalidated/;
+
+/**
+ * Whether \a err is an extension's own messaging failure, rejected in the page with no frame of
+ * ours (Sentry 1V: no stack at all, en-GB). One with a frame of ours in its stack is still
+ * reported.
+ */
+function extensionMessagingFailed(err: unknown): boolean {
+  if (!(err instanceof Error) || !EXTENSION_MESSAGING.test(err.message)) return false;
+
+  return stackUrls((err.stack ?? '').split('\n').map((line) => line.trim())).every(isInjected);
+}
+
 /** What an error is "the same as", for de-duplication. */
 function signatureOf(err: unknown): string {
   if (err instanceof Error) {
@@ -181,7 +201,12 @@ export function installGlobalErrorHandlers(opts: GlobalHandlerOptions = {}): () 
       }
       // A browser's own injected script failing (an in-app browser's logger losing its bridge)
       // is not this app's error.
-      if (fromInjectedScript(err) || fetchFailedInInjectedWrapper(err)) return;
+      if (
+        fromInjectedScript(err) ||
+        fetchFailedInInjectedWrapper(err) ||
+        extensionMessagingFailed(err)
+      )
+        return;
 
       const sig = signatureOf(err);
       // The same failure firing every frame is one fact, not a thousand.

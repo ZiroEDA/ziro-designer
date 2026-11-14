@@ -293,6 +293,35 @@ describe("a browser's own injected script", () => {
     expect(reported('Failed to fetch', THROUGH_EXTENSION, 'Error')).toBe(true);
   });
 
+  it("an extension's own messaging failing is not reported (Sentry 1V)", () => {
+    const reported = (aMessage: string, aStack?: string): boolean => {
+      const h = harness();
+      const err = new Error(aMessage);
+      err.stack = aStack === undefined ? `Error: ${aMessage}` : `Error: ${aMessage}\n${aStack}`;
+      h.target.fire('unhandledrejection', { reason: err });
+      return h.captured.length === 1;
+    };
+    // No stack at all, as Sentry got it; and each engine's wording.
+    expect(reported('Invalid call to runtime.sendMessage(). Tab not found.')).toBe(false);
+    expect(reported('Could not establish connection. Receiving end does not exist.')).toBe(false);
+    expect(reported('Extension context invalidated.')).toBe(false);
+    expect(
+      reported(
+        'Invalid call to runtime.connect(). Tab not found.',
+        '    at chrome-extension://abc/content.js:1:2',
+      ),
+    ).toBe(false);
+    // A frame of ours in the stack keeps it; and another message with no stack is still ours.
+    expect(
+      reported(
+        'Extension context invalidated.',
+        '    at ours (https://designer.ziroeda.com/assets/index-DOU2pZqU.js:2:4)',
+      ),
+    ).toBe(true);
+    expect(reported('Tab not found.')).toBe(true);
+    expect(reported('runtime.sendMessage is not a function')).toBe(true);
+  });
+
   it("a string the host app evaluates in the page is not reported (Sentry 1P, Zalo's webview)", () => {
     const reported = (aStack: string): boolean => {
       const h = harness();
