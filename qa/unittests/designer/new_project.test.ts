@@ -15,6 +15,8 @@ import {
   newProjectFiles,
   sanitizeProjectName,
 } from '@ziroeda/designer/src/home/new_project.js';
+import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
+import type { JsonObject } from '@ziroeda/common/settings/json_settings.js';
 
 describe('newProjectFiles', () => {
   const files = newProjectFiles('MyBoard');
@@ -48,6 +50,25 @@ describe('newProjectFiles', () => {
     };
     expect(pro.meta.filename).toBe('MyBoard.kicad_pro');
     expect(files[1]!.text).toContain(`(uuid "${pro.sheets[0]![0]}")`);
+  });
+
+  it("gives the Default net class every one of KiCad's defaults (blinky555, I-9)", () => {
+    // KiCad copies template/kicad.kicad_pro, whose net_settings.classes is empty, so the
+    // project keeps NET_SETTINGS' own NETCLASS( Default, true ) - every value set
+    // (netclass.cpp:39-47). Ours listed a Default carrying only a clearance, and a listed
+    // class is read as NETCLASS( name, false ), so Board Setup showed the rest blank.
+    const f = new PROJECT_FILE('MyBoard');
+    f.LoadFromJson(JSON.parse(files[0]!.text) as JsonObject);
+    const nc = f.NetSettings().GetDefaultNetclass();
+    const mm = (v: number): number => v * 1e6;
+    expect([nc.GetClearance(), nc.GetTrackWidth()]).toEqual([mm(0.2), mm(0.2)]);
+    expect([nc.GetViaDiameter(), nc.GetViaDrill()]).toEqual([mm(0.6), mm(0.3)]);
+    expect([nc.GetuViaDiameter(), nc.GetuViaDrill()]).toEqual([mm(0.3), mm(0.1)]);
+    expect([nc.GetDiffPairWidth(), nc.GetDiffPairGap(), nc.GetDiffPairViaGap()]).toEqual([
+      mm(0.2),
+      mm(0.25),
+      mm(0.25),
+    ]);
   });
 });
 

@@ -97,7 +97,11 @@ export const projectJson = (name: string, rootUuid: string | null): string =>
       erc: { rule_severities: {}, pin_map: [], erc_exclusions: [] },
       libraries: { pinned_footprint_libs: [], pinned_symbol_libs: [] },
       meta: { filename: `${name}.kicad_pro`, version: 3 },
-      net_settings: { classes: [{ name: 'Default', clearance: 0.2 }], meta: { version: 3 } },
+      // No classes, as template/kicad.kicad_pro: NET_SETTINGS then keeps its own
+      // NETCLASS( Default, true ), every value set. A Default listed here is read
+      // as NETCLASS( name, false ) - only what it carries - and one carrying just a
+      // clearance left Board Setup's other Default columns blank.
+      net_settings: { classes: [], meta: { version: 3 } },
       pcbnew: { last_paths: {}, page_layout_descr_file: '' },
       schematic: {
         annotate_start_num: 0,
