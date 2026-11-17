@@ -103,13 +103,37 @@ export function watchForStaleBuild(
 
   watchingStale = true;
 
-  const markStale = (): void => {
+  let checking = false;
+  const announce = (): void => {
     if (stale) return;
 
     stale = true;
     for (const listener of listeners) listener();
+  };
+  // Every deploy writes a new sw.js. So the browser is asked for it: a new one means the chunk
+  // went with a deploy, and the new version is offered; none means the server still has this
+  // build and the chunk only failed to load - a disk too full for the browser's cache failed
+  // every one, and "A new version is available" came back on every reload with nothing
+  // deployed (11-17). With no worker to ask, a failed chunk is taken for a deploy, as before.
+  const markStale = (): void => {
+    if (stale || checking) return;
 
-    aContainer?.ready.then((aRegistration) => aRegistration.update()).catch(() => {});
+    if (!aContainer) {
+      announce();
+      return;
+    }
+
+    checking = true;
+    aContainer.ready
+      .then((aRegistration) =>
+        aRegistration.update().then(() => {
+          if (aRegistration.installing || aRegistration.waiting) announce();
+        }),
+      )
+      .catch(() => {})
+      .finally(() => {
+        checking = false;
+      });
   };
 
   aWindow.addEventListener('vite:preloadError', (aEvent) => {

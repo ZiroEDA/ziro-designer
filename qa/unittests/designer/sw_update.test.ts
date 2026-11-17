@@ -231,6 +231,42 @@ describe('watchForStaleBuild', () => {
     expect(c.registration.update).toHaveBeenCalledTimes(1);
   });
 
+  it('a chunk that failed while the server still has this build is no new version (11-17)', async () => {
+    // A disk too full for the browser's cache failed every lazy chunk: "A new version of ZiroEDA
+    // is available" came back after every reload, though nothing had been deployed.
+    const w = makeWindow();
+    const c = makeContainer({ controlled: true });
+    const heard = vi.fn();
+    subscribeUpdate(heard);
+    watchForStaleBuild(w.target, c.container);
+
+    w.chunkFailed();
+    await settle();
+
+    expect(c.registration.update).toHaveBeenCalledTimes(1);
+    expect(buildIsStale()).toBe(false);
+    expect(heard).not.toHaveBeenCalled();
+  });
+
+  it('a chunk that failed after a deploy is: the new sw.js is installing', async () => {
+    const w = makeWindow();
+    const c = makeContainer({ controlled: true });
+    c.registration.update = vi.fn(() => {
+      c.registration.installing = new FakeWorker();
+      return Promise.resolve();
+    });
+    const heard = vi.fn();
+    subscribeUpdate(heard);
+    watchForStaleBuild(w.target, c.container);
+
+    w.chunkFailed();
+    w.chunkFailed();
+    await settle();
+
+    expect(buildIsStale()).toBe(true);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
   it('is not stale until a chunk fails', async () => {
     const c = makeContainer({ controlled: true });
     watchForStaleBuild(makeWindow().target, c.container);
