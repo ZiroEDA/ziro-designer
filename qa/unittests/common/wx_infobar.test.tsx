@@ -6,6 +6,8 @@
  * caller that keeps state of its own about the message - the app's new-version notice, which
  * yields the strip back to the demo's message - hears that it did.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
@@ -41,5 +43,21 @@ describe('Infobar', () => {
 
     fireEvent.click(screen.getByLabelText('Hide this message.'));
     expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
+describe('the bar in shell.css', () => {
+  const CSS = readFileSync(resolve(__dirname, '../../../common/widgets/shell.css'), 'utf8');
+  const rule = (aSelector: string) => {
+    const at = CSS.indexOf(`\n${aSelector} {`);
+    return at < 0 ? null : CSS.slice(at, CSS.indexOf('}', at));
+  };
+
+  it("pushes the buttons and the close button to the right edge on every bar, as the sizer's spacer does (11-17)", () => {
+    // The update notice is a plain Infobar: with the spacer on the read-only bar alone, its x
+    // sat beside its Reload Now button.
+    expect(rule('.ze-infobar .msg')).toMatch(/margin-right: auto;/);
+    expect(rule('.ze-readonly-infobar .msg')).toBeNull();
+    expect(rule('.ze-infobar button:not(.ze-infobar-close)')).toMatch(/padding: 3px 12px;/);
   });
 });

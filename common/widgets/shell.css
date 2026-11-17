@@ -8052,9 +8052,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #f7f7f7;
   border-bottom: 1px solid var(--chrome-border);
 }
-/* `ShowMessage( wxJoin( msgs, '\n' ) )`: several messages are several lines. */
+/* `ShowMessage( wxJoin( msgs, '\n' ) )`: several messages are several lines. And the sizer's
+   spacer, on every bar: everything after the message goes to the right edge, the buttons in order
+   with the close button last ("A new version of ZiroEDA is available" had its x beside its
+   Reload Now button, 11-17 - the spacer was on the read-only bar alone). */
 .ze-infobar .msg {
   white-space: pre-line;
+  margin-right: auto;
 }
 .ze-infobar .lnk {
   margin-left: 8px;
@@ -10362,11 +10366,6 @@ textarea.ze-ds-textedit {
   width: 16px;
   height: 16px;
 }
-/* The sizer's spacer: everything after the message goes to the right edge,
-   buttons in order with the close button last. */
-.ze-readonly-infobar .msg {
-  margin-right: auto;
-}
 /* `AddCloseButton()` is a wxBitmapButton, so it is the glyph and nothing else -
    no frame, no fill, unlike the ordinary buttons beside it. */
 .ze-infobar-close {
@@ -10391,9 +10390,9 @@ textarea.ze-ds-textedit {
 
    `:not(.ze-infobar-close)` because the close button is a wxBitmapButton and
    must NOT get this frame - and without the exclusion it would, since
-   `.ze-readonly-infobar button` is (0,1,1) and beats `.ze-infobar-close` at
+   `.ze-infobar button` is (0,1,1) and beats `.ze-infobar-close` at
    (0,1,0) no matter which is written last. */
-.ze-readonly-infobar button:not(.ze-infobar-close) {
+.ze-infobar button:not(.ze-infobar-close) {
   padding: 3px 12px;
   font: inherit;
   color: #f7f7f7;
@@ -10402,7 +10401,7 @@ textarea.ze-ds-textedit {
   border-radius: 4px;
   cursor: default;
 }
-.ze-readonly-infobar button:hover {
+.ze-infobar button:not(.ze-infobar-close):hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
