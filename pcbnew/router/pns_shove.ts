@@ -63,7 +63,7 @@
  * The full porting spec, with `file:line` for every claim, is
  * `/var/tmp/ziro-router-specs/pns_shove_impl.md`.
  */
-import { LineMarker, PnsKind } from './pns_item.js';
+import { LineMarker, PnsKind, type PnsItem, PnsLinkedItem } from './pns_item.js';
 import { PnsLine, PnsLineChain } from './pns_line.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsItemSet } from './pns_itemset.js';
@@ -75,7 +75,6 @@ import { pointInside } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { mergeObtuse, mergeFull } from './pns_optimizer.js';
 import type { PnsBox, PnsNode } from './pns_node.js';
 import type { PnsArc } from './pns_arc.js';
-import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { ViaHandle } from './pns_via.js';
 import type { PnsJoint } from './pns_joint.js';
 import { ObstacleSet } from './pns_node.js';
@@ -927,13 +926,18 @@ export class PnsShove {
    * Only the **index** is pruned; {@link mRootLineHistoryEntries} — the owner —
    * grows for the lifetime of the shove. And only `added` is walked; `removed`
    * is fetched and discarded. Both are upstream's.
+   *
+   * `LINKED_ITEM_MASK_T` takes in `SOLID_T` and `HOLE_T`, which are no `LINKED_ITEM`
+   * (pns_solid.h, pns_hole.h derive from `ITEM`): upstream's `static_cast` reads a
+   * stray field for them as the uid. Here that threw, on the hole of every via a
+   * shove added (Sentry 1X). Neither has a root line, so they are passed over.
    */
   private pruneRootLines(aRemovedNode: PnsNode): void {
     const { added } = aRemovedNode.getUpdatedItems();
 
     for (const item of added) {
-      if (item.ofKind(PnsKind.LINKED_ITEM_MASK_T))
-        this.mRootLineHistory.delete((item as PnsLinkedItem).uid());
+      if (item.ofKind(PnsKind.LINKED_ITEM_MASK_T) && item instanceof PnsLinkedItem)
+        this.mRootLineHistory.delete(item.uid());
     }
   }
 

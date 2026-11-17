@@ -164,6 +164,8 @@ interface ShovePrivates {
   checkShoveDirection(a: PnsLine, b: PnsLine, c: PnsLine): boolean;
   shoveMainLoop(): PnsShoveStatus;
   touchRootLine(aLine: PnsLine): { policy: number };
+  pruneRootLines(aRemovedNode: PnsNode): void;
+  mRootLineHistory: Map<number, unknown>;
 }
 
 const priv = (s: PnsShove): ShovePrivates => s as unknown as ShovePrivates;
@@ -197,6 +199,39 @@ function recordLockJoint(aBody: () => void): Vec2[] {
 }
 
 // =====================================================================================
+describe('SHOVE::pruneRootLines', () => {
+  it("passes over a via's hole and a solid the branch added: only a linked item has a uid (Sentry 1X)", () => {
+    // LINKED_ITEM_MASK_T takes SOLID_T and HOLE_T in, but SOLID and HOLE are no LINKED_ITEM:
+    // upstream's static_cast reads a stray field; here `uid` is undefined and routing threw.
+    const world = makeNode();
+    const shove = new PnsShove(world);
+    const P = priv(shove);
+    const branch = world.branch();
+    const v = via(V(0, 0));
+    branch.addVia(v); // its hole goes into the branch's index with it
+    const pad = new PnsSolid();
+    pad.setPos(V(5000, 0));
+    pad.setNet(NET_B);
+    pad.setLayers(new PnsLayerRange(0));
+    pad.setShape({
+      kind: 'poly',
+      pts: [V(4700, -300), V(5300, -300), V(5300, 300), V(4700, 300)],
+      r: 0,
+    });
+    branch.addSolid(pad);
+    const added = branch.getUpdatedItems().added;
+    expect(added.some((i) => i.ofKind(PnsKind.HOLE_T))).toBe(true);
+    expect(added.some((i) => i.ofKind(PnsKind.SOLID_T))).toBe(true);
+    P.mRootLineHistory.set(v.uid(), {});
+    P.mRootLineHistory.set(-7, {});
+
+    expect(() => P.pruneRootLines(branch)).not.toThrow();
+    // The via's own entry still goes; one for an item not in the branch stays.
+    expect(P.mRootLineHistory.has(v.uid())).toBe(false);
+    expect(P.mRootLineHistory.has(-7)).toBe(true);
+  });
+});
+
 describe('SHOVE::pushSpringback', () => {
   it('snapshots one via slot per head, indexed by head position', () => {
     const world = makeNode();
