@@ -391,3 +391,43 @@ describe('a new copper count', () => {
     expect([silk.color, mask.color]).toEqual(['Not specified', 'Not specified']);
   });
 });
+
+describe('what a thickness cell shows', () => {
+  // `m_frame->StringFromValue( item->GetThickness( sub ), true )`: the frame's units, with
+  // the unit word. This printed the IU count as millimetres - F.Cu "35000 mm", the core
+  // "1510000 mm" - because the mm formatter was handed nanometres (blinky555, I-10).
+  const thicknessOf = (name: string): string =>
+    (cellsOf(name)[THICKNESS]!.querySelector('input') as HTMLInputElement).value;
+
+  it('is the layer thickness in mm, not in internal units', () => {
+    const stackup = freshBoardSetup().physicalStackup;
+    render(<Harness initial={stackup} />);
+    const fcu = stackup.layers.find((l) => l.name === 'F.Cu')!;
+    const fmask = stackup.layers.find((l) => l.name === 'F.Mask')!;
+    expect(fcu.thicknessMM).toBe(0.035);
+    expect(thicknessOf('F.Cu')).toBe('0.035 mm');
+    expect(thicknessOf('F.Mask')).toBe(`${fmask.thicknessMM} mm`);
+  });
+
+  it('shows back what was typed, in mm', () => {
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
+    const input = cellsOf('F.Mask')[THICKNESS]!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.02' } });
+    fireEvent.blur(input);
+    expect(thicknessOf('F.Mask')).toBe('0.02 mm');
+  });
+
+  it('gives Adjust Dielectric Thickness its minimum in mm', () => {
+    // onAdjustDielectricThickness: "Enter expected board thickness (min value %s):", the
+    // sum of every thickness the adjustment may not change - here copper and mask.
+    const stackup = freshBoardSetup().physicalStackup;
+    render(<Harness initial={stackup} />);
+    const fixed = stackup.layers
+      .filter((l) => l.type === 'Copper' || l.name.endsWith('.Mask'))
+      .reduce((a, l) => a + l.thicknessMM, 0);
+    fireEvent.click(screen.getByText('Adjust Dielectric Thickness'));
+    expect(
+      screen.getByText(`Enter expected board thickness (min value ${Number(fixed.toFixed(6))} mm):`),
+    ).toBeTruthy();
+  });
+});

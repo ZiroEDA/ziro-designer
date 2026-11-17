@@ -628,7 +628,8 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       eachThickness(l, l, isDielectric(l));
       for (const sub of l.sublayers ?? []) eachThickness(l, sub, true);
     }
-    const minText = stringFromValue(pcbMmToIU(minThickness), units, true, pcbIUScale);
+    // StringFromValue takes the value in mm here (unit_binder.ts), not in IU.
+    const minText = stringFromValue(minThickness, units, true, pcbIUScale);
     // wxTextEntryDialog( this, title, _( "Adjust Unlocked Dielectric Layers" ) ).
     setAdjust({
       title:
@@ -865,7 +866,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
           <TextCtrl
             {...field(
               `${key}-th`,
-              stringFromValue(pcbMmToIU(p.thicknessMM ?? 0), units, true, pcbIUScale),
+              stringFromValue(p.thicknessMM ?? 0, units, true, pcbIUScale),
               (aText) =>
                 setP({
                   thicknessMM: pcbIuToMM(pcbMmToIU(parseUnitValue(aText, units, pcbIUScale))),
