@@ -170,7 +170,7 @@ export function makePcbSearchWiring(
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/wx/menu_ui.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
-import { layerBoxLabel } from './pcb_layer_box_selector.js';
+import { layerBoxLabel, layerBoxName } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import {
@@ -7837,6 +7837,7 @@ export function PcbEditor({
           units={unitLabel}
           layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
+          layerLabel={(aName: string) => layerBoxName(frameRef.current?.GetBoard(), aName)}
           activeLayer={activeLayer}
           parent={(frameRef.current?.GetModel() as BOARD_ITEM_CONTAINER | null | undefined) ?? null}
           invertX={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertXAxis ?? false}

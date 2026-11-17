@@ -42,6 +42,7 @@ function show(aCommitError = '') {
       initial={VALUES}
       layers={['F.SilkS']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => l}
       background="#000"
       onApply={onApply}
       onClose={() => {}}

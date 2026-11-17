@@ -346,6 +346,7 @@ export function DialogDimensionProperties({
   units,
   layers,
   layerColor,
+  layerLabel,
   onApply,
   onClose,
 }: {
@@ -354,6 +355,11 @@ export function DialogDimensionProperties({
   layers: readonly string[];
   /** The board colour of a layer, for PCB_LAYER_BOX_SELECTOR's swatch. */
   layerColor: (layer: string) => string;
+  /**
+   * The name the layer box shows: `PCB_LAYER_PRESENTATION::getLayerName`, which is
+   * `BOARD::GetLayerName` - F.Silkscreen, User.Drawings - not the canonical F.SilkS.
+   */
+  layerLabel: (layer: string) => string;
   onApply: (v: DimensionValues) => void;
   onClose: () => void;
 }): JSX.Element {
@@ -394,7 +400,7 @@ export function DialogDimensionProperties({
   });
 
   const layerBox = {
-    rows: layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) })),
+    rows: layers.map((l) => ({ value: l, label: layerLabel(l), swatch: layerColor(l) })),
     value: v.layer,
     onChange: (aLayer: string) => set({ layer: aLayer }),
   };

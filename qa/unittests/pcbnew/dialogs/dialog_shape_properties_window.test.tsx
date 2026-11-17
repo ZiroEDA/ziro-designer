@@ -44,6 +44,7 @@ function show(aIndex: number) {
       dialog={dialog}
       layers={['F.Cu', 'F.SilkS']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => l}
       onApplied={onApplied}
       onClose={() => {}}
     />,

@@ -316,6 +316,7 @@ export function DialogBarcodeProperties({
   units,
   layers,
   layerColor,
+  layerLabel,
   background,
   onApply,
   onClose,
@@ -328,6 +329,11 @@ export function DialogBarcodeProperties({
   initial: BarcodeValues;
   layers: readonly string[];
   layerColor: (layer: string) => string;
+  /**
+   * The name the layer box shows: `PCB_LAYER_PRESENTATION::getLayerName`, which is
+   * `BOARD::GetLayerName` - F.Silkscreen, User.Drawings - not the canonical F.SilkS.
+   */
+  layerLabel: (layer: string) => string;
   background: string;
   onApply: (v: BarcodeValues) => void;
   onClose: () => void;
@@ -373,7 +379,7 @@ export function DialogBarcodeProperties({
         m_cbKnockout={{ value: v.knockout, onChange: (aOn) => set({ knockout: aOn }) }}
         m_cbShowText={{ value: v.showText, onChange: (aOn) => set({ showText: aOn }) }}
         m_cbLayer={{
-          rows: layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) })),
+          rows: layers.map((l) => ({ value: l, label: layerLabel(l), swatch: layerColor(l) })),
           value: v.layer,
           onChange: (aLayer) => set({ layer: aLayer }),
         }}

@@ -200,6 +200,11 @@ interface Props {
   /** The board's own layers, for the "Layer:" selector — `Resync()`. */
   layers: readonly string[];
   layerColor: (layer: string) => string;
+  /**
+   * The name the layer box shows: `PCB_LAYER_PRESENTATION::getLayerName`, which is
+   * `BOARD::GetLayerName` - F.Silkscreen, User.Drawings - not the canonical F.SilkS.
+   */
+  layerLabel: (layer: string) => string;
   /** `m_parent->GetActiveLayer()`, used when "Layer:" is unchecked. */
   activeLayer: PCB_LAYER_NAME;
   /** `GRAPHICS_IMPORTER_PCBNEW( m_parent->GetModel() )`: the items' parent. */
@@ -223,6 +228,7 @@ export function DialogImportGraphics({
   units,
   layers,
   layerColor,
+  layerLabel,
   activeLayer,
   parent,
   invertX,
@@ -347,7 +353,7 @@ export function DialogImportGraphics({
         )}
         m_setLayerCheckbox={{ value: params.setLayer, onChange: (aOn) => set({ setLayer: aOn }) }}
         m_SelLayerBox={{
-          rows: layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) })),
+          rows: layers.map((l) => ({ value: l, label: layerLabel(l), swatch: layerColor(l) })),
           value: params.layer,
           enabled: params.setLayer,
           onChange: (aLayer) => set({ layer: aLayer as PCB_LAYER_NAME }),

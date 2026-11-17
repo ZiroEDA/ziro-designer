@@ -39,6 +39,7 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { BOARD } from './board.js';
+import { layerBoxName } from './pcb_layer_box_selector.js';
 import {
   barcodePreview,
   type BarcodePreview,
@@ -358,6 +359,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
   const theBoard = board();
   const layers = enabledLayerNames(theBoard);
   const coloured = layers.map((name) => ({ name, color: layerColor(name) }));
+  const layerLabel = (aName: string): string => layerBoxName(theBoard, aName);
 
   const zoneNode = ((): ReactNode => {
     if (!zone) return null;
@@ -416,6 +418,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
           units={units}
           layers={layers}
           layerColor={layerColor}
+          layerLabel={layerLabel}
           onApply={(values: TextValues) => {
             const d = text;
             setText(null);
@@ -481,6 +484,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
           dialog={shape.dialog}
           layers={layers}
           layerColor={layerColor}
+          layerLabel={layerLabel}
           onApplied={() => {
             shape.onOK?.();
             setShape(null);
@@ -513,6 +517,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
           units={units}
           layers={layers}
           layerColor={layerColor}
+          layerLabel={layerLabel}
           onApply={(values: TextBoxValues) => {
             const d = textBox;
             setTextBox(null);
@@ -539,6 +544,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
           units={units}
           layers={layers}
           layerColor={layerColor}
+          layerLabel={layerLabel}
           onApply={(values: DimensionValues) => {
             const d = dimension;
             setDimension(null);
@@ -560,6 +566,7 @@ export function usePcbItemDialogs(aEnv: PCB_ITEM_DIALOGS_ENV): {
           initial={barcode.dialog.TransferDataToWindow()}
           layers={layers}
           layerColor={layerColor}
+          layerLabel={layerLabel}
           background={background}
           onClose={() => {
             barcode.resolve(false);

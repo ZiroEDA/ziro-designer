@@ -51,6 +51,7 @@ function show() {
       units="mm"
       layers={['F.SilkS']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => l}
       onApply={onApply}
       onClose={() => {}}
     />,

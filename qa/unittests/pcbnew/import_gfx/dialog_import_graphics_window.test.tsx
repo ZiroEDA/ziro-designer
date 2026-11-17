@@ -19,6 +19,7 @@ function show() {
       units="mm"
       layers={['Dwgs.User', 'F.SilkS']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => l}
       activeLayer="F.SilkS"
       parent={null}
       invertX={false}

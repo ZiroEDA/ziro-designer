@@ -94,6 +94,20 @@ describe('usePcbItemDialogs', () => {
     expect(document.querySelector('.ze-modal')).toBeNull();
   });
 
+  it("the text dialog's layer box names the field's layer as the board does (blinky555, I-11)", () => {
+    // F.SilkS is the Reference's layer; the board calls it F.Silkscreen
+    // (PCB_LAYER_PRESENTATION::getLayerName -> BOARD::GetLayerName).
+    render(<Host />);
+    const field = frame.GetBoard()!.GetFirstFootprint()!.GetFields()[0]!;
+    act(() => {
+      void hooks.showTextPropertiesDialog(new DIALOG_TEXT_PROPERTIES(frame, field));
+    });
+    const modal = document.querySelector('.ze-modal')!;
+    expect(modal.textContent).toContain('F.Silkscreen');
+    expect(modal.textContent).not.toContain('F.SilkS ');
+    act(() => fireEvent.click(button('Cancel')));
+  });
+
   it('the pad dialog opens on the live pad and closes on Cancel', () => {
     render(<Host />);
     const pad = frame.GetBoard()!.GetFirstFootprint()!.Pads()[0]!;

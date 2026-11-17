@@ -10,6 +10,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GetPenSizeForBold, GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { layerBoxName } from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
 import {
   DialogTextProperties,
   type TextValues,
@@ -66,6 +68,9 @@ const REFERENCE: TextWindowShape = {
   statusLine: 'Footprint R1 (10k), front side, rotated 0.0 deg',
 };
 
+/** The board the layer box names its layers off, as the frame's would. */
+const BOARD_FOR_NAMES = new BOARD();
+
 function show(aShape: TextWindowShape, aValues: Partial<TextValues> = {}) {
   const onApply = vi.fn();
   render(
@@ -73,8 +78,9 @@ function show(aShape: TextWindowShape, aValues: Partial<TextValues> = {}) {
       initial={{ ...VALUES, ...aValues }}
       shape={aShape}
       units="mm"
-      layers={['F.SilkS']}
+      layers={['F.SilkS', 'Dwgs.User']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => layerBoxName(BOARD_FOR_NAMES, l)}
       onApply={onApply}
       onClose={() => {}}
     />,
@@ -86,6 +92,13 @@ const textbox = (aName: string) => screen.getByRole('textbox', { name: aName }) 
 const ok = () => fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
 describe('DIALOG_TEXT_PROPERTIES window', () => {
+  it('names the layers as the board does - F.Silkscreen, User.Drawings - not F.SilkS (blinky555, I-11)', () => {
+    // PCB_LAYER_BOX_SELECTOR -> PCB_LAYER_PRESENTATION::getLayerName -> BOARD::GetLayerName.
+    show(BOARD_TEXT);
+    expect(screen.getAllByText('F.Silkscreen').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('F.SilkS')).toEqual([]);
+  });
+
   it('a board text has the multi-line control and no Show, Keep upright or status line', () => {
     show(BOARD_TEXT);
     expect(screen.getByText('Text Properties')).toBeTruthy();

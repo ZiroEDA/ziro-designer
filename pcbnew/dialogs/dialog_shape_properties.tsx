@@ -800,6 +800,7 @@ export function DialogShapeProperties({
   dialog,
   layers,
   layerColor,
+  layerLabel,
   onApplied,
   onClose,
 }: {
@@ -807,6 +808,11 @@ export function DialogShapeProperties({
   layers: readonly string[];
   /** The board colour of a layer, for PCB_LAYER_BOX_SELECTOR's swatch. */
   layerColor: (layer: string) => string;
+  /**
+   * The name the layer box shows: `PCB_LAYER_PRESENTATION::getLayerName`, which is
+   * `BOARD::GetLayerName` - F.Silkscreen, User.Drawings - not the canonical F.SilkS.
+   */
+  layerLabel: (layer: string) => string;
   /** After OK wrote the shape (ShowGraphicItemPropertiesDialog's wxID_OK). */
   onApplied: () => void;
   onClose: () => void;
@@ -921,7 +927,7 @@ export function DialogShapeProperties({
           onChange: (aNetcode) => set({ net: aNetcode }),
         }}
         m_LayerSelectionCtrl={{
-          rows: layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) })),
+          rows: layers.map((l) => ({ value: l, label: layerLabel(l), swatch: layerColor(l) })),
           value: v.layer,
           onChange: (aLayer) => set({ layer: aLayer }),
         }}

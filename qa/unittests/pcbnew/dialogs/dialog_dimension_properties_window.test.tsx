@@ -72,6 +72,7 @@ function show(aDimension: string) {
       units="mm"
       layers={['Dwgs.User', 'Cmts.User']}
       layerColor={() => '#fff'}
+      layerLabel={(l: string) => l}
       onApply={onApply}
       onClose={() => {}}
     />,

@@ -38,9 +38,10 @@ import { hotkeyListKey } from '@ziroeda/common/tool/action_menu_key_names.js';
 import { NAMED_KEYS } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { type PCB_LAYER_ID, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
-import { LSET_Name } from '@ziroeda/common/layer_ids.js';
+import { LayerName, LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LAYER_BOX_SELECTOR } from '@ziroeda/common/widgets/layer_box_selector.js';
+import type { BOARD } from './board.js';
 import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import { PCB_LAYER_PRESENTATION } from './pcb_layer_presentation.js';
 
@@ -91,6 +92,16 @@ export function layerBoxLabel(name: string, layerId: string): string {
 
   // `if( !keyname.IsEmpty() )` — no hotkey, no parentheses.
   return key ? `${name} (${hotkeyListKey(key)})` : name;
+}
+
+/**
+ * The name a dialog's layer box shows for a layer it keeps by its canonical name:
+ * `PCB_LAYER_PRESENTATION::getLayerName` (sel_layer.cpp:77) - `BOARD::GetLayerName`
+ * with a board, so a renamed layer shows by its name and F.SilkS as F.Silkscreen, and
+ * the standard name without one.
+ */
+export function layerBoxName(aBoard: BOARD | null | undefined, aCanonical: string): string {
+  return aBoard ? aBoard.GetLayerName(LSET_NameToLayer(aCanonical)) : LayerName(aCanonical);
 }
 
 /**
