@@ -338,6 +338,16 @@ export function LibTree({
   const [sortMode, setSortModeState] = useState<SortMode>(adapter.getSortMode());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(openLibs ?? []));
   const [selected, setSelected] = useState<LibTreeNode | null>(null);
+  /**
+   * Whether the user has steered the tree - typed a query or picked a row - since the
+   * owner last named a `selectLibId`. Upstream calls `SelectLibId( aPreselect )` once
+   * (PANEL_SYMBOL_CHOOSER::SetPreselect); a later `Regenerate( true )` keeps the CURRENT
+   * state. Ours re-applies the id on every regenerate because the lazily loaded row may
+   * not exist yet - which, after a search, put the last placed symbol back under Enter
+   * while the list showed only the matches (blinky555, I-4).
+   */
+  const steered = useRef(false);
+  const lastSelectLibId = useRef<string | undefined>(undefined);
   /** The node `CenterLibId` was asked to centre, pending a laid-out `rows`. */
   const [pendingCenter, setPendingCenter] = useState<LibTreeNode | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -502,6 +512,12 @@ export function LibTree({
    * owner has put it in the adapter.
    */
   useEffect(() => {
+    if (selectLibId !== lastSelectLibId.current) {
+      lastSelectLibId.current = selectLibId;
+      steered.current = false;
+    } else if (steered.current) {
+      return; // a regenerate, after the user took over: keep their state
+    }
     if (!selectLibId) return;
     const node = findByLibId(selectLibId);
     if (!node) return;
@@ -553,6 +569,7 @@ export function LibTree({
   }, [recentSearchesKey]);
 
   const onQueryText = (value: string) => {
+    steered.current = true;
     setSearch(value);
     onSearchChanged?.(value);
     // Upstream debounces tree regeneration behind a 200 ms timer.
@@ -887,7 +904,10 @@ export function LibTree({
           : selected
             ? GetPrevItem(model, selected)
             : null;
-      if (next) select(next);
+      if (next) {
+        steered.current = true;
+        select(next);
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       updateRecentSearchMenu();
@@ -1220,7 +1240,10 @@ export function LibTree({
                   (node.type === LibTreeNodeType.LIBRARY ? ' lib' : '')
                 }
                 style={{ paddingLeft: ROW_LEAD_IN + indent * LIB_TREE_INDENT }}
-                onClick={() => select(node)}
+                onClick={() => {
+                  steered.current = true;
+                  select(node);
+                }}
                 onDoubleClick={() => activate(node)}
                 onMouseMove={(e) => onRowHover(node, e)}
                 onContextMenu={(e) => {

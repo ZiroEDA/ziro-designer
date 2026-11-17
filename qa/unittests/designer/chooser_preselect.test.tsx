@@ -29,7 +29,7 @@
  * exercised anywhere, which is why passing it was easy to leave out.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
@@ -196,4 +196,110 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
     ]);
     expect(props.selectLibId).toBe('Device:R');
   }, 20000);
+});
+
+/**
+ * Upstream selects the preselect ONCE (PANEL_SYMBOL_CHOOSER::SetPreselect), and a later
+ * `Regenerate( true )` keeps the current state (lib_tree.cpp:479-494). Ours re-applies
+ * `selectLibId` on every regenerate because the lazily loaded row may not exist yet - but
+ * kept doing it after the user searched, so a library landing mid-search put the last placed
+ * symbol back under the cursor: the list showed only Conn_01x02 and Enter placed another LED
+ * (blinky555, I-4).
+ */
+describe('a regenerate after the user has steered keeps their selection', () => {
+  const tree = (aNonce: number, aOnChoose: (n: LibTreeNode) => void = () => {}) => (
+    <LibTree
+      adapter={adapterRef}
+      onSelect={() => {}}
+      onChoose={aOnChoose}
+      selectLibId="Connector:Screw_Terminal_01x02"
+      regenerateNonce={aNonce}
+    />
+  );
+  let adapterRef: LibTreeModelAdapter;
+
+  it('a search, then a library loading: the best match stays, and Enter chooses it', () => {
+    vi.useFakeTimers();
+    try {
+      adapterRef = connectorTree();
+      // What a symbol row is found by (symbol_tree_model_adapter's libTreeItemSearchTerms).
+      for (const item of adapterRef.tree.children[0]!.children) {
+        item.sourceSearchTerms = [{ text: item.name, score: 8, isName: true }];
+        item.searchTerms = [...item.sourceSearchTerms];
+      }
+      const chosen = vi.fn();
+      const view = render(tree(0, chosen));
+      expect(activeRow()).toBe('Screw_Terminal_01x02');
+
+      const input = document.querySelector('.ze-libtree input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'Screw_Terminal_01x03' } });
+      act(() => vi.advanceTimersByTime(250)); // the 200 ms regenerate debounce
+      expect(activeRow()).toBe('Screw_Terminal_01x03');
+
+      view.rerender(tree(1, chosen)); // a lazily loaded library lands
+      expect(activeRow()).toBe('Screw_Terminal_01x03');
+
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(chosen.mock.calls.at(-1)?.[0]?.name).toBe('Screw_Terminal_01x03');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a row the user clicked stays selected through a regenerate', () => {
+    adapterRef = connectorTree();
+    const view = render(tree(0));
+    const row = [...document.querySelectorAll('.ze-libtree-row')].find(
+      (r) => r.querySelector('.col-item')?.textContent === 'Screw_Terminal_01x01',
+    ) as HTMLElement;
+    fireEvent.click(row);
+    view.rerender(tree(1));
+    expect(activeRow()).toBe('Screw_Terminal_01x01');
+  });
+
+  it('a NEW id from the owner still selects after the user steered, even once its row loads later', () => {
+    adapterRef = connectorTree();
+    const at = (aId: string, aNonce: number) => (
+      <LibTree
+        adapter={adapterRef}
+        onSelect={() => {}}
+        onChoose={() => {}}
+        selectLibId={aId}
+        regenerateNonce={aNonce}
+      />
+    );
+    const view = render(at('Connector:Screw_Terminal_01x02', 0));
+    const row = [...document.querySelectorAll('.ze-libtree-row')].find(
+      (r) => r.querySelector('.col-item')?.textContent === 'Screw_Terminal_01x01',
+    ) as HTMLElement;
+    fireEvent.click(row);
+
+    // The editor loads a symbol from a library the tree does not hold yet...
+    view.rerender(at('Late:Part', 0));
+    const late = new LibTreeModelAdapter();
+    const lib = late.addLibrary('Late', '', false);
+    const item = new LibTreeNode();
+    item.type = LibTreeNodeType.ITEM;
+    item.parent = lib;
+    item.name = 'Part';
+    item.libNickname = 'Late';
+    item.libItemName = 'Part';
+    lib.children.push(item);
+    late.finishLibrary(lib);
+    adapterRef.tree.children.push(...late.tree.children);
+    // ...which arrives with the next regenerate.
+    view.rerender(at('Late:Part', 1));
+    expect(activeRow()).toBe('Part');
+  });
+
+  it('until then, a regenerate still lands on the preselect once its row exists', () => {
+    // What the re-run is for: the row the id names arrives with a later library.
+    adapterRef = new LibTreeModelAdapter();
+    const view = render(tree(0));
+    expect(activeRow()).toBe('');
+    const loaded = connectorTree();
+    for (const lib of loaded.tree.children) adapterRef.tree.children.push(lib);
+    view.rerender(tree(1));
+    expect(activeRow()).toBe('Screw_Terminal_01x02');
+  });
 });
