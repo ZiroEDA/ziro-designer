@@ -9,7 +9,7 @@
  * (DIALOG_SYMBOL_CHOOSER).
  */
 import { Button, CheckBox } from '@ziroeda/wx/controls.js';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
   type PanelSymbolChooserHandle,
@@ -60,8 +60,26 @@ export function DialogSymbolChooser({
     );
   }, [onOk, keepSymbol, placeAllUnits]);
 
+  // `SetInitialFocus( m_chooserPanel->GetFocusTarget() )` (dialog_symbol_chooser.cpp:102): the
+  // filter, read when the dialog is shown - the tree's own focus() on mount lands while the
+  // window is still hidden for its first layout, and a hidden control takes no focus, so
+  // typing right after A went nowhere (blinky555, I-3).
+  const focusTarget = useMemo(
+    () => ({
+      get current(): HTMLElement | null {
+        return panelRef.current?.GetFocusTarget() ?? null;
+      },
+    }),
+    [],
+  );
+
   return (
-    <DialogShim title={title} onClose={onCancel} className="ze-symbol-chooser">
+    <DialogShim
+      title={title}
+      onClose={onCancel}
+      className="ze-symbol-chooser"
+      initialFocus={focusTarget}
+    >
       <div className="ze-modal-body">
         <PanelSymbolChooser
           app={SYMBOL_CHOOSER_APP}

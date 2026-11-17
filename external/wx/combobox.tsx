@@ -23,7 +23,16 @@
  * the currently-selected row sitting on top of it, so the value you are looking
  * at does not move when the list appears. That is what `popupTop` computes.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type JSX } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type JSX,
+  type MutableRefObject,
+  type Ref,
+} from 'react';
 
 // ---- wxChoice's popup placement (was wx_combobox_popup.ts) ----
 /**
@@ -321,6 +330,7 @@ export function TextCombo({
   ariaLabel,
   menuText,
   disabled,
+  inputRef: aInputRef,
 }: {
   value: string;
   /** The suggestions; picking one replaces the entry's text. */
@@ -343,6 +353,8 @@ export function TextCombo({
   ariaLabel?: string;
   /** `Enable( false )`: the entry and its button. */
   disabled?: boolean;
+  /** The entry, e.g. as a dialog's `SetInitialFocus( m_valueCombo->GetTextCtrl() )`. */
+  inputRef?: Ref<HTMLInputElement>;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -374,7 +386,12 @@ export function TextCombo({
     <>
       <span ref={wrapRef} className={`ze-textcombo${className ? ` ${className}` : ''}`}>
         <input
-          ref={inputRef}
+          ref={(el) => {
+            (inputRef as MutableRefObject<HTMLInputElement | null>).current = el;
+            if (typeof aInputRef === 'function') aInputRef(el);
+            else if (aInputRef)
+              (aInputRef as MutableRefObject<HTMLInputElement | null>).current = el;
+          }}
           value={value}
           title={title}
           disabled={disabled}

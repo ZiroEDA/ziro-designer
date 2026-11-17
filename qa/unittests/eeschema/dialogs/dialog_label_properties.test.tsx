@@ -23,6 +23,7 @@ import {
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schFrame, schToolHarness } from '../support/sch_tool_harness.js';
+import { hiddenTakesNoFocus } from '../../common/support/hidden_takes_no_focus.js';
 
 const HOST: GRID_TEXT_BUTTON_HOST = {
   ChooseFootprint: () => Promise.resolve(null),
@@ -65,6 +66,21 @@ describe('DIALOG_LABEL_PROPERTIES_BASE', () => {
     expect(screen.getAllByLabelText('Label').length).toBeGreaterThan(0);
     expect(shown('Input')).toBeNull();
     expect(screen.getByText('Text size:')).toBeTruthy();
+  });
+
+  it("a new label's text entry has the focus, so typing after L goes into it (blinky555, I-5)", () => {
+    // SetInitialFocus( m_valueCombo->GetTextCtrl() ) (dialog_label_properties.cpp:67). The combo
+    // focused itself on mount with autoFocus, while the window is still hidden for its first
+    // layout - and a hidden control takes no focus.
+    const restore = hiddenTakesNoFocus();
+    try {
+      open(new SCH_LABEL({ x: 0, y: 0 }, ''), true);
+      const entry = document.activeElement as HTMLInputElement;
+      expect(entry.tagName).toBe('INPUT');
+      expect(entry.getAttribute('aria-label')).toBe('Label');
+    } finally {
+      restore();
+    }
   });
 
   it('a global label: Input .. Passive, not the flag shapes', () => {

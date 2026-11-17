@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MutableRefObject,
   type ReactNode,
 } from 'react';
 import { type LibTreeNode, LibTreeNodeType } from '../lib_tree_model.js';
@@ -226,6 +227,12 @@ export interface LibTreeProps {
    * SYMBOL_EDIT_FRAME's MAIL_LIB_EDIT issues it on the library it was sent.
    */
   expandLibId?: string;
+  /**
+   * `LIB_TREE::GetFocusTarget()` (lib_tree.cpp:503): the query control, which an owning
+   * dialog names in `SetInitialFocus` - DIALOG_SYMBOL_CHOOSER does - so typing right after
+   * the dialog opens filters.
+   */
+  focusTargetRef?: MutableRefObject<HTMLInputElement | null>;
 }
 
 interface Row {
@@ -333,6 +340,7 @@ export function LibTree({
   selectLibId,
   centerLibId,
   expandLibId,
+  focusTargetRef,
 }: LibTreeProps): JSX.Element {
   const [search, setSearch] = useState(initialSearch);
   const [sortMode, setSortModeState] = useState<SortMode>(adapter.getSortMode());
@@ -1101,7 +1109,10 @@ export function LibTree({
             onChange={(aValue) => onQueryText(aValue)}
             className="ze-search"
             hint={_('Filter')}
-            inputRef={searchRef}
+            inputRef={(el: HTMLInputElement | null) => {
+              (searchRef as MutableRefObject<HTMLInputElement | null>).current = el;
+              if (focusTargetRef) focusTargetRef.current = el;
+            }}
           />
           {/* ShowCancelButton only shows one while there is something to cancel:
               GtkSearchEntry hangs the secondary icon off a non-empty value. */}

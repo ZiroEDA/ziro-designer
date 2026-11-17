@@ -159,6 +159,36 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
     return captured[captured.length - 1]!;
   }
 
+  it("hands the tree's query control up as GetFocusTarget (DIALOG_SYMBOL_CHOOSER's initial focus)", async () => {
+    const input = document.createElement('input');
+    vi.resetModules();
+    vi.doMock('@ziroeda/common/widgets/lib_tree.js', () => ({
+      LibTree: (props: { focusTargetRef?: { current: HTMLInputElement | null } }) => {
+        if (props.focusTargetRef) props.focusTargetRef.current = input;
+        return <div data-testid="libtree-stub" />;
+      },
+    }));
+    const { PanelSymbolChooser } = await import(
+      '@ziroeda/eeschema/widgets/panel_symbol_chooser.js'
+    );
+    const { SYMBOL_CHOOSER_APP } = await import(
+      '@ziroeda/designer/src/editors/schematic/symbol_chooser_app.js'
+    );
+    const handle = { current: null as { GetFocusTarget(): HTMLInputElement | null } | null };
+    render(
+      <PanelSymbolChooser
+        ref={handle}
+        app={SYMBOL_CHOOSER_APP}
+        showFootprints={false}
+        historyList={[]}
+        alreadyPlaced={[]}
+        onAccept={() => {}}
+      />,
+    );
+    vi.doUnmock('@ziroeda/common/widgets/lib_tree.js');
+    expect(handle.current?.GetFocusTarget()).toBe(input);
+  }, 20000);
+
   it('passes preselect through as selectLibId', async () => {
     const props = await treePropsFor('Connector:Screw_Terminal_01x02');
     expect(props.selectLibId).toBe('Connector:Screw_Terminal_01x02');

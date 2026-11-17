@@ -192,7 +192,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
                 options={p.comboChoices}
                 onChange={p.onValue}
                 onEnter={p.onOK}
-                autoFocus={p.entry === 'combo'}
+                inputRef={p.entry === 'combo' ? p.valueRef : undefined}
                 ariaLabel="Label"
               />
             </SizerItem>

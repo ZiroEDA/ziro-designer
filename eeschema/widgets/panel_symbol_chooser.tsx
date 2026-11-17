@@ -118,6 +118,8 @@ export interface PanelSymbolChooserProps {
 export interface PanelSymbolChooserHandle {
   /** GetSelectedLibId + GetFields, resolved to the loaded symbol. */
   getSelected(): { symbol: LibSymbol; unit: number; fields: [string, string][] } | null;
+  /** `GetFocusTarget()`: the tree's query control, for the dialog's `SetInitialFocus`. */
+  GetFocusTarget(): HTMLInputElement | null;
 }
 
 // The search string is preserved between openings of the dialog
@@ -195,6 +197,8 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     const [parentSymbol, setParentSymbol] = useState<LibSymbol | undefined>(undefined);
     const [fpOverride, setFpOverride] = useState('');
     const fieldEdits = useRef<[string, string][]>([]);
+    /** LIB_TREE::GetFocusTarget's control, filled in by the tree. */
+    const queryCtrl = useRef<HTMLInputElement | null>(null);
     const loadedLibs = useRef(new Set<string>());
     // The history/already-placed group entries' symbols, with their picked
     // field edits already applied (upstream's history_list_storage).
@@ -431,6 +435,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             fields: [...fieldEdits.current],
           };
         },
+        GetFocusTarget: () => queryCtrl.current,
       }),
       [selectedNode, previewSymbol],
     );
@@ -582,6 +587,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           adapter={adapter}
           recentSearchesKey={powerFilter ? 'power' : 'symbols'}
           regenerateNonce={regenerateNonce}
+          focusTargetRef={queryCtrl}
           initialSearch={powerFilter ? gPowerSearchString : gSymbolSearchString}
           onSearchChanged={onSearchChanged}
           onSelect={onSelect}
