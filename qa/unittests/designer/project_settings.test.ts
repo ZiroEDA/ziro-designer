@@ -15,7 +15,6 @@ import {
   writeSchematicSetupText,
 } from '@ziroeda/eeschema/project_settings.js';
 import {
-  blankNetClass,
   defaultSchematicSetup,
   type SchematicSetup,
 } from '@ziroeda/eeschema/schematic_settings.js';
@@ -128,13 +127,20 @@ describe('schematic setup .kicad_pro persistence', () => {
   it('reads defaults from an empty project and the new-project template', () => {
     expect(readSchematicSetup([])).toEqual(defaultSchematicSetup());
     const fromTemplate = readSchematicSetupText(TEMPLATE);
-    // A stored classes list wins verbatim: the template's Default carries only
-    // clearance 0.2, so every other dimension reads as unset, like KiCad's
-    // NETCLASS(name, false) reader. Factory defaults only apply when the file
-    // has no net_settings.classes at all.
-    const want = defaultSchematicSetup();
-    want.netClasses.classes[0] = { ...blankNetClass('Default'), clearance: '0.2' };
-    expect(fromTemplate).toEqual(want);
+    // The template lists no classes, as KiCad's template/kicad.kicad_pro, so the Default is
+    // NET_SETTINGS' own NETCLASS( Default, true ): netclass.cpp's DEFAULT_* values (:39-47).
+    // It used to list a Default carrying only clearance 0.2, which a listed class reads as
+    // NETCLASS( name, false ) - and Board Setup showed the rest blank (blinky555, I-9).
+    expect(fromTemplate).toEqual(defaultSchematicSetup());
+    const dflt = fromTemplate.netClasses.classes[0]!;
+    expect([dflt.name, dflt.clearance, dflt.trackWidth]).toEqual(['Default', '0.2', '0.2']);
+    expect([dflt.viaSize, dflt.viaHole, dflt.uviaSize, dflt.uviaHole]).toEqual([
+      '0.6',
+      '0.3',
+      '0.3',
+      '0.1',
+    ]);
+    expect([dflt.dpWidth, dflt.dpGap, dflt.dpViaGap]).toEqual(['0.2', '0.25', '0.25']);
   });
 
   it('round-trips every persisted field', () => {
@@ -343,9 +349,10 @@ describe('schematic setup .kicad_pro persistence', () => {
     (pro.schematic as Record<string, unknown>).page_layout_descr_file = 'frame.kicad_wks';
     (pro.net_settings as Record<string, unknown>).netclass_assignments = { '/n1': 'Power' };
     (pro.net_settings as Record<string, unknown>).net_colors = { '/n1': 'rgb(1, 2, 3)' };
-    (
-      (pro.net_settings as Record<string, unknown>).classes as Record<string, unknown>[]
-    )[0]!.diff_pair_via_gap = 0.25;
+    // A stored Default with a key the dialog does not own (the template lists none).
+    (pro.net_settings as Record<string, unknown>).classes = [
+      { name: 'Default', clearance: 0.2, diff_pair_via_gap: 0.25 },
+    ];
     const text = JSON.stringify(pro, null, 2);
 
     const s = readSchematicSetupText(text);

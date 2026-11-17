@@ -31,6 +31,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import type { PanelSymbolChooserHandle } from '@ziroeda/eeschema/widgets/panel_symbol_chooser.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 
@@ -174,7 +175,7 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
     const { SYMBOL_CHOOSER_APP } = await import(
       '@ziroeda/designer/src/editors/schematic/symbol_chooser_app.js'
     );
-    const handle = { current: null as { GetFocusTarget(): HTMLInputElement | null } | null };
+    const handle = { current: null as PanelSymbolChooserHandle | null };
     render(
       <PanelSymbolChooser
         ref={handle}

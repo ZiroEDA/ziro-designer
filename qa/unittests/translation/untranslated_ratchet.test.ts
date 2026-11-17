@@ -45,7 +45,6 @@ const ALLOWED: Record<string, readonly (readonly [file: string, text: string, wh
     ['file_activation.ts', 'none', 'a launch target, a state value'],
     ['import_project.ts', 'pads', 'an import format id'],
     ['menubar.ts', 'footprint', 'the library-table kind passed to a handler'],
-    ['new_project.ts', 'Default', "the Default net class's name in a new .kicad_pro: file data"],
     ['project_tree.ts', 'unknown', 'a file-type id'],
     ['storageHealth.ts', 'unknown', 'a storage-persistence state (x2)'],
     ['user_templates.ts', 'path', 'an IndexedDB key path'],

@@ -102,20 +102,23 @@ export function blankNetClass(name: string): NetClass {
 }
 
 export function defaultNetClasses(): NetClassesData {
-  // The Default netclass carries KiCad's factory dimensions (NETCLASS defaults,
-  // mm); user-added classes start blank (inherit Default).
+  // The Default netclass carries KiCad's factory dimensions - NETCLASS( Default, true ),
+  // whose values are netclass.cpp's DEFAULT_* constants (:39-47, mm); data mirrored from
+  // that table. This had track 0.25 and via 0.8 / 0.4, which are not KiCad 10's. User-added
+  // classes start blank (inherit Default).
   return {
     classes: [
       {
         ...blankNetClass('Default'),
         clearance: '0.2',
-        trackWidth: '0.25',
-        viaSize: '0.8',
-        viaHole: '0.4',
+        trackWidth: '0.2',
+        viaSize: '0.6',
+        viaHole: '0.3',
         uviaSize: '0.3',
         uviaHole: '0.1',
         dpWidth: '0.2',
         dpGap: '0.25',
+        dpViaGap: '0.25',
       },
     ],
     assignments: [],

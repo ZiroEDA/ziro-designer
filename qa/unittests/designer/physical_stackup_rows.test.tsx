@@ -427,7 +427,9 @@ describe('what a thickness cell shows', () => {
       .reduce((a, l) => a + l.thicknessMM, 0);
     fireEvent.click(screen.getByText('Adjust Dielectric Thickness'));
     expect(
-      screen.getByText(`Enter expected board thickness (min value ${Number(fixed.toFixed(6))} mm):`),
+      screen.getByText(
+        `Enter expected board thickness (min value ${Number(fixed.toFixed(6))} mm):`,
+      ),
     ).toBeTruthy();
   });
 });
