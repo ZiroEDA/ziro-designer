@@ -388,6 +388,14 @@ export class wxGridCellEditor {
   protected m_startValue = '';
   /** What the control holds now. */
   m_value = '';
+  /**
+   * Whether a typed character opened this edit and is now its text. wx's
+   * `wxGridCellTextEditor::DoBeginEdit` selects the whole value (SetValue,
+   * SetInsertionPointEnd, SelectAll), so a click or F2 and then typing
+   * REPLACES the cell; `StartingKey` then swaps that value for the key, caret
+   * after it. The view reads this to place the selection the same way.
+   */
+  m_startedByKey = false;
 
   BeginEdit(aRow: number, aCol: number, aGrid: wxGrid): void {
     this.m_startValue = aGrid.GetTable()!.GetValue(aRow, aCol);
@@ -425,6 +433,7 @@ export class wxGridCellEditor {
    */
   StartingKey(aChar: string): void {
     this.m_value = aChar;
+    this.m_startedByKey = true;
   }
 
   /** What the control keeps of typed text: all of it, unless a validator filters. */
@@ -1894,6 +1903,7 @@ export class wxGrid extends wxEvtHandler {
 
     const { m_row: row, m_col: col } = this.m_currentCellCoords;
     this.m_currentEditor = this.GetCellEditor(row, col);
+    this.m_currentEditor.m_startedByKey = false;
     this.m_currentEditor.BeginEdit(row, col, this);
     this.m_cellEditCtrlEnabled = true;
     this.Refresh();

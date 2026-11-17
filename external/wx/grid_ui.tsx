@@ -89,6 +89,52 @@ const modifiersOf = (e: {
   (e.altKey ? wxMOD_ALT : 0) |
   (e.metaKey ? wxMOD_META : 0);
 
+/**
+ * The text control a `wxGridCellTextEditor` edits in. Focused when it opens, and
+ * `DoBeginEdit`'s selection applied once: the whole value when a click or F2 opened
+ * it, so typing replaces the cell as in KiCad; the caret after the character when a
+ * typed key opened it (`StartingKey`). Once, not on every focus - wx does not
+ * re-select a control that merely gets the focus back.
+ */
+function GridTextEntry({
+  editor,
+  onText,
+  onKey,
+  onLeave,
+}: {
+  editor: wxGridCellEditor;
+  onText: (aText: string) => void;
+  onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onLeave: () => void;
+}): JSX.Element {
+  const ref = useRef<HTMLInputElement>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the edit begins; the editor is read as it stood then
+  useLayoutEffect(() => {
+    const input = ref.current;
+
+    if (!input) return;
+
+    input.focus();
+
+    if (editor.m_startedByKey) input.setSelectionRange(input.value.length, input.value.length);
+    else input.select();
+  }, []);
+
+  return (
+    <input
+      ref={ref}
+      className="ze-grid-input"
+      type="text"
+      size={1}
+      value={editor.m_value}
+      onChange={(e) => onText(e.target.value)}
+      onKeyDown={onKey}
+      onBlur={onLeave}
+    />
+  );
+}
+
 export function WxGridView({
   grid,
   tricks,
@@ -361,18 +407,14 @@ export function WxGridView({
       );
 
     const input = (
-      <input
-        className="ze-grid-input"
-        type="text"
-        size={1}
-        autoFocus
-        value={aEditor.m_value}
-        onChange={(e) => {
-          aEditor.m_value = aEditor.FilterText(e.target.value);
+      <GridTextEntry
+        editor={aEditor}
+        onText={(aText) => {
+          aEditor.m_value = aEditor.FilterText(aText);
           bump();
         }}
-        onKeyDown={(e) => onKey(e, e.currentTarget)}
-        onBlur={() => {
+        onKey={(e) => onKey(e, e.currentTarget)}
+        onLeave={() => {
           if (grid.GetCurrentEditor() === aEditor) grid.DisableCellEditControl();
         }}
       />

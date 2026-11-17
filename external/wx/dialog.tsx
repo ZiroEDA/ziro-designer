@@ -78,6 +78,11 @@ let listening = false;
 
 function onKeyDown(e: KeyboardEvent): void {
   if (e.key !== 'Escape') return;
+  // An open grid cell editor takes its own Escape: GRID_TRICKS::onCharHook cancels
+  // the edit and marks the key handled, so in KiCad it never reaches the dialog
+  // (wxEVT_CHAR_HOOK starts at the focused window). This listener runs first, in
+  // the capture phase, and would close the whole dialog over an edit in progress.
+  if ((e.target as Element | null)?.closest?.('.ze-grid-editor')) return;
   // `defaultPrevented` means someone already acted on this key — EXCEPT when it
   // was the page's own browser suppression (`claimBrowserHotkeys`), which runs in
   // capture phase and calls `preventDefault()` on every combo the app CLAIMS,
@@ -459,7 +464,12 @@ export function Dialog({
     holdFittedSize();
     onCharHook?.(e);
 
-    if (e.defaultPrevented) e.stopPropagation();
+    // A char hook that handled the key ends it here. Our own browser suppression
+    // (`claimBrowserHotkeys`, window capture) is not one: it marks every key the app
+    // binds - R, X, Y, A, W... - so reading it as "handled" kept those letters from
+    // ever reaching the control that has the focus, and a grid cell lost the R of
+    // "RED" because R is the schematic's rotate hotkey.
+    if (e.defaultPrevented && !wasBrowserSuppressed(e.nativeEvent)) e.stopPropagation();
   };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
