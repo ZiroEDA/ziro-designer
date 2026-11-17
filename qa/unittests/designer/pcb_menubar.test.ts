@@ -359,6 +359,9 @@ describe('a row runs the command it names', () => {
     ['Inspect', 'Measure Tool', 'tool:measureTool'],
     // `BOARD_INSPECTION_TOOL::ShowFootprintLinks`, DIALOG_FOOTPRINT_ASSOCIATIONS.
     ['Inspect', 'Show Footprint Associations', 'action:showFootprintAssociations'],
+    // BOARD_EDITOR_CONTROL::GenerateGerbers: DIALOG_PLOT, switched to Gerber. It was greyed
+    // while the Plot dialog it opens already did Gerbers (blinky555).
+    ['File', 'Gerbers (.gbr)...', 'action:generateGerbers'],
     ['Tools', 'Switch to Schematic Editor', 'action:showEeschema'],
     ['Tools', 'Footprint Editor', 'action:showFootprintEditor'],
     ['Preferences', 'Preferences...', 'action:openPreferences'],

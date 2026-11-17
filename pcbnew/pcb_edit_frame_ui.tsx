@@ -243,6 +243,8 @@ import {
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
+import { PCB_PLOT_PARAMS } from './pcb_plot_params.js';
 import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
 
 import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
@@ -6437,6 +6439,19 @@ export function PcbEditor({
       case 'plot':
         setPlotDlgOpen(true);
         break;
+      case 'generateGerbers': {
+        // BOARD_EDITOR_CONTROL::GenerateGerbers (board_editor_control.cpp:728): the plot
+        // settings switched to Gerber, then DIALOG_PLOT.
+        const b = frameRef.current?.GetBoard();
+        if (b) {
+          const opts = new PCB_PLOT_PARAMS();
+          opts.assign(b.GetPlotOptions());
+          opts.SetFormat(PLOT_FORMAT.GERBER);
+          b.SetPlotOptions(opts);
+        }
+        setPlotDlgOpen(true);
+        break;
+      }
       case 'mirrorV':
         runAction(PCB_ACTIONS.mirrorV);
         break;
