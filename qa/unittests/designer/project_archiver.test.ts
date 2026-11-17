@@ -36,6 +36,24 @@ describe('archiveEntries', () => {
     expect(Object.keys(entries!)).toEqual(['proj/proj.kicad_pcb', 'proj/out/top.gbr']);
   });
 
+  it('archives a file an editor saved, which carries its text and no bytes (blinky555, I-14)', () => {
+    // App hands every saved file back as { name, text }; skipping those emptied the
+    // archive of exactly the files that had been worked on.
+    const pcb = '(kicad_pcb (version 20260206))\n';
+    const entries = archiveEntries(
+      [{ name: 'proj/proj.kicad_pcb', text: pcb }, f('proj/proj.kicad_pro', '{}')],
+      'proj',
+    );
+    expect(Object.keys(entries!).sort()).toEqual(['proj/proj.kicad_pcb', 'proj/proj.kicad_pro']);
+    expect(new TextDecoder().decode(entries!['proj/proj.kicad_pcb'])).toBe(pcb);
+  });
+
+  it('keeps the bytes as read when a file has them, not a re-encoding of its text', () => {
+    const crlf = new Uint8Array([0xef, 0xbb, 0xbf, 0x61, 0x0d, 0x0a]);
+    const entries = archiveEntries([{ name: 'proj/notes.txt', text: 'a\n', bytes: crlf }], 'proj');
+    expect(entries!['proj/notes.txt']).toEqual(crlf);
+  });
+
   it('skips empty files and returns null when nothing qualifies', () => {
     expect(archiveEntries([{ name: 'proj/empty.kicad_sch', text: '' }], 'proj')).toBeNull();
     expect(archiveEntries([f('readme.docx')], 'proj')).toBeNull();

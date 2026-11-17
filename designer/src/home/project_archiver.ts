@@ -20,23 +20,38 @@ export const relPath = (name: string): string => {
   return p.includes('/') ? p.slice(p.indexOf('/') + 1) : p;
 };
 
+const utf8 = new TextEncoder();
+
+/**
+ * What a file holds on disk: its bytes as read, or - for a file an editor has
+ * written this session, which the app carries as `{ name, text }` only - its
+ * text in UTF-8, which is what the writers produce. Empty for an empty file.
+ */
+function contentOf(f: PickedHomeFile): Uint8Array {
+  if (f.bytes && f.bytes.length > 0) return f.bytes;
+  return utf8.encode(f.text);
+}
+
 /**
  * Collect the zip entries for Archive Project: only allow-listed file types
  * (gerbers/backups/images and other stray files are skipped, matching KiCad's
- * archiver), each as raw bytes under `<name>/…`. Returns null when nothing
- * qualifies.
+ * archiver), each under `<name>/…`. Returns null when nothing qualifies.
+ *
+ * A file as it was read keeps its exact bytes. One an editor has saved has
+ * only text - so this used to skip it, and once every file of a project had
+ * been edited the archive was empty and the command did nothing at all.
  */
 export function archiveEntries(
   files: readonly PickedHomeFile[],
   name: string,
 ): Record<string, Uint8Array> | null {
-  const withBytes = files.filter(
-    (f) => f.bytes && f.bytes.length > 0 && inArchiveAllowList(f.name),
-  );
-  if (withBytes.length === 0) return null;
   const entries: Record<string, Uint8Array> = {};
-  for (const f of withBytes) entries[`${name}/${relPath(f.name)}`] = f.bytes!;
-  return entries;
+  for (const f of files) {
+    if (!inArchiveAllowList(f.name)) continue;
+    const data = contentOf(f);
+    if (data.length > 0) entries[`${name}/${relPath(f.name)}`] = data;
+  }
+  return Object.keys(entries).length > 0 ? entries : null;
 }
 
 /** Zip the collected entries (blocking, paint any progress UI first). */
