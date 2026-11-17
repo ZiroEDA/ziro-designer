@@ -266,11 +266,16 @@ export function Viewer3DFrame({
     return p ? new Map(Object.entries(p.colors) as [Layer3dFlag, Color4d][]) : undefined;
   }, [presets, v3d.current_layer_preset]);
   // `if( m_Cfg->m_UseStackupColors && m_board )`: the board's own
-  // BOARD_STACKUP, read off the board this frame shows (a new handle is a new
-  // board, `NewDisplay`).
+  // BOARD_STACKUP, read off the board this frame SHOWS - `shownBoard`, as
+  // `plot` above. Off the incoming handle, every edit (a new handle on the
+  // same BOARD) made new colours, new scene options and a full rebuild, so
+  // "Refresh 3D view automatically" off held nothing back.
   const stackupCols = useMemo(
-    () => (board ? stackupColors(board.k.GetDesignSettings().GetStackupDescriptor()) : undefined),
-    [board],
+    () =>
+      shownBoard
+        ? stackupColors(shownBoard.k.GetDesignSettings().GetStackupDescriptor())
+        : undefined,
+    [shownBoard],
   );
   const layerColors = useMemo(
     () => layerColors3d(presetColors, v3d.use_stackup_colors, stackupCols, overrides),
@@ -411,8 +416,14 @@ export function Viewer3DFrame({
     },
     [viewports],
   );
+  // A new BOARD is a board LOADED, not edited: `OpenProjectFiles` ends with
+  // `draw3DFrame->NewDisplay()` whatever the setting (files.cpp:931); only
+  // `OnModify` asks m_Live3DRefresh (pcb_edit_frame.cpp:2092). The editor
+  // keeps one BOARD across its edits and makes a new one per load - so the
+  // frame opened by URL, which mounts on the editor's empty placeholder
+  // before the file is parsed, showed an empty scene until Reload.
   useEffect(() => {
-    if (live) setShownBoard(board);
+    setShownBoard((was) => (live || !was || !board || was.k !== board.k ? board : was));
   }, [live, board]);
   // The explicit reload always takes the latest, live refresh or not.
   useEffect(() => {
@@ -517,14 +528,16 @@ export function Viewer3DFrame({
 
   // `EDA_3D_VIEWER_FRAME::NewDisplay( true )` — a board edit (with live
   // refresh on), a pane toggle, a preference: the same canvas reloads.
+  // `ready` is in it because the mount is asynchronous (three.js loads lazily): a
+  // board that arrives while it loads is applied the moment the viewer exists.
   useEffect(() => {
     const v = api.current;
-    if (!v || !shownBoard) return;
+    if (!ready || !v || !shownBoard) return;
     const was = builtWith.current;
     if (was && was.board === shownBoard && was.opts === sceneOptions) return;
     builtWith.current = { board: shownBoard, opts: sceneOptions };
     v.reload(shownBoard.k, stackupCols, sceneOptions, projectFiles);
-  }, [shownBoard, projectFiles, stackupCols, sceneOptions]);
+  }, [ready, shownBoard, projectFiles, stackupCols, sceneOptions]);
 
   // …the CAMERA half is not: `EDA_3D_CANVAS` re-reads it in place, and
   // rebuilding the scene to change a rotation step would re-tessellate every
