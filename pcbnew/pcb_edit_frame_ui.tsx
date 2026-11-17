@@ -242,6 +242,7 @@ import {
 } from './dialogs/dialog_filter_selection.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
 
 import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
@@ -653,6 +654,24 @@ const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
  */
+/**
+ * The event a TOOL_MANAGER tool is armed with. From a hotkey it is what
+ * `ACTION_MANAGER::RunHotKey` -> `TOOL_MANAGER::doRunAction` makes: a TC_COMMAND
+ * event at the cursor (tool_manager.cpp:349), which the tool primes itself with -
+ * the router starts at the pad under the cursor. From a menu row or the toolbar it
+ * carries no position (ACTION_MENU / ACTION_TOOLBAR clear it), so nothing is primed.
+ */
+export function toolArmEvent(
+  aAction: TOOL_ACTION,
+  aMgr: Pick<TOOL_MANAGER, 'GetCursorPosition'>,
+  aFromHotkey: boolean,
+): TOOL_EVENT {
+  const evt = aAction.MakeEvent();
+  if (aFromHotkey) evt.SetMousePosition(aMgr.GetCursorPosition());
+  else evt.SetHasPosition(false);
+  return evt;
+}
+
 const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawLine: PCB_ACTIONS.drawLine,
   drawRectangle: PCB_ACTIONS.drawRectangle,
@@ -2543,24 +2562,31 @@ export function PcbEditor({
    * MODE the user chose rather than resetting it to the rectangle.
    */
   const selectModeRef = useRef('selectSetRect');
+  /** True while the menu accelerators run a row for a key, not for a click. */
+  const dispatchingHotkey = useRef(false);
+  /** The tool a hotkey armed, for the arming effect below to run at the cursor. */
+  const armedByHotkey = useRef<string | null>(null);
   if (isSelectTool(activeTool)) selectModeRef.current = activeTool;
   activeToolRef.current = activeTool;
 
-  // Arming a TOOL_MANAGER tool runs its action the way the toolbar does (no
-  // position, so nothing is primed at the cursor); arming anything else while
-  // one is current activates the selection tool, which the drawing tool reads
-  // as `IsActivate()`: cleanup and PopTool.
+  // Arming a TOOL_MANAGER tool runs its action. From a menu row or the toolbar it
+  // carries no position (ACTION_MENU / ACTION_TOOLBAR clear it), so nothing is
+  // primed; from a HOTKEY it is ACTION_MANAGER::RunHotKey -> RunAction, a
+  // TC_COMMAND event at the cursor (tool_manager.cpp:349), and the tool primes
+  // itself there - X over a pad starts the route from that pad (router_tool.cpp:1967).
+  // Arming anything else while one is current activates the selection tool, which
+  // the drawing tool reads as `IsActivate()`: cleanup and PopTool.
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeTool is the trigger; the frame is read through its ref
   useEffect(() => {
     const f = frameRef.current;
     const mgr = f?.GetToolManager();
+    const atCursor = armedByHotkey.current === activeTool;
+    armedByHotkey.current = null;
     if (!f || !mgr) return;
     const action = TOOL_MANAGER_TOOLS[activeTool];
     if (action) {
       if (f.IsCurrentTool(action)) return;
-      const evt = action.MakeEvent();
-      evt.SetHasPosition(false);
-      mgr.ProcessEvent(evt);
+      mgr.ProcessEvent(toolArmEvent(action, mgr, atCursor));
     } else if (Object.values(TOOL_MANAGER_TOOLS).some((a) => f.IsCurrentTool(a))) {
       mgr.RunAction(ACTIONS.selectionTool);
     }
@@ -5497,7 +5523,15 @@ export function PcbEditor({
       }
 
       // --- global: the menu accelerators ------------------------------------
-      if (dispatchMenuHotkey(menusRef.current, e, { target })) {
+      // Marked while they run, so a tool armed from here is armed at the cursor.
+      dispatchingHotkey.current = true;
+      let ranRow = false;
+      try {
+        ranRow = dispatchMenuHotkey(menusRef.current, e, { target });
+      } finally {
+        dispatchingHotkey.current = false;
+      }
+      if (ranRow) {
         e.preventDefault();
         return;
       }
@@ -6874,7 +6908,10 @@ export function PcbEditor({
   const menus: Menu[] = buildPcbMenus(
     {
       action: onTopAction,
-      tool: setActiveTool,
+      tool: (aTool: string) => {
+        if (dispatchingHotkey.current) armedByHotkey.current = aTool;
+        setActiveTool(aTool);
+      },
       toggle: onLeftToggle,
       language: commonCfg.system.language,
       onSelectLanguage: (label: string) =>
