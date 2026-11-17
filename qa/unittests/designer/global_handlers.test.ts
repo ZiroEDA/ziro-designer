@@ -88,6 +88,22 @@ describe('what gets reported at all', () => {
     h.target.fire('unhandledrejection', { reason: 'plain string' });
     expect(h.captured).toHaveLength(1);
   });
+
+  it('reports a rejection with a { code, message } object as the error it means (Sentry 1Y)', () => {
+    // Sentry titled it "Object captured as exception with keys: code, message": the message lost.
+    const h = harness();
+    h.target.fire('unhandledrejection', {
+      reason: { code: 'E_QUOTA', message: 'storage quota hit' },
+    });
+    expect(h.captured).toHaveLength(1);
+    const err = h.captured[0]!.err as Error;
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toBe('storage quota hit');
+    expect(err.name).toBe('E_QUOTA');
+    // An object with no message is passed on as it came.
+    h.target.fire('unhandledrejection', { reason: { code: 7 } });
+    expect(h.captured[1]!.err).toEqual({ code: 7 });
+  });
 });
 
 describe('the rate limit', () => {

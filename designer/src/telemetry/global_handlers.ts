@@ -162,6 +162,22 @@ function extensionMessagingFailed(err: unknown): boolean {
   return stackUrls((err.stack ?? '').split('\n').map((line) => line.trim())).every(isInjected);
 }
 
+/**
+ * A rejection with a plain object rather than an Error - `{ code, message }`, as some libraries
+ * reject - reached Sentry as "Object captured as exception with keys: code, message", its message
+ * lost (Sentry 1Y). An object that carries a message is reported as the Error it means: the
+ * message as the message, its name or code as the name.
+ */
+function asError(err: unknown): unknown {
+  if (err instanceof Error || err === null || typeof err !== 'object') return err;
+  const o = err as { message?: unknown; code?: unknown; name?: unknown };
+  if (typeof o.message !== 'string') return err;
+  const e = new Error(o.message);
+  if (typeof o.name === 'string' && o.name) e.name = o.name;
+  else if (o.code !== undefined && o.code !== null) e.name = String(o.code);
+  return e;
+}
+
 /** What an error is "the same as", for de-duplication. */
 function signatureOf(err: unknown): string {
   if (err instanceof Error) {
@@ -190,8 +206,9 @@ export function installGlobalErrorHandlers(opts: GlobalHandlerOptions = {}): () 
   let seen = new Set<string>();
   let capReported = false;
 
-  const report = (err: unknown, source: string): void => {
+  const report = (aErr: unknown, source: string): void => {
     try {
+      const err = asError(aErr);
       const t = now();
       if (t - windowStart >= windowMs) {
         windowStart = t;
