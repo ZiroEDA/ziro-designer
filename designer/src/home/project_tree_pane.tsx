@@ -17,9 +17,17 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import type { PickedHomeFile } from './files.js';
 import { basename, isHiddenTreeNode, treeIconFor, type DirNode } from './project_tree.js';
 import { treeFileType } from './file_activation.js';
-import { type TreeMenuSelectionItem, projectTreeMenu } from './project_tree_menu.js';
+import {
+  type TreeMenu,
+  type TreeMenuEntry,
+  type TreeMenuEntryId,
+  type TreeMenuSelectionItem,
+  type VcsMenuState,
+  projectTreeMenu,
+} from './project_tree_menu.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { _ } from '@ziroeda/wx/translation.js';
+import { MenuEntry, type MenuItem } from '@ziroeda/wx/menu_ui.js';
 
 // KiCad's own dark-theme manager icons (GPL), vendored under assets/.
 export const mgrUrl = (name: string): string | undefined => svgUrl('manager', name);
@@ -31,6 +39,30 @@ export const TreeIcon = ({ name }: { name: string }): JSX.Element => {
 
 /** Sentinel used as the selection id of the project root row. */
 export const ROOT_SELECTION = '\0root';
+
+/**
+ * A submenu of the popup as the shared menu's rows, each running `run` with its
+ * id (and branch). Upstream's `EVT_MENU` table, one handler for the lot.
+ */
+function submenuItems(
+  entries: TreeMenu,
+  run: (id: TreeMenuEntryId, branch?: string) => void,
+): MenuItem[] {
+  return entries.map((e): MenuItem => {
+    if (e === 'separator') return { sep: true };
+    const row: MenuItem = {
+      label: e.label,
+      ...(e.noTranslate ? { noTranslate: true } : {}),
+      ...(e.help ? { tooltip: e.help } : {}),
+    };
+    if (e.submenu) return { ...row, submenu: submenuItems(e.submenu, run) };
+    return {
+      ...row,
+      ...(e.disabled ? { disabled: true } : {}),
+      action: () => run(e.id, e.branch),
+    };
+  });
+}
 
 export function ProjectTreePane({
   picked,
@@ -51,6 +83,8 @@ export function ProjectTreePane({
   onDownloadPath,
   onDownloadProject,
   onActivate,
+  versionControl,
+  onVersionControl,
 }: {
   picked: PickedHomeFile[] | null;
   dirRoot: DirNode | null;
@@ -93,6 +127,13 @@ export function ProjectTreePane({
    * the fourteen branches - the rest did nothing.
    */
   onActivate?: (node: { name: string; path: string; file?: PickedHomeFile }) => void;
+  /**
+   * The open project's Git state, for the Version Control submenu; absent (a
+   * demo, or no project in the store), there is no submenu.
+   */
+  versionControl?: VcsMenuState | null;
+  /** A Version Control row was chosen: the `ID_GIT_*` handlers, by row id. */
+  onVersionControl?: (id: TreeMenuEntryId, branch?: string) => void;
 }): JSX.Element {
   // KiCad's addItemToProjectTree: a .kicad_sch is listed only when its basename
   // is one of the folder's project names (getProjects), i.e. the root sheet of
@@ -301,13 +342,32 @@ export function ProjectTreePane({
                   : undefined,
             };
 
-            const entries = projectTreeMenu(paths.map(selectionItem));
+            const entries = projectTreeMenu(
+              paths.map(selectionItem),
+              onVersionControl ? versionControl : null,
+            );
             const rows: JSX.Element[] = [];
 
             entries.forEach((e, i) => {
               if (e === 'separator') {
                 // A rule is only worth drawing between two rows that exist.
                 if (rows.length > 0) rows.push(<div key={`sep${i}`} className="ze-msep" />);
+                return;
+              }
+              // A submenu row is the shared menu's own, flyout and all; its rows carry no
+              // bitmap, as upstream appends them with none.
+              if (e.submenu && onVersionControl) {
+                const sub: TreeMenuEntry = e;
+                rows.push(
+                  <MenuEntry
+                    key={sub.id}
+                    item={{
+                      label: sub.label,
+                      submenu: submenuItems(sub.submenu!, onVersionControl),
+                    }}
+                    close={() => setMenu(null)}
+                  />,
+                );
                 return;
               }
               const run = handlers[e.id];
@@ -324,9 +384,7 @@ export function ProjectTreePane({
                 >
                   {/* KIUI::AddMenuItem takes a KiBitmap for every one of these
                       rows, so the icon column is never empty upstream. */}
-                  <span className="mico">
-                    <TreeIcon name={e.icon} />
-                  </span>
+                  <span className="mico">{e.icon ? <TreeIcon name={e.icon} /> : null}</span>
                   <span className="lbl">{e.label}</span>
                 </div>,
               );

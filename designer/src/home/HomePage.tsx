@@ -185,6 +185,7 @@ import {
   MessageDialogYesNoCancel,
 } from '@ziroeda/common/dialogs/dialog_message.js';
 import { formatSize } from '../fs/format.js';
+import { useGithubProject } from '../github/use_github_project.js';
 
 import {
   filesFromFileList,
@@ -2111,6 +2112,40 @@ export function HomePage({
   };
 
   const common = useCommonSettings();
+  /**
+   * The Version Control submenu's commands and File > Clone Project from Repository..., over
+   * GitHub (designer/src/github/). A demo is not the user's project: it has no submenu.
+   */
+  const github = useGithubProject({
+    userId,
+    projectId: demoOpen ? null : openProjectId,
+    picked,
+    projectName: projName,
+    enableGit: common.git.enableGit,
+    takenNames: takenProjectNames,
+    setLoading,
+    openStored: (id) => openStored(id),
+    patchOpenFiles: (writes) =>
+      setPicked((prev) =>
+        prev
+          ? [
+              ...prev.filter((f) => !writes.some((w) => w.name === f.name)),
+              ...writes.map((w) => ({
+                name: w.name,
+                text: projectFileText(w.bytes),
+                bytes: w.bytes,
+              })),
+            ]
+          : prev,
+      ),
+    onStoreWritten: (id) => {
+      refreshSaved();
+      if (userId)
+        void pushProject(userId, id, { onlyIfChanged: true }).catch((e) =>
+          console.warn('Cloud push failed:', e),
+        );
+    },
+  });
   // `ShowChangedLanguage()`: the frame redraws when the language changes.
   useTranslations();
   const menus: Menu[] = buildManagerMenus({
@@ -2159,6 +2194,8 @@ export function HomePage({
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
     openFromGithub: () => setGithubUrlOpen(true),
+    // `if( m_Git.enableGit ) fileMenu->Add( KICAD_MANAGER_ACTIONS::newFromRepository )`.
+    ...(common.git.enableGit ? { cloneFromRepository: github.cloneFromRepository } : {}),
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
     recent: recentProjects,
@@ -2360,7 +2397,9 @@ export function HomePage({
             rootLabel={rootLabel}
             projectNames={projectNames}
             // A project opened from GitHub is in a Git repository (#640).
-            showAllSchematics={!!demoSource && isGithubId(demoSource.id)}
+            showAllSchematics={(!!demoSource && isGithubId(demoSource.id)) || !!github.link}
+            versionControl={github.versionControl}
+            onVersionControl={github.onVersionControl}
             width={panelWidth}
             expanded={expanded}
             onToggleDir={toggleDir}
@@ -2473,7 +2512,9 @@ export function HomePage({
           // writing a "no project" line, because KiCad has no such string.
           // The account's tree is the only filesystem here, so the full path
           // is the path in it: the same one the file chooser shows.
-          text={projectStatusText(picked && proFile ? `/${proFile.name}` : null)}
+          // `showGitFeedback`: a Git command's outcome holds field 0 for eight seconds, then
+          // PrintPrjInfo puts the project back.
+          text={github.feedback ?? projectStatusText(picked && proFile ? `/${proFile.name}` : null)}
         />
         {/* KiCad's manager status bar has the project field and, on Windows
             only, a file-watcher one — there is no storage field, and this held
@@ -2755,6 +2796,7 @@ export function HomePage({
           }}
         />
       )}
+      {github.dialogs}
       {githubChoice && (
         <SingleChoiceDialog
           caption={_('Open Project from GitHub')}

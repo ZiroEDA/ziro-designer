@@ -17,15 +17,31 @@
  *
  * ## What is left out, and why
  *
- * Two of upstream's rows end outside the browser and are omitted rather than
+ * One of upstream's rows ends outside the browser and is omitted rather than
  * carried greyed or replaced:
  *
  * - **`Open Directory in File Explorer`** (`:943-967`, "Reveal in Finder" on
  *   macOS) — `can_open_this_directory`. It opens the OS file manager on the
  *   folder. There is no OS file manager and no folder; the project's files are
  *   in the pane this menu was opened from.
- * - **`Version Control`** (`:1028-1118`), the whole submenu — libgit2 against
- *   a working tree on disk. Neither exists here.
+ *
+ * ## Version Control
+ *
+ * The submenu (`:1029-1112`) is here, built over GitHub rather than libgit2
+ * (`designer/src/github/`), and it keeps upstream's convention for it rather
+ * than the popup's: its rows are greyed with `Enable( false )`, not left out.
+ * What is in it, against upstream's:
+ *
+ * - "Add Project to Version Control..." is ours, `Push to GitHub...`: the
+ *   repository is created on GitHub and the project pushed to it, since there
+ *   is no local repository to initialise first. Before it, while the account
+ *   has not connected GitHub on this device, `Connect GitHub...`.
+ * - `Commit Project...` commits and pushes in one step, so upstream's separate
+ *   `Push` row - enabled only with local commits to push, which never exist
+ *   here - is left out rather than drawn greyed forever.
+ * - `Pull`, and `Switch to Branch` with its quick rows and `Other...`.
+ * - Not built yet, and left out: "Configure Default Remote...", "Amend Last
+ *   Commit...", "Commit File...", "Disable Git Integration".
  *
  * `can_open_this_directory` is still computed below, because it is one of the
  * five terms in the separator condition that precedes Move to Trash
@@ -35,6 +51,7 @@
 import { type TreeFileType, canDelete, canRename } from './file_activation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** One row of the selection, as much of `PROJECT_TREE_ITEM` as the menu asks. */
 export interface TreeMenuSelectionItem {
@@ -52,7 +69,15 @@ export type TreeMenuEntryId =
   | 'downloadProject'
   | 'runJobs'
   | 'renameFile'
-  | 'moveToTrash';
+  | 'moveToTrash'
+  | 'versionControl'
+  | 'connectGithub'
+  | 'pushToGithub'
+  | 'gitCommitProject'
+  | 'gitPull'
+  | 'gitSwitchToBranch'
+  | 'gitSwitchBranch'
+  | 'gitSwitchBranchOther';
 
 export interface TreeMenuEntry {
   readonly id: TreeMenuEntryId;
@@ -60,13 +85,127 @@ export interface TreeMenuEntry {
   readonly label: string;
   /** Its help string, `aHelpText` — the status-bar line upstream. */
   readonly help: string;
-  /** The `BITMAPS::` enumerator, as the name we vendor its SVG under. */
-  readonly icon: string;
-  /** True for the one row that is ours and has no upstream counterpart. */
+  /**
+   * The `BITMAPS::` enumerator, as the name we vendor its SVG under. Absent on
+   * the Version Control rows, which upstream appends with a plain
+   * `wxMenu::Append` and no bitmap.
+   */
+  readonly icon?: string;
+  /** True for a row that is ours and has no upstream counterpart. */
   readonly ours?: true;
+  /**
+   * `vcs_menuitem->Enable( false )`. Only the Version Control submenu greys a
+   * row; the popup's own rows are present or absent (see the header).
+   */
+  readonly disabled?: true;
+  /**
+   * The label is already in the user's language - a string formatted around
+   * one, like "Pull from %s" - or is data, like a branch name: the menu draws
+   * it as it is rather than looking it up.
+   */
+  readonly noTranslate?: true;
+  /** `AppendSubMenu` / `Append( id, label, submenu )`. */
+  readonly submenu?: TreeMenu;
+  /** A quick `Switch to Branch` row's branch (`ID_GIT_SWITCH_BRANCH + ii`). */
+  readonly branch?: string;
 }
 
 export type TreeMenu = readonly (TreeMenuEntry | 'separator')[];
+
+/** What the Version Control submenu's rows are conditioned on (`onRight`, `:832-850`). */
+export interface VcsMenuState {
+  /** `vcs_menu = Pgm().GetCommonSettings()->m_Git.enableGit`: no submenu at all when off. */
+  readonly enableGit: boolean;
+  /** GitHub is connected for this account on this device. */
+  readonly connected: boolean;
+  /** `vcs_has_repo`: the project is linked to a repository. */
+  readonly linked: boolean;
+  /** `m_gitCurrentBranchName`. */
+  readonly branch?: string;
+  /** `m_gitCurrentUpstream`, as `git` shortens it: "origin/main". */
+  readonly upstream?: string;
+  /** `GitCommon()->GetBranchNames()`: the current branch first. */
+  readonly branches?: readonly string[];
+}
+
+/**
+ * `vcs_submenu` (`:1031-1112`) for a project on GitHub. Every row upstream
+ * conditions with `Enable` is greyed, not dropped, as upstream draws it.
+ */
+export function versionControlSubmenu(vcs: VcsMenuState): TreeMenu {
+  const off = (enabled: boolean): { disabled?: true } => (enabled ? {} : { disabled: true });
+  const rows: (TreeMenuEntry | 'separator')[] = [];
+
+  if (!vcs.connected) {
+    rows.push({
+      id: 'connectGithub',
+      label: 'Connect GitHub...',
+      help: 'Sign in to GitHub, so projects can be pushed to it and pulled from it',
+      ours: true,
+    });
+  }
+
+  // "Add Project to Version Control..." - `Enable( vcs_can_init )`, `vcs_can_init = !vcs_has_repo`.
+  rows.push({
+    id: 'pushToGithub',
+    label: 'Push to GitHub...',
+    help: 'Create a repository on GitHub and push this project to it',
+    ours: true,
+    ...off(!vcs.linked),
+  });
+
+  // `Enable( vcs_can_commit )`. Upstream's help is "Commit changes to the local repository";
+  // there is no local repository, and this pushes too, so the line says what it does.
+  rows.push({
+    id: 'gitCommitProject',
+    label: _HKI('Commit Project...'),
+    help: "Commit the project's changes and push them to GitHub",
+    ...off(vcs.linked),
+  });
+
+  // `pullLabel`: "Pull from %s" once there is an upstream and a branch, else "Pull" (:1052-1059).
+  const named = !!vcs.upstream && !!vcs.branch;
+  rows.push({
+    id: 'gitPull',
+    label: named ? wxFormat(_('Pull from %s'), vcs.upstream!) : _HKI('Pull'),
+    help: _HKI('Pull changes from remote repository into local'),
+    ...(named ? { noTranslate: true as const } : {}),
+    ...off(vcs.linked),
+  });
+
+  rows.push('separator');
+
+  // "Skip the first one (that is the current branch)" - at most five quick rows (:1083-1089).
+  const branches = vcs.branches ?? [];
+  const quick: TreeMenuEntry[] = [];
+  for (let ii = 1; ii < branches.length && ii < 6; ++ii) {
+    const name = branches[ii]!;
+    quick.push({
+      id: 'gitSwitchBranch',
+      label: name,
+      help: _('Switch to branch ') + name,
+      noTranslate: true,
+      branch: name,
+      ...off(vcs.linked),
+    });
+  }
+  rows.push({
+    id: 'gitSwitchToBranch',
+    label: _HKI('Switch to Branch'),
+    help: '',
+    submenu: [
+      ...quick,
+      {
+        id: 'gitSwitchBranchOther',
+        label: _HKI('Other...'),
+        help: _HKI('Switch to a different branch'),
+        ...off(vcs.linked),
+      },
+    ],
+  });
+
+  return rows;
+}
 
 /**
  * Build the popup for a selection, or an empty menu for an empty one.
@@ -78,7 +217,11 @@ export type TreeMenu = readonly (TreeMenuEntry | 'separator')[];
  * `if( popup_menu.GetMenuItemCount() > 0 ) PopupMenu( &popup_menu );`
  * (`:1117-1118`) means a menu that ended up empty is never shown at all.
  */
-export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): TreeMenu {
+export function projectTreeMenu(
+  selection: readonly TreeMenuSelectionItem[],
+  /** The open project's Git state; absent, there is no Version Control submenu. */
+  vcs?: VcsMenuState | null,
+): TreeMenu {
   if (selection.length === 0) return [];
 
   let canSwitchToProject = true;
@@ -276,6 +419,17 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
         ? _HKI('Delete the file and its content')
         : _HKI('Delete the files and their contents'),
       icon: 'trash',
+    });
+  }
+
+  // `if( vcs_menu )` (:1029): a separator, then the submenu, whatever the selection.
+  if (vcs?.enableGit) {
+    menu.push('separator');
+    menu.push({
+      id: 'versionControl',
+      label: _HKI('Version Control'),
+      help: '',
+      submenu: versionControlSubmenu(vcs),
     });
   }
 

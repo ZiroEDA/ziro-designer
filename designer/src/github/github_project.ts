@@ -364,6 +364,24 @@ async function verifyTree(
 
 // --- Push to GitHub... --------------------------------------------------------
 
+/** GitHub's rule for a repository name: letters, digits, `.`, `-`, `_`; at most 100. */
+export function isValidRepoName(name: string): boolean {
+  return /^[A-Za-z0-9._-]{1,100}$/.test(name) && name !== '.' && name !== '..';
+}
+
+/**
+ * The name the Push to GitHub dialog offers: the project's, with every run of
+ * characters GitHub does not take turned into one `-`, as GitHub's own form
+ * does when it suggests a name.
+ */
+export function repoNameFor(projectName: string): string {
+  const name = projectName
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+  return isValidRepoName(name) ? name : 'kicad-project';
+}
+
 export const INITIAL_COMMIT_MESSAGE = 'Initial commit';
 
 /**

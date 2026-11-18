@@ -69,6 +69,11 @@ export interface ManagerMenuHandlers {
   importNonKicadProject: (aFormat: ImportFormat) => void;
   /** Open Project from GitHub... (#640): asks for the repository's link. */
   openFromGithub: () => void;
+  /**
+   * File > Clone Project from Repository... (KICAD_MANAGER_ACTIONS::newFromRepository). Absent
+   * when `m_Git.enableGit` is off, which is when upstream does not add the row.
+   */
+  cloneFromRepository?: () => void;
   hasProject: boolean;
   hasTextFileSelected: boolean;
   recent: readonly ProjectMeta[];
@@ -121,11 +126,21 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // before the page sees the key. BROWSER_REBINDS in ui/browser_hotkeys.ts
         // holds the substitution and the reasoning.
         { label: _HKI('New Project...'), shortcut: 'Ctrl+Alt+N', action: h.newProject },
-        // KICAD_MANAGER_ACTIONS::newFromRepository's slot (kicad/menubar.cpp:85),
-        // "Clone Project from Repository...". Upstream clones with libgit2 and
-        // credentials; a browser cannot reach git hosts' smart-HTTP endpoints,
-        // so this is the web take (#640): a public GitHub repository's project,
-        // opened read-only like a demo. Not "Clone": nothing is cloned.
+        // KICAD_MANAGER_ACTIONS::newFromRepository (kicad/menubar.cpp:84-85), added only
+        // `if( m_Git.enableGit )`. Upstream clones with libgit2; ours clones one of the connected
+        // GitHub account's repositories, private ones included, over GitHub's API
+        // (designer/src/github/), into a new project linked to it.
+        ...(h.cloneFromRepository
+          ? [
+              {
+                label: _HKI('Clone Project from Repository...'),
+                icon: 'project_clone',
+                action: h.cloneFromRepository,
+              },
+            ]
+          : []),
+        // Ours (#640), beside it: any PUBLIC GitHub repository's project by its link, opened
+        // read-only like a demo, with no account needed. Nothing is cloned.
         { label: _('Open Project from GitHub...'), action: h.openFromGithub },
         // Upstream shows this only when the stock demos path exists; ours
         // lists the bundled demos as a submenu (the web take on its picker).

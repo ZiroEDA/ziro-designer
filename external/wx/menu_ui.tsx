@@ -73,8 +73,12 @@ function withMnemonic(label: string | undefined, mnemonic: string | undefined): 
   );
 }
 
-/** One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. */
-function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
+/**
+ * One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. Exported for a
+ * popup that draws its own rows and has one submenu among them (the project tree's Version
+ * Control), so the flyout is this one and not a second.
+ */
+export function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
   // The row is translated where it is drawn, not where it was built. KiCad's
   // ACTION_MENU does the same with an action's label - it stores the English
   // friendly name and calls wxGetTranslation when the menu is (re)created -
