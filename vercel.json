@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm -C designer build",
+  "buildCommand": "pnpm -C designer build && test -f designer/dist/index.html && test -f designer/dist/sw.js || { echo \"Build output incomplete (designer/dist/index.html or sw.js missing): refusing to deploy a partial build.\"; exit 1; }",
   "outputDirectory": "designer/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
