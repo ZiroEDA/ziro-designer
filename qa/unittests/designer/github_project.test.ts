@@ -631,3 +631,27 @@ describe('changesBetween', () => {
     ]);
   });
 });
+
+describe('Clone Project from Repository: a taken name', () => {
+  it('is refused before any file is downloaded', async () => {
+    const gh = new FakeGithub();
+    const r = gh.addRepo('amp', { private: true });
+    gh.commitFiles(r, 'main', { 'amp.kicad_pro': '{}\n', 'amp.kicad_sch': 'sch\n' });
+    const asked: string[] = [];
+    await expect(
+      cloneRepository(
+        gh.fetch,
+        { name: 'amp', owner: { login: 'octo' }, default_branch: 'main' },
+        async () => null,
+        undefined,
+        (name) => {
+          asked.push(name);
+          return 'taken';
+        },
+      ),
+    ).rejects.toThrow('taken');
+    expect(asked).toEqual(['amp']);
+    // the tree was read to find the project; no file was fetched
+    expect(gh.log.some((l) => l.path.includes('/git/blobs/'))).toBe(false);
+  });
+});

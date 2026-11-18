@@ -695,6 +695,12 @@ export async function cloneRepository(
   repo: Pick<GithubRepo, 'name' | 'owner' | 'default_branch'>,
   choose: (projects: readonly string[]) => Promise<string | null>,
   onProgress?: (done: number, total: number) => void,
+  /**
+   * Asked with the project's name once it is chosen and BEFORE any file is fetched: a reason not
+   * to clone (a project of that name already exists here), or null. Refusing after the download,
+   * as Clone did, made a person wait through every file to be told no (end-to-end test, 11-19).
+   */
+  refuse?: (aProjectName: string) => string | null,
 ): Promise<{ files: ProjectFile[]; link: GitLink; project: string } | null> {
   const owner = repo.owner.login;
   const branch = repo.default_branch || 'main';
@@ -717,6 +723,8 @@ export async function cloneRepository(
     throw new GitSyncError(_('No project files were found in the repository.'));
   const pro = projects.length > 1 ? await choose(projects) : projects[0]!;
   if (!pro) return null;
+  const refusal = refuse?.(pro.slice(pro.lastIndexOf('/') + 1).replace(/\.kicad_pro$/i, ''));
+  if (refusal) throw new GitSyncError(refusal);
   const slash = pro.lastIndexOf('/');
   const dir = slash < 0 ? '' : pro.slice(0, slash + 1);
   const view = remoteView(tree, dir);
