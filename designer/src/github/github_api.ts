@@ -65,6 +65,11 @@ const repoPath = (owner: string, repo: string): string => `/repos/${enc(owner)}/
 async function call<T>(f: GithubFetch, method: string, path: string, body?: unknown): Promise<T> {
   const res = await f(`${GITHUB_API}${path}`, {
     method,
+    // GitHub answers reads with `Cache-Control: private, max-age=60`, and the browser obeyed it:
+    // a Pull within a minute of reading the branch head said "Already up to date" over a newer
+    // commit, and a branch made a moment ago was missing from Switch to Branch (end-to-end test
+    // 11-19). Git state is read fresh, every time.
+    cache: 'no-store',
     headers: {
       Accept: 'application/vnd.github+json',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
