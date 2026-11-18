@@ -17,12 +17,16 @@ import {
 import {
   GITHUB_MESSAGE_TYPE,
   accessSettingsUrl,
+  afterSignIn,
   authorizeUrl,
   beginGithubConnect,
+  disconnectGithub,
   installUrl,
   isAccessUpdate,
   onGithubAccessUpdated,
   revokeToken,
+  saveTokens,
+  tokenKey,
 } from '@ziroeda/designer/src/github/github_auth.js';
 import {
   GitSyncError,
@@ -115,6 +119,18 @@ describe('connecting through the install page', () => {
   });
 });
 
+describe('what a finished sign-in leads to', () => {
+  it('installed somewhere: connected; nowhere: install it; nowhere after installing: wait', () => {
+    expect(afterSignIn([{ id: 1 }], 'authorize')).toBe('connected');
+    expect(afterSignIn([{ id: 1 }], 'install')).toBe('connected');
+    // A new person: signed in, App installed nowhere - the install page is next.
+    expect(afterSignIn([], 'authorize')).toBe('install');
+    // Back from the install page with still nothing: never the install page again in a loop.
+    expect(afterSignIn([], 'install')).toBe('pending');
+    expect(afterSignIn(null, 'authorize')).toBe('unknown');
+  });
+});
+
 describe('an access change reported by the callback page', () => {
   it('is an install or an update, from this site, with or without tokens', () => {
     expect(isAccessUpdate({ type: GITHUB_MESSAGE_TYPE, event: 'access-updated' })).toBe(true);
@@ -162,6 +178,36 @@ describe('the repositories the App may use', () => {
     expect(new Set(repos.map((r) => r.full_name)).size).toBe(130);
     expect(gh.log.some((l) => l.path.startsWith('/user/repos'))).toBe(false);
     expect(gh.log.filter((l) => l.path.startsWith('/user/installations/7/'))).toHaveLength(2);
+  });
+
+  it('reads every page of installations, too', async () => {
+    const gh = new FakeGithub();
+    gh.addRepo('only');
+    gh.installations = [...Array(101)].map((_, i) => ({
+      id: 100 + i,
+      login: 'octo',
+      selected: [],
+    }));
+    gh.installations[100] = { id: 200, login: 'octo', selected: ['only'] };
+    const { installations, repos } = await listAppRepos(gh.fetch);
+    expect(installations).toHaveLength(101);
+    expect(repos.map((r) => r.name)).toEqual(['only']);
+    expect((await connectionInfo(gh.fetch)).installations).toHaveLength(101);
+  });
+
+  it('after a sign-in: who, and where the App is installed', async () => {
+    const gh = new FakeGithub();
+    expect(await connectionInfo(gh.fetch)).toEqual({
+      login: 'octo',
+      installations: [
+        {
+          id: 1,
+          account: { login: 'octo', type: 'User' },
+          repository_selection: 'all',
+          html_url: 'https://github.com/settings/installations/1',
+        },
+      ],
+    });
   });
 
   it('none when the App is installed nowhere for this person', async () => {
@@ -338,5 +384,46 @@ describe('Disconnect GitHub: revoking the token through the server', () => {
       throw new Error('Failed to fetch');
     }) as typeof fetch;
     expect(await revokeToken('ghu_fake', offline)).toBe('Failed to fetch');
+  });
+});
+
+describe('Disconnect GitHub on this device', () => {
+  const memory = () => {
+    const map = new Map<string, string>();
+    return {
+      map,
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+    };
+  };
+
+  it("revokes this account's token and forgets it, leaving another account's alone", async () => {
+    const store = memory();
+    await saveTokens('me', { accessToken: 'ghu_mine' }, store);
+    await saveTokens('other', { accessToken: 'ghu_theirs' }, store);
+    const sent: unknown[] = [];
+    const server = (async (_u: string, init: RequestInit = {}) => {
+      sent.push(JSON.parse(String(init.body)));
+      return new Response('{"revoked":true}', { status: 200 });
+    }) as typeof fetch;
+    expect(await disconnectGithub('me', server, store)).toBeNull();
+    expect(sent).toEqual([{ access_token: 'ghu_mine' }]);
+    expect(store.map.has(tokenKey('me'))).toBe(false);
+    expect(store.map.has(tokenKey('other'))).toBe(true);
+  });
+
+  it('forgets the token even when GitHub could not be told, and says why', async () => {
+    const store = memory();
+    await saveTokens('me', { accessToken: 'ghu_mine' }, store);
+    const down = (async () =>
+      new Response(
+        '{"error":"not_configured","error_description":"GitHub is not set up on this server yet."}',
+        { status: 503 },
+      )) as typeof fetch;
+    expect(await disconnectGithub('me', down, store)).toBe(
+      'GitHub is not set up on this server yet.',
+    );
+    expect(store.map.has(tokenKey('me'))).toBe(false);
   });
 });

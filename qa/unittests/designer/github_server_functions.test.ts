@@ -354,6 +354,21 @@ describe('GET /api/github/callback, as the GitHub App sends people back', () => 
     });
   });
 
+  it('an update with our state but no code is only an update too', async () => {
+    const gh = tokenEndpoint({ access_token: 'x' });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get(`installation_id=9&setup_action=update&state=${STATE}`),
+      res,
+    );
+    expect(gh.calls).toEqual([]);
+    expect(res.pageData()).toEqual({
+      type: 'ziroeda-github',
+      event: 'access-updated',
+      installation_id: 9,
+    });
+  });
+
   it('an install that lost its state trades nothing and sends the person back to connect', async () => {
     const gh = tokenEndpoint({ access_token: 'x' });
     const res = new FakeRes();

@@ -427,7 +427,39 @@ export async function revokeToken(
   }
 }
 
+/**
+ * Version Control > Disconnect GitHub, minus the note: GitHub revokes this device's token, and the
+ * device forgets it whatever GitHub answered - a disconnect that left the token here because the
+ * server was unreachable would not be one. Null, or why GitHub could not be told.
+ */
+export async function disconnectGithub(
+  userKey: string,
+  fetchFn: typeof fetch,
+  store: KeyValueStore | null = defaultStore(),
+): Promise<string | null> {
+  const t = await loadTokens(userKey, store);
+  const problem = t ? await revokeToken(t.accessToken, fetchFn) : null;
+  clearTokens(userKey, store);
+  return problem;
+}
+
 // --- connecting --------------------------------------------------------------
+
+/**
+ * What a finished sign-in leads to. `connected`: the App is installed for this person somewhere,
+ * so it can reach repositories. `install`: signed in, but installed nowhere - ask them to install
+ * it, which is where they choose its repositories. `pending`: back from the install page and
+ * still installed nowhere (an organisation's owners were asked to approve it, or the page was
+ * left), which asking again would only loop on. `unknown`: GitHub could not be asked; carry on.
+ */
+export function afterSignIn(
+  installations: readonly unknown[] | null,
+  how: 'authorize' | 'install',
+): 'connected' | 'install' | 'pending' | 'unknown' {
+  if (installations === null) return 'unknown';
+  if (installations.length > 0) return 'connected';
+  return how === 'install' ? 'pending' : 'install';
+}
 
 /** How long a GitHub window is waited on before its listeners go. */
 export const CONNECT_TIMEOUT_MS = 10 * 60_000;

@@ -46,11 +46,12 @@ import {
   GithubSession,
   type GithubTokens,
   accessSettingsUrl,
+  afterSignIn,
   beginGithubConnect,
   clearTokens,
+  disconnectGithub,
   loadTokens,
   onGithubAccessUpdated,
-  revokeToken,
   saveTokens,
 } from './github_auth.js';
 import {
@@ -332,8 +333,9 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           setAccount({ connected: true, ...(info ? { login: info.login } : {}) });
           if (info) setInstallations(info.installations);
           setAccessNonce((n) => n + 1);
-          if (info && info.installations.length === 0) {
-            if (aHow === 'install') {
+          const next = afterSignIn(info ? info.installations : null, aHow);
+          if (info && next !== 'connected' && next !== 'unknown') {
+            if (next === 'pending') {
               // Back from the install page and still nothing installed: an organisation's owners
               // were asked to approve it, or the page was left without installing.
               setNotice({
@@ -379,9 +381,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
    * says where it is.
    */
   const disconnect = async (): Promise<void> => {
-    const t = await loadTokens(userKey);
-    const problem = t ? await revokeToken(t.accessToken, (...a) => fetch(...a)) : null;
-    clearTokens(userKey);
+    const problem = await disconnectGithub(userKey, (...a) => fetch(...a));
     appReposRef.current = null;
     setAccount({ connected: false });
     setInstallations([]);
