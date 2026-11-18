@@ -85,63 +85,69 @@ export function DialogPushToGithub({
             onChange={() => setMode('new')}
           />
         </SizerItem>
+        {/* Each radio button's own controls, indented under it as one column; a wx border is
+            the same on every side it names, so the indent and the gaps are separate items. */}
         <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT} border={10}>
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxEXPAND | wxLEFT} border={UNDER_RADIO}>
-              <BoxSizer orient={wxHORIZONTAL}>
-                <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                  <StaticText label={_('Repository name:')} />
+              <BoxSizer orient={wxVERTICAL}>
+                <SizerItem flag={wxEXPAND}>
+                  <BoxSizer orient={wxHORIZONTAL}>
+                    <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
+                      <StaticText label={_('Repository name:')} />
+                    </SizerItem>
+                    <SizerItem
+                      proportion={1}
+                      flag={wxALIGN_CENTER_VERTICAL | wxALL}
+                      border={5}
+                      minSize={[300, -1]}
+                    >
+                      <TextCtrl
+                        inputRef={nameRef}
+                        ariaLabel={_('Repository name:')}
+                        value={name}
+                        disabled={mode !== 'new'}
+                        onChange={setName}
+                        onEnter={finish}
+                      />
+                    </SizerItem>
+                  </BoxSizer>
                 </SizerItem>
-                <SizerItem
-                  proportion={1}
-                  flag={wxALIGN_CENTER_VERTICAL | wxALL}
-                  border={5}
-                  minSize={[300, -1]}
-                >
-                  <TextCtrl
-                    inputRef={nameRef}
-                    ariaLabel={_('Repository name:')}
-                    value={name}
-                    disabled={mode !== 'new'}
-                    onChange={setName}
-                    onEnter={finish}
+                <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
+                  <BoxSizer orient={wxHORIZONTAL}>
+                    <SizerItem flag={wxRIGHT} border={15}>
+                      <RadioButton
+                        label={_('Private')}
+                        name="ze-github-visibility"
+                        checked={isPrivate}
+                        disabled={mode !== 'new'}
+                        onChange={() => setPrivate(true)}
+                      />
+                    </SizerItem>
+                    <SizerItem>
+                      <RadioButton
+                        label={_('Public')}
+                        name="ze-github-visibility"
+                        checked={!isPrivate}
+                        disabled={mode !== 'new'}
+                        onChange={() => setPrivate(false)}
+                      />
+                    </SizerItem>
+                  </BoxSizer>
+                </SizerItem>
+                <SizerItem flag={wxALL} border={5}>
+                  <StaticText
+                    wrap={NOTE_WRAP}
+                    label={
+                      mode === 'new' && !validName
+                        ? _(
+                            'A repository name may use letters, digits, ".", "-" and "_", and at most 100 of them.',
+                          )
+                        : wxFormat(_('The repository is created under %s.'), owner)
+                    }
                   />
                 </SizerItem>
               </BoxSizer>
-            </SizerItem>
-            <SizerItem flag={wxLEFT | wxTOP} border={UNDER_RADIO}>
-              <BoxSizer orient={wxHORIZONTAL}>
-                <SizerItem flag={wxRIGHT} border={15}>
-                  <RadioButton
-                    label={_('Private')}
-                    name="ze-github-visibility"
-                    checked={isPrivate}
-                    disabled={mode !== 'new'}
-                    onChange={() => setPrivate(true)}
-                  />
-                </SizerItem>
-                <SizerItem>
-                  <RadioButton
-                    label={_('Public')}
-                    name="ze-github-visibility"
-                    checked={!isPrivate}
-                    disabled={mode !== 'new'}
-                    onChange={() => setPrivate(false)}
-                  />
-                </SizerItem>
-              </BoxSizer>
-            </SizerItem>
-            <SizerItem flag={wxLEFT | wxTOP} border={UNDER_RADIO}>
-              <StaticText
-                wrap={NOTE_WRAP}
-                label={
-                  mode === 'new' && !validName
-                    ? _(
-                        'A repository name may use letters, digits, ".", "-" and "_", and at most 100 of them.',
-                      )
-                    : wxFormat(_('The repository is created under %s.'), owner)
-                }
-              />
             </SizerItem>
           </BoxSizer>
         </SizerItem>
@@ -155,40 +161,44 @@ export function DialogPushToGithub({
         </SizerItem>
         <SizerItem proportion={1} flag={wxEXPAND | wxLEFT | wxRIGHT} border={10}>
           <BoxSizer orient={wxVERTICAL}>
-            <SizerItem proportion={1} flag={wxEXPAND | wxLEFT | wxTOP} border={UNDER_RADIO}>
-              {repos.length > 0 ? (
-                <ListCtrl
-                  ariaLabel={_('Use an existing repository')}
-                  headers={[_('Repository'), _('Visibility')]}
-                  columnWidths={[300, 100]}
-                  rows={repos.map((r) => [r.full_name, r.private ? _('Private') : _('Public')])}
-                  selection={mode === 'existing' ? picked : -1}
-                  onSelect={(i) => {
-                    setMode('existing');
-                    setPicked(i);
-                  }}
-                  onActivate={(i) => onResult({ kind: 'existing', repo: repos[i]! })}
-                />
-              ) : (
-                <StaticText
-                  wrap={NOTE_WRAP}
-                  label={_('ZiroEDA cannot use any of your repositories yet.')}
-                />
-              )}
-            </SizerItem>
-            <SizerItem flag={wxLEFT | wxTOP} border={UNDER_RADIO}>
-              <StaticText
-                wrap={NOTE_WRAP}
-                label={_(
-                  'Only an empty repository can take the project; one that has commits is cloned instead.',
-                )}
-              />
-            </SizerItem>
-            <SizerItem flag={wxLEFT | wxTOP} border={UNDER_RADIO}>
-              <HyperlinkCtrl
-                label={_('Change repository access on GitHub')}
-                onClick={onChangeAccess}
-              />
+            <SizerItem proportion={1} flag={wxEXPAND | wxLEFT} border={UNDER_RADIO}>
+              <BoxSizer orient={wxVERTICAL}>
+                <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
+                  {repos.length > 0 ? (
+                    <ListCtrl
+                      ariaLabel={_('Use an existing repository')}
+                      headers={[_('Repository'), _('Visibility')]}
+                      columnWidths={[300, 100]}
+                      rows={repos.map((r) => [r.full_name, r.private ? _('Private') : _('Public')])}
+                      selection={mode === 'existing' ? picked : -1}
+                      onSelect={(i) => {
+                        setMode('existing');
+                        setPicked(i);
+                      }}
+                      onActivate={(i) => onResult({ kind: 'existing', repo: repos[i]! })}
+                    />
+                  ) : (
+                    <StaticText
+                      wrap={NOTE_WRAP}
+                      label={_('ZiroEDA cannot use any of your repositories yet.')}
+                    />
+                  )}
+                </SizerItem>
+                <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
+                  <StaticText
+                    wrap={NOTE_WRAP}
+                    label={_(
+                      'Only an empty repository can take the project; one that has commits is cloned instead.',
+                    )}
+                  />
+                </SizerItem>
+                <SizerItem flag={wxALL} border={5}>
+                  <HyperlinkCtrl
+                    label={_('Change repository access on GitHub')}
+                    onClick={onChangeAccess}
+                  />
+                </SizerItem>
+              </BoxSizer>
             </SizerItem>
           </BoxSizer>
         </SizerItem>
