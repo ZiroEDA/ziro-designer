@@ -351,10 +351,18 @@ describe('Version Control (project_tree_pane.cpp:1029-1112), over GitHub', () =>
     });
   });
 
-  it('once connected, Connect GitHub... is gone', () => {
+  it('once connected, Connect GitHub... gives its place to Disconnect GitHub', () => {
     const m = sub(projectTreeMenu([sel('TXT')], vcs({ connected: true })));
     expect(has(m, 'connectGithub')).toBe(false);
+    expect(ids(m)[0]).toBe('disconnectGithub');
+    expect(row(m, 'disconnectGithub')).toMatchObject({ label: 'Disconnect GitHub', ours: true });
+    expect(row(m, 'disconnectGithub')?.disabled).toBeUndefined();
     expect(row(m, 'pushToGithub')?.disabled).toBeUndefined();
+  });
+
+  it('not connected, there is nothing to disconnect', () => {
+    const m = sub(projectTreeMenu([sel('TXT')], vcs({ connected: false, linked: true })));
+    expect(has(m, 'disconnectGithub')).toBe(false);
   });
 
   it('a linked project: Commit and Pull live, Push to GitHub... greyed, the quick branches listed', () => {

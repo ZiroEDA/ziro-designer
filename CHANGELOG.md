@@ -60,6 +60,17 @@ the engineering detail (3,700+ commits since 29 June 2026).
   dialog set to Gerber (the row was greyed).
 
 ### Changed
+- **GitHub connects as an app you can limit to chosen repositories**: when
+  you connect, GitHub asks whether ZiroEDA may use all your repositories or
+  only the ones you select, and you can change that later on GitHub. If you
+  connected before this change, connect again. Push to GitHub... can now also
+  fill an existing empty repository.
+- **Disconnect GitHub** in the Version Control menu forgets the connection on
+  this device and links to GitHub, where the app can be uninstalled.
+- **Clone Project from Repository... lists your KiCad projects and takes a
+  link**: it shows the repositories that hold a KiCad project (or all of them,
+  on request), and a link to any public GitHub project opens it read-only, so
+  File > Open Project from GitHub... is gone. Links to /gh/... still work.
 - **Projects in your account are listed at once** on a new device, or after
   the browser clears its storage, and each one downloads when you open it.
   The list used to stay empty until every project had downloaded.

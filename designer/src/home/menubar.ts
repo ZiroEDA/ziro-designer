@@ -67,8 +67,6 @@ export interface ManagerMenuHandlers {
   openDemo: (id: string) => void;
   /** File > Import Non-KiCad Project > <format>... (KICAD_MANAGER_FRAME::OnImportXxx). */
   importNonKicadProject: (aFormat: ImportFormat) => void;
-  /** Open Project from GitHub... (#640): asks for the repository's link. */
-  openFromGithub: () => void;
   /**
    * File > Clone Project from Repository... (KICAD_MANAGER_ACTIONS::newFromRepository). Absent
    * when `m_Git.enableGit` is off, which is when upstream does not add the row.
@@ -127,9 +125,12 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // holds the substitution and the reasoning.
         { label: _HKI('New Project...'), shortcut: 'Ctrl+Alt+N', action: h.newProject },
         // KICAD_MANAGER_ACTIONS::newFromRepository (kicad/menubar.cpp:84-85), added only
-        // `if( m_Git.enableGit )`. Upstream clones with libgit2; ours clones one of the connected
-        // GitHub account's repositories, private ones included, over GitHub's API
-        // (designer/src/github/), into a new project linked to it.
+        // `if( m_Git.enableGit )`. Upstream clones with libgit2; ours clones one of the
+        // repositories the ZiroEDA GitHub App may use, private ones included, over GitHub's API
+        // (designer/src/github/), into a new project linked to it - and takes a link to any
+        // public project, which opens read-only. That is what "Open Project from GitHub..."
+        // (#640) did on a row of its own beside this one, which it has replaced; the
+        // `/gh/<owner>/<repo>` addresses still open the same way.
         ...(h.cloneFromRepository
           ? [
               {
@@ -139,9 +140,6 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
               },
             ]
           : []),
-        // Ours (#640), beside it: any PUBLIC GitHub repository's project by its link, opened
-        // read-only like a demo, with no account needed. Nothing is cloned.
-        { label: _('Open Project from GitHub...'), action: h.openFromGithub },
         // Upstream shows this only when the stock demos path exists; ours
         // lists the bundled demos as a submenu (the web take on its picker).
         {

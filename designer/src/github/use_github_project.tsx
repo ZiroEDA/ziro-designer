@@ -31,37 +31,57 @@ import {
   updateProjectFiles,
 } from '../home/projectStore.js';
 import type { TreeMenuEntryId, VcsMenuState } from '../home/project_tree_menu.js';
-import { type GithubRepo, getAuthenticatedUser, listUserRepos } from './github_api.js';
+import type { GithubSpec } from '../home/github_id.js';
 import {
+  type GithubInstallation,
+  type GithubRepo,
+  connectionInfo,
+  listAppRepos,
+  listInstallations,
+} from './github_api.js';
+import {
+  GITHUB_INSTALLATIONS_SETTINGS,
   GithubAuthError,
   GithubAuthRequired,
   GithubSession,
   type GithubTokens,
+  accessSettingsUrl,
   beginGithubConnect,
   clearTokens,
   loadTokens,
+  onGithubAccessUpdated,
+  revokeToken,
   saveTokens,
 } from './github_auth.js';
 import {
   type CommitPlan,
   GIT_LINK_FILE,
   type GitLink,
+  GithubAccessError,
   type PullPlan,
   addBranch,
   branchNames,
   cloneRepository,
   fetchPull,
+  findKicadRepos,
   gitLinkBytes,
   gitLinkOf,
   isValidBranchName,
   planCommit,
   planPull,
   pushNewRepository,
+  pushToExistingRepository,
   repoNameFor,
   runCommit,
   upstreamOf,
 } from './github_project.js';
 import { DialogPushToGithub, type PushToGithubAnswer } from './dialog_push_to_github.js';
+import {
+  type CloneAnswer,
+  type CloneRepoList,
+  DialogCloneFromGithub,
+} from './dialog_clone_from_github.js';
+import { DialogGithubNotice, openGithubPage } from './dialog_github_notice.js';
 
 type Loading = { title: string; label: string | ProgressSnapshot } | null;
 
@@ -98,6 +118,20 @@ export interface GithubProjectHost {
   patchOpenFiles: (aWrites: readonly { name: string; bytes: Uint8Array }[]) => void;
   /** A project's record was written: refresh the list and push it to the account. */
   onStoreWritten: (aId: string) => void;
+  /**
+   * A GitHub link given to Clone Project from Repository...: open that project read-only, as the
+   * `/gh/<owner>/<repo>` address does (and File > Open Project from GitHub... did).
+   */
+  openGithubLink: (aSpec: GithubSpec) => void;
+}
+
+/** A notice with a link to GitHub, or a question whose button takes the step (DialogGithubNotice). */
+interface Notice {
+  caption: string;
+  message: string;
+  detail?: string;
+  link?: { label: string; url: string };
+  action?: { label: string; run: () => void };
 }
 
 export interface GithubProject {
@@ -123,13 +157,25 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   const [account, setAccount] = useState<{ connected: boolean; login?: string }>({
     connected: false,
   });
+  /** Where the App is installed for this person: what "Change repository access" opens. */
+  const [installations, setInstallations] = useState<GithubInstallation[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [pushOpen, setPushOpen] = useState(false);
+  /** Push to GitHub... is up, with the repositories it offers as existing ones. */
+  const [pushRepos, setPushRepos] = useState<GithubRepo[] | null>(null);
   const [commitPlan, setCommitPlan] = useState<CommitPlan | null>(null);
   const [conflict, setConflict] = useState<PullPlan | null>(null);
   const [switchList, setSwitchList] = useState<string[] | null>(null);
-  const [cloneRepos, setCloneRepos] = useState<GithubRepo[] | null>(null);
+  /** Clone Project from Repository... is up. */
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloneList, setCloneList] = useState<CloneRepoList | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  /** Moves when GitHub says the App's repository access changed: everything listed is stale. */
+  const [accessNonce, setAccessNonce] = useState(0);
+  /** The repositories the App may use, once asked, until the access changes. */
+  const appReposRef = useRef<{ installations: GithubInstallation[]; repos: GithubRepo[] } | null>(
+    null,
+  );
   const [cloneChoice, setCloneChoice] = useState<{
     projects: readonly string[];
     resolve: (aPath: string | null) => void;
@@ -166,6 +212,36 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       live = false;
     };
   }, [userKey]);
+
+  // An install, or the person changing ZiroEDA's repositories on GitHub (in its window, or in a
+  // tab of their own): what was listed is stale.
+  useEffect(
+    () =>
+      onGithubAccessUpdated(() => {
+        appReposRef.current = null;
+        setAccessNonce((n) => n + 1);
+      }),
+    [],
+  );
+
+  // Where the App is installed, for the links to change it: asked again after every change.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: accessNonce is the trigger
+  useEffect(() => {
+    if (!account.connected) {
+      setInstallations([]);
+      return;
+    }
+    let live = true;
+    listInstallations(session.fetch).then(
+      (list) => {
+        if (live) setInstallations(list);
+      },
+      (e) => console.warn('GitHub installations failed:', why(e)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [account.connected, session, accessNonce]);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showFeedback = useCallback((aText: string): void => {
@@ -224,32 +300,66 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   /**
    * Connect, then carry on with what was asked. Runs inside the click: GitHub's window has to
    * open from the gesture or the browser blocks it.
+   *
+   * First the sign-in (`authorize`): a person who installed the App before - on another device -
+   * is done there. One with no installation is then asked to install it, which picks the
+   * repositories it may use; that button's click opens the install page (`install`), and the
+   * install finishes the sign-in again at the same callback.
    */
   const connect = useCallback(
-    (aThen?: () => void): void => {
-      beginGithubConnect().then(
+    (aThen?: () => void, aHow: 'authorize' | 'install' = 'authorize'): void => {
+      beginGithubConnect(window, aHow).then(
         async (t: GithubTokens) => {
-          // Who the account is: the Author line, and the owner a new repository goes under.
           const once = new GithubSession({
             fetch: (...a) => fetch(...a),
             load: async () => t,
             save: async () => {},
             clear: () => {},
           });
-          let login: string | undefined;
+          let info: { login: string; installations: GithubInstallation[] } | null = null;
           try {
-            login = (await getAuthenticatedUser(once.fetch)).login;
+            info = await connectionInfo(once.fetch);
           } catch {
-            login = undefined;
+            info = null;
           }
           try {
-            await saveTokens(userKey, login ? { ...t, login } : t);
+            await saveTokens(userKey, info ? { ...t, login: info.login } : t);
           } catch (e) {
             DisplayErrorMessage(_('Could not connect GitHub.'), why(e));
             return;
           }
-          setAccount({ connected: true, ...(login ? { login } : {}) });
-          if (login) showFeedback(wxFormat(_('Connected to GitHub as %s.'), login));
+          appReposRef.current = null;
+          setAccount({ connected: true, ...(info ? { login: info.login } : {}) });
+          if (info) setInstallations(info.installations);
+          setAccessNonce((n) => n + 1);
+          if (info && info.installations.length === 0) {
+            if (aHow === 'install') {
+              // Back from the install page and still nothing installed: an organisation's owners
+              // were asked to approve it, or the page was left without installing.
+              setNotice({
+                caption: _('Connect GitHub'),
+                message: _(
+                  'GitHub did not report ZiroEDA installed on any of your accounts. If you asked an organization to install it, connect again once its owners have approved it.',
+                ),
+              });
+              return;
+            }
+            setNotice({
+              caption: _('Connect GitHub'),
+              message: wxFormat(
+                _(
+                  'You are signed in to GitHub as %s, but ZiroEDA is not installed on your account yet.',
+                ),
+                info.login,
+              ),
+              detail: _(
+                'Installing it is where you choose which repositories ZiroEDA may use: all of them, or only the ones you select.',
+              ),
+              action: { label: _('Install on GitHub...'), run: () => connect(aThen, 'install') },
+            });
+            return;
+          }
+          if (info) showFeedback(wxFormat(_('Connected to GitHub as %s.'), info.login));
           aThen?.();
         },
         // GithubAuthError: GitHub's words, or the server's ("not set up on this server yet").
@@ -262,6 +372,48 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
     },
     [userKey, showFeedback],
   );
+
+  /**
+   * Version Control > Disconnect GitHub: GitHub revokes this device's token (api/github/revoke.js)
+   * and the app forgets it. The installation stays - it is the person's, on GitHub - and the note
+   * says where it is.
+   */
+  const disconnect = async (): Promise<void> => {
+    const t = await loadTokens(userKey);
+    const problem = t ? await revokeToken(t.accessToken, (...a) => fetch(...a)) : null;
+    clearTokens(userKey);
+    appReposRef.current = null;
+    setAccount({ connected: false });
+    setInstallations([]);
+    setBranches([]);
+    setNotice({
+      caption: _('Disconnect GitHub'),
+      message: _('ZiroEDA is disconnected from GitHub on this device.'),
+      detail:
+        (problem
+          ? `${wxFormat(_('GitHub could not be told to revoke the connection (%s), but this device no longer holds it.'), problem)}\n\n`
+          : '') +
+        _(
+          'ZiroEDA is still installed on GitHub. To uninstall it, or to change which repositories it may use, open your installed GitHub Apps.',
+        ),
+      link: { label: _('Installed GitHub Apps'), url: GITHUB_INSTALLATIONS_SETTINGS },
+    });
+  };
+
+  /** The repositories the App may use: asked once, and again after the access changes. */
+  const appRepos = async (): Promise<{
+    installations: GithubInstallation[];
+    repos: GithubRepo[];
+  }> => {
+    if (appReposRef.current) return appReposRef.current;
+    const got = await listAppRepos(session.fetch);
+    appReposRef.current = got;
+    setInstallations(got.installations);
+    return got;
+  };
+
+  /** "Change repository access on GitHub". */
+  const changeAccess = (): void => openGithubPage(accessSettingsUrl(installations));
 
   const withGithub = useCallback(
     (aThen: () => void): void => {
@@ -288,26 +440,52 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
 
   // --- Push to GitHub... ---------------------------------------------------------
 
+  const pushToGithub = (): void =>
+    withGithub(async () => {
+      const { setLoading } = hostRef.current;
+      setLoading({
+        title: _('Push to GitHub'),
+        label: _('Listing the repositories ZiroEDA can use...'),
+      });
+      try {
+        setPushRepos((await appRepos()).repos);
+      } catch (e) {
+        report(_('Failed to push project'), e);
+      } finally {
+        setLoading(null);
+      }
+    });
+
   const onPushResult = async (aAnswer: PushToGithubAnswer | null): Promise<void> => {
-    setPushOpen(false);
+    setPushRepos(null);
     const id = hostRef.current.projectId;
     if (!aAnswer || !id) return;
     const { setLoading } = hostRef.current;
+    const target = aAnswer.kind === 'new' ? aAnswer.name : aAnswer.repo.full_name;
     setLoading({
       title: _('Push to GitHub'),
-      label: wxFormat(_('Pushing %s to GitHub...'), aAnswer.name),
+      label: wxFormat(_('Pushing %s to GitHub...'), target),
     });
     try {
-      const { link: made } = await pushNewRepository(
-        session.fetch,
-        aAnswer.name,
-        aAnswer.isPrivate,
-        await filesOf(id),
-      );
+      const files = await filesOf(id);
+      const { link: made } =
+        aAnswer.kind === 'new'
+          ? await pushNewRepository(session.fetch, aAnswer.name, aAnswer.isPrivate, files)
+          : await pushToExistingRepository(session.fetch, aAnswer.repo, files);
+      appReposRef.current = null;
       await writeLink(id, made);
       showFeedback(wxFormat(_('Pushed %s to %s.'), made.branch, upstreamOf(made)));
     } catch (e) {
-      report(_('Failed to push project'), e);
+      if (e instanceof GithubAccessError)
+        setNotice({
+          caption: _('Failed to push project'),
+          message: e.message,
+          link: {
+            label: _('Change repository access on GitHub'),
+            url: accessSettingsUrl(installations),
+          },
+        });
+      else report(_('Failed to push project'), e);
     } finally {
       setLoading(null);
     }
@@ -482,29 +660,50 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
 
   // --- Clone Project from Repository... --------------------------------------------
 
-  const cloneFromRepository = (): void =>
-    withGithub(async () => {
-      const { setLoading } = hostRef.current;
-      setLoading({ title: _('Clone Repository'), label: _('Listing your GitHub repositories...') });
-      try {
-        const repos = await listUserRepos(session.fetch);
-        if (repos.length === 0) {
-          setLoading(null);
-          await DisplayInfoMessage(_('This GitHub account has no repositories yet.'));
-          return;
-        }
-        setCloneRepos(repos);
-      } catch (e) {
-        report(_('Failed to clone repository'), e);
-      } finally {
-        setLoading(null);
-      }
-    });
+  /** File > Clone Project from Repository...: the dialog is up at once, connected or not. */
+  const cloneFromRepository = (): void => setCloneOpen(true);
 
-  const onCloneRepo = async (aFullName: string | null): Promise<void> => {
-    const repo = cloneRepos?.find((r) => r.full_name === aFullName);
-    setCloneRepos(null);
-    if (!repo) return;
+  // The dialog's list: the repositories the App may use, then which of them hold a KiCad project,
+  // growing as each is answered. Again whenever the access changes, or GitHub is connected.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: accessNonce is the trigger; appRepos reads refs and the session
+  useEffect(() => {
+    if (!cloneOpen || !account.connected) {
+      setCloneList(null);
+      return;
+    }
+    let live = true;
+    setCloneList({ all: [], kicad: [], status: 'listing' });
+    (async () => {
+      try {
+        const { repos } = await appRepos();
+        if (!live) return;
+        const kicad: GithubRepo[] = [];
+        setCloneList({ all: repos, kicad, status: 'scanning', done: 0, total: repos.length });
+        const found = await findKicadRepos(session.fetch, repos, (done, total, repo, yes) => {
+          if (!live) return;
+          if (yes) kicad.push(repo);
+          setCloneList({ all: repos, kicad: [...kicad], status: 'scanning', done, total });
+        });
+        if (live) setCloneList({ all: repos, kicad: found, status: 'ready' });
+      } catch (e) {
+        if (!live) return;
+        if (e instanceof GithubAuthRequired) setAccount({ connected: false });
+        setCloneList({ all: [], kicad: [], status: 'error', error: why(e) });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [cloneOpen, account.connected, session, accessNonce]);
+
+  const onCloneResult = (aAnswer: CloneAnswer | null): void => {
+    setCloneOpen(false);
+    if (!aAnswer) return;
+    if (aAnswer.kind === 'link') hostRef.current.openGithubLink(aAnswer.spec);
+    else void onCloneRepo(aAnswer.repo);
+  };
+
+  const onCloneRepo = async (repo: GithubRepo): Promise<void> => {
     const { setLoading } = hostRef.current;
     const title = _('Clone Repository');
     const message = wxFormat(_('Cloning %s...'), repo.full_name);
@@ -570,8 +769,11 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       case 'connectGithub':
         connect();
         return;
+      case 'disconnectGithub':
+        void disconnect();
+        return;
       case 'pushToGithub':
-        withGithub(() => setPushOpen(true));
+        pushToGithub();
         return;
       case 'gitCommitProject':
         commitProject();
@@ -601,10 +803,12 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
 
   const dialogs = (
     <>
-      {pushOpen && (
+      {pushRepos && (
         <DialogPushToGithub
           defaultName={repoNameFor(host.projectName)}
           owner={account.login ?? _('your GitHub account')}
+          repos={pushRepos}
+          onChangeAccess={changeAccess}
           onResult={(a) => void onPushResult(a)}
         />
       )}
@@ -645,15 +849,23 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           onResult={(r) => void onSwitchResult(r)}
         />
       )}
-      {cloneRepos && (
-        <SingleChoiceDialog
-          caption={_('Clone Project from Git Repository')}
-          message={_('Choose the repository to clone:')}
-          choices={cloneRepos.map((r) => ({
-            value: r.full_name,
-            label: r.private ? `${r.full_name}\t${_('Private')}` : `${r.full_name}\t${_('Public')}`,
-          }))}
-          onResult={(v) => void onCloneRepo(v)}
+      {cloneOpen && (
+        <DialogCloneFromGithub
+          connected={account.connected}
+          list={cloneList}
+          onConnect={() => connect()}
+          onChangeAccess={changeAccess}
+          onResult={onCloneResult}
+        />
+      )}
+      {notice && (
+        <DialogGithubNotice
+          caption={notice.caption}
+          message={notice.message}
+          {...(notice.detail ? { detail: notice.detail } : {})}
+          {...(notice.link ? { link: notice.link } : {})}
+          {...(notice.action ? { action: notice.action } : {})}
+          onClose={() => setNotice(null)}
         />
       )}
       {cloneChoice && (

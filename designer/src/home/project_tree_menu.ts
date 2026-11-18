@@ -33,9 +33,10 @@
  * What is in it, against upstream's:
  *
  * - "Add Project to Version Control..." is ours, `Push to GitHub...`: the
- *   repository is created on GitHub and the project pushed to it, since there
- *   is no local repository to initialise first. Before it, while the account
- *   has not connected GitHub on this device, `Connect GitHub...`.
+ *   repository is created on GitHub (or an empty one chosen) and the project
+ *   pushed to it, since there is no local repository to initialise first.
+ *   Before it, `Connect GitHub...` while the account has not connected GitHub
+ *   on this device, and `Disconnect GitHub` once it has.
  * - `Commit Project...` commits and pushes in one step, so upstream's separate
  *   `Push` row - enabled only with local commits to push, which never exist
  *   here - is left out rather than drawn greyed forever.
@@ -72,6 +73,7 @@ export type TreeMenuEntryId =
   | 'moveToTrash'
   | 'versionControl'
   | 'connectGithub'
+  | 'disconnectGithub'
   | 'pushToGithub'
   | 'gitCommitProject'
   | 'gitPull'
@@ -136,11 +138,19 @@ export function versionControlSubmenu(vcs: VcsMenuState): TreeMenu {
   const off = (enabled: boolean): { disabled?: true } => (enabled ? {} : { disabled: true });
   const rows: (TreeMenuEntry | 'separator')[] = [];
 
+  // Ours, and one slot for both: connecting until connected, then the way back out.
   if (!vcs.connected) {
     rows.push({
       id: 'connectGithub',
       label: 'Connect GitHub...',
       help: 'Sign in to GitHub, so projects can be pushed to it and pulled from it',
+      ours: true,
+    });
+  } else {
+    rows.push({
+      id: 'disconnectGithub',
+      label: 'Disconnect GitHub',
+      help: 'Forget the GitHub connection on this device',
       ours: true,
     });
   }

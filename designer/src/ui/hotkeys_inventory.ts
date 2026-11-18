@@ -247,7 +247,6 @@ function managerItems(): MenuItem[] {
       showAbout: noop,
       showHotkeys: noop,
       openDemo: noop,
-      openFromGithub: noop,
       importNonKicadProject: noop,
       hasProject: true,
       hasTextFileSelected: true,

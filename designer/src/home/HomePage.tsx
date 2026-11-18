@@ -46,11 +46,9 @@ import {
   GithubOpenError,
   githubIdFor,
   githubSpecFromId,
-  githubSpecFromUrl,
   isGithubId,
   openGithubProject,
 } from './github_source.js';
-import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import {
@@ -821,8 +819,6 @@ export function HomePage({
       onImportNonKicadBoard?.(board, files, { path: plan.board.name, bytes: plan.board.bytes });
   };
 
-  /** File > Open Project from GitHub...'s link dialog (#640). */
-  const [githubUrlOpen, setGithubUrlOpen] = useState(false);
   /** A repository with several projects: the chooser, and who is waiting on it. */
   /** The big files of a GitHub project, asked about before any is fetched. */
   const [githubLarge, setGithubLarge] = useState<{
@@ -2162,6 +2158,16 @@ export function HomePage({
           console.warn('Cloud push failed:', e),
         );
     },
+    // A link pasted into Clone Project from Repository... (#640): the project read-only, as its
+    // `/gh/...` address opens it - a schematic's or a board's link in that editor.
+    openGithubLink: (spec) => {
+      const view = spec.path?.endsWith('.kicad_sch')
+        ? 'schematic'
+        : spec.path?.endsWith('.kicad_pcb')
+          ? 'pcb'
+          : undefined;
+      void openDemoProject(githubIdFor(spec), view);
+    },
   });
   // `ShowChangedLanguage()`: the frame redraws when the language changes.
   useTranslations();
@@ -2210,7 +2216,6 @@ export function HomePage({
     showAbout: () => setAboutOpen(true),
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
-    openFromGithub: () => setGithubUrlOpen(true),
     // `if( m_Git.enableGit ) fileMenu->Add( KICAD_MANAGER_ACTIONS::newFromRepository )`.
     ...(common.git.enableGit ? { cloneFromRepository: github.cloneFromRepository } : {}),
     hasProject: !!picked,
@@ -2757,42 +2762,6 @@ export function HomePage({
       )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
-      {githubUrlOpen && (
-        <WX_TEXT_ENTRY_DIALOG
-          caption={_('Open Project from GitHub')}
-          label={_('GitHub link:')}
-          // What to paste for what you want, for someone who has never done it: the address
-          // bar's link while looking at the thing on GitHub, in each case.
-          notes={[
-            'A whole repository: paste its main page, github.com/owner/repository. If it holds several KiCad projects, you choose one.',
-            'One project in a repository: open the folder on GitHub that holds its .kicad_pro, and paste that link.',
-            'A schematic or a board: open the .kicad_sch or .kicad_pcb file on GitHub and paste its link. Its project opens in that editor.',
-            'Another branch or tag: switch to it on GitHub first, then copy the link.',
-            'The repository must be public. Projects open read-only; "Save a copy" keeps one of your own.',
-          ]}
-          hint="https://github.com/owner/repository"
-          extraWidth
-          onResult={(value) => {
-            setGithubUrlOpen(false);
-            if (value === null) return;
-            const spec = githubSpecFromUrl(value);
-            if (!spec) {
-              DisplayErrorMessage(
-                wxFormat(_('"%s" is not a link to a GitHub repository.'), value.trim()),
-                'Paste the address of the repository from your browser, for example https://github.com/owner/repository',
-              );
-              return;
-            }
-            // A schematic's or a board's link: its project, in that editor.
-            const view = spec.path?.endsWith('.kicad_sch')
-              ? 'schematic'
-              : spec.path?.endsWith('.kicad_pcb')
-                ? 'pcb'
-                : undefined;
-            void openDemoProject(githubIdFor(spec), view);
-          }}
-        />
-      )}
       {githubLarge && (
         <MessageDialogYesNoCancel
           caption={_('Open Project from GitHub')}
