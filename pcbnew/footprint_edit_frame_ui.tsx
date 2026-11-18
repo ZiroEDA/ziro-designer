@@ -74,7 +74,7 @@ import {
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { ContextMenu, type Menu, MenuBar } from '@ziroeda/wx/menu_ui.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { dispatchMenuHotkey, frameKeyBlocked } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
@@ -1254,7 +1254,7 @@ export function FootprintEditFrame({
       if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
       if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
-      if (focusBlocksHotkey(target, e)) return;
+      if (frameKeyBlocked(target, e)) return;
       if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);

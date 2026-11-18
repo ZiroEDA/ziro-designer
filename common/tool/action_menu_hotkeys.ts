@@ -338,6 +338,20 @@ export function focusBlocksHotkey(
   return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c';
 }
 
+/**
+ * Whether a frame's own key handler leaves this key alone: a typing target has it
+ * (focusBlocksHotkey), or a modal is up. KiCad's frame is disabled behind a modal dialog, so none of
+ * its hotkeys run. The menu accelerators here already stood down (dispatchMenuHotkey asks
+ * openModalCount); the frames' own keys did not - the Symbol Fields Table's focus went to the
+ * canvas with a cross-probe, and what was typed next ran schematic tools behind it (uartbridge, U-10).
+ */
+export function frameKeyBlocked(
+  target: (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null | undefined,
+  e: HotkeyEvent,
+): boolean {
+  return openModalCount() > 0 || focusBlocksHotkey(target, e);
+}
+
 /** What a dispatch attempt is allowed to consider. */
 export interface DispatchOptions {
   /** The focused element, if any. Defaults to nothing focused. */

@@ -473,6 +473,13 @@ export function Dialog({
   };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    // A modal dialog takes every key: while one is up KiCad's frame sees none (its hotkeys are the
+    // frame's, and the dialog is in front of it). A key no control inside used comes up to here and
+    // goes no further - the editor behind listens on the window, and a Shift+N pressed on the Label
+    // dialog's checkbox changed the schematic grid behind it (uartbridge, U-7). A modeless dialog
+    // (Find) leaves the frame its keys.
+    if (!modeless) e.stopPropagation();
+
     if (e.defaultPrevented) return;
 
     if (e.key === 'Escape' && modeless) {

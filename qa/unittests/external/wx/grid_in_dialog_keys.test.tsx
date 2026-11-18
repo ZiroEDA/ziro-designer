@@ -16,7 +16,8 @@
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { claimBrowserHotkeys } from '@ziroeda/common/browser_hotkeys.js';
+import { claimBrowserHotkeys, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
+import { frameKeyBlocked, type HotkeyEvent } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { Dialog } from '@ziroeda/wx/dialog.js';
@@ -117,5 +118,67 @@ describe('a grid cell editor in a dialog', () => {
     // ...and with no editor open, Escape is the dialog's again.
     fireEvent.keyDown(screen.getByLabelText('fields'), { key: 'Escape', code: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a key in a modal dialog stays in it', () => {
+  // KiCad: while a modal dialog is up the frame behind sees no key. The editor listens on the
+  // window; a Shift+N pressed on the Label dialog's checkbox changed the schematic grid behind it
+  // (uartbridge build, U-7) once the dialog let claimed keys through to its controls.
+  const frameSees = (aModeless: boolean, aKey: { key: string; shiftKey?: boolean }) => {
+    const seen = vi.fn();
+    window.addEventListener('keydown', seen);
+    release = claimBrowserHotkeys(['Shift+N', 'N']).release;
+    try {
+      render(
+        <Dialog title="Label Properties" onClose={() => {}} modeless={aModeless}>
+          <input type="checkbox" aria-label="Bold" />
+        </Dialog>,
+      );
+      fireEvent.keyDown(screen.getByLabelText('Bold'), aKey);
+    } finally {
+      window.removeEventListener('keydown', seen);
+      release?.();
+      release = null;
+      cleanup();
+    }
+    return seen.mock.calls.length > 0;
+  };
+
+  it('never reaches the frame behind a modal one, claimed hotkey or not', () => {
+    expect(frameSees(false, { key: 'N', shiftKey: true })).toBe(false);
+    expect(frameSees(false, { key: 'q' })).toBe(false);
+  });
+
+  it('a modeless dialog leaves the frame its keys', () => {
+    expect(frameSees(true, { key: 'N', shiftKey: true })).toBe(true);
+  });
+});
+
+describe("the frame's own keys while a modal is up", () => {
+  // The other half of U-10: the Fields Table's focus went to the canvas with a cross-probe, so the
+  // keys came from the canvas, never passed the dialog, and ran schematic tools behind it. KiCad's
+  // frame is disabled behind a modal; frameKeyBlocked is what each editor's key handler asks first.
+  it('stand down while a modal is open, and come back when it closes', () => {
+    const canvas = { tagName: 'CANVAS' } as unknown as FocusLike;
+    expect(frameKeyBlocked(canvas, { key: 'N', shiftKey: true } as HotkeyEvent)).toBe(false);
+    const view = render(
+      <Dialog title="Symbol Fields Table" onClose={() => {}}>
+        <span />
+      </Dialog>,
+    );
+    expect(frameKeyBlocked(canvas, { key: 'N', shiftKey: true } as HotkeyEvent)).toBe(true);
+    view.unmount();
+    expect(frameKeyBlocked(canvas, { key: 'N', shiftKey: true } as HotkeyEvent)).toBe(false);
+  });
+
+  it('a modeless dialog leaves them on', () => {
+    const canvas = { tagName: 'CANVAS' } as unknown as FocusLike;
+    render(
+      <Dialog title="Find" onClose={() => {}} modeless>
+        <span />
+      </Dialog>,
+    );
+    expect(frameKeyBlocked(canvas, { key: 'N', shiftKey: true } as HotkeyEvent)).toBe(false);
   });
 });

@@ -57,7 +57,7 @@ import {
 import { type LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { dispatchMenuHotkey, frameKeyBlocked } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
@@ -1251,7 +1251,7 @@ export function SymbolEditor({
       if ((document.body.dataset.activeView ?? 'symbols') !== 'symbols') return;
       if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
-      if (focusBlocksHotkey(target, e)) return;
+      if (frameKeyBlocked(target, e)) return;
       if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);

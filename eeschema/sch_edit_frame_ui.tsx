@@ -243,7 +243,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { fetchHostedSymbolFile } from './libraries/symbol_library_adapter.js';
 import { type SchErcLine, schErcLines } from './sch_script_api.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { dispatchMenuHotkey, frameKeyBlocked } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
@@ -5246,7 +5246,7 @@ export function SchematicEditor({
       // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
       // read-only one keeps Ctrl+C.
       const target = raw.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
-      if (focusBlocksHotkey(target, raw)) return;
+      if (frameKeyBlocked(target, raw)) return;
       // The user's rebindings, applied before anything below sees the event: a
       // key bound elsewhere arrives spelled as the action's *default* combo, and
       // a cleared one arrives as null and stops here. See hotkey_bindings.ts —

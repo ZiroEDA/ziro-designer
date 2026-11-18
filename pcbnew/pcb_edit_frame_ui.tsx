@@ -519,7 +519,7 @@ import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { dispatchMenuHotkey, frameKeyBlocked } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import {
   isTypingTarget,
   wasBrowserSuppressed,
@@ -5402,7 +5402,7 @@ export function PcbEditor({
       // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
       // menus; here it gates the context branches.
       const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
-      if (focusBlocksHotkey(target, e)) return;
+      if (frameKeyBlocked(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
 
       // A TOOL_MANAGER tool (DRAWING_TOOL's shapes) takes its keys through
