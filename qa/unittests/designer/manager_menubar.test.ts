@@ -6,7 +6,7 @@
  * ours in ways a screenshot does not show.
  */
 import { describe, expect, it } from 'vitest';
-import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
+import { type ManagerMenuHandlers, buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 
 const noop = (): void => undefined;
@@ -180,6 +180,32 @@ describe('File > Open Project from GitHub... (#640)', () => {
       ?.items.find((i) => i.label === 'Open Project from GitHub...');
     item?.action?.();
     expect(asked).toBe(1);
+  });
+});
+
+describe('File > Clone Project from Repository... (KICAD_MANAGER_ACTIONS::newFromRepository)', () => {
+  const fileLabels = (h: ManagerMenuHandlers) =>
+    (buildManagerMenus(h).find((m) => m.label === 'File')?.items ?? []).map((i) => i.label);
+
+  it('sits right after New Project..., in its kicad/menubar.cpp:84-85 slot, then ours, then the demos', () => {
+    const labels = fileLabels({ ...handlers, cloneFromRepository: noop });
+    const at = labels.indexOf('Clone Project from Repository...');
+    expect(at).toBe(labels.indexOf('New Project...') + 1);
+    expect(labels[at + 1]).toBe('Open Project from GitHub...');
+    expect(labels[at + 2]).toBe('Open Demo Project');
+  });
+
+  it('runs the clone', () => {
+    let asked = 0;
+    buildManagerMenus({ ...handlers, cloneFromRepository: () => asked++ })
+      .find((m) => m.label === 'File')
+      ?.items.find((i) => i.label === 'Clone Project from Repository...')
+      ?.action?.();
+    expect(asked).toBe(1);
+  });
+
+  it('is not there when the host has no clone to offer (m_Git.enableGit off)', () => {
+    expect(fileLabels(handlers)).not.toContain('Clone Project from Repository...');
   });
 });
 

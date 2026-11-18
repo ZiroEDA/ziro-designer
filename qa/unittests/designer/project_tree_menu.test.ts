@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type TreeMenu,
   type TreeMenuSelectionItem,
+  type VcsMenuState,
   projectTreeMenu,
 } from '@ziroeda/designer/src/home/project_tree_menu.js';
 import type { TreeFileType } from '@ziroeda/designer/src/home/file_activation.js';
@@ -283,5 +284,124 @@ describe('what is deliberately not here', () => {
     const mine = m.filter((e) => e !== 'separator' && e.ours);
     expect(mine).toHaveLength(1);
     expect(mine.map((e) => (e === 'separator' ? '' : e.id))).toStrictEqual(['download']);
+  });
+});
+
+describe('Version Control (project_tree_pane.cpp:1029-1112), over GitHub', () => {
+  const vcs = (over: Partial<VcsMenuState> = {}): VcsMenuState => ({
+    enableGit: true,
+    connected: false,
+    linked: false,
+    ...over,
+  });
+  const sub = (m: TreeMenu): TreeMenu => entry(m, 'versionControl')?.submenu ?? [];
+  const row = (m: TreeMenu, id: string) => entry(m, id);
+
+  it('is the last row, after a separator, whatever is selected', () => {
+    // `popup_menu.AppendSeparator(); popup_menu.AppendSubMenu( vcs_submenu, _( "Version Control" ) )`
+    for (const s of [
+      [sel('JSON_PROJECT', true)],
+      [sel('SEXPR_SCHEMATIC')],
+      [sel('TXT'), sel('PDF')],
+    ]) {
+      const m = projectTreeMenu(s, vcs());
+      expect(ids(m).slice(-2)).toStrictEqual(['--', 'versionControl']);
+      expect(row(m, 'versionControl')?.label).toBe('Version Control');
+    }
+  });
+
+  it("is not there without a project of the user's, or with Git switched off", () => {
+    expect(has(projectTreeMenu([sel('TXT')]), 'versionControl')).toBe(false);
+    expect(has(projectTreeMenu([sel('TXT')], null), 'versionControl')).toBe(false);
+    // `vcs_menu = Pgm().GetCommonSettings()->m_Git.enableGit`
+    expect(has(projectTreeMenu([sel('TXT')], vcs({ enableGit: false })), 'versionControl')).toBe(
+      false,
+    );
+    // ...and an empty selection still builds nothing at all.
+    expect(projectTreeMenu([], vcs())).toStrictEqual([]);
+  });
+
+  it('a project with no repository: Connect, then Push to GitHub..., and the rest greyed', () => {
+    const m = sub(projectTreeMenu([sel('JSON_PROJECT', true)], vcs()));
+    expect(ids(m)).toStrictEqual([
+      'connectGithub',
+      'pushToGithub',
+      'gitCommitProject',
+      'gitPull',
+      '--',
+      'gitSwitchToBranch',
+    ]);
+    expect(row(m, 'connectGithub')).toMatchObject({ label: 'Connect GitHub...', ours: true });
+    expect(row(m, 'connectGithub')?.disabled).toBeUndefined();
+    expect(row(m, 'pushToGithub')).toMatchObject({ label: 'Push to GitHub...', ours: true });
+    expect(row(m, 'pushToGithub')?.disabled).toBeUndefined();
+    // `Enable( vcs_can_commit )`, `Enable( vcs_can_pull )`: greyed, not dropped.
+    expect(row(m, 'gitCommitProject')).toMatchObject({
+      label: 'Commit Project...',
+      disabled: true,
+    });
+    expect(row(m, 'gitPull')).toMatchObject({ label: 'Pull', disabled: true });
+    const branch = row(m, 'gitSwitchToBranch')!;
+    expect(branch.label).toBe('Switch to Branch');
+    expect(ids(branch.submenu!)).toStrictEqual(['gitSwitchBranchOther']);
+    expect(row(branch.submenu!, 'gitSwitchBranchOther')).toMatchObject({
+      label: 'Other...',
+      help: 'Switch to a different branch',
+      disabled: true,
+    });
+  });
+
+  it('once connected, Connect GitHub... is gone', () => {
+    const m = sub(projectTreeMenu([sel('TXT')], vcs({ connected: true })));
+    expect(has(m, 'connectGithub')).toBe(false);
+    expect(row(m, 'pushToGithub')?.disabled).toBeUndefined();
+  });
+
+  it('a linked project: Commit and Pull live, Push to GitHub... greyed, the quick branches listed', () => {
+    const m = sub(
+      projectTreeMenu(
+        [sel('TXT')],
+        vcs({
+          connected: true,
+          linked: true,
+          branch: 'main',
+          upstream: 'origin/main',
+          branches: ['main', 'a', 'b', 'c', 'd', 'e', 'f'],
+        }),
+      ),
+    );
+    // `Enable( vcs_can_init )`, `vcs_can_init = !vcs_has_repo`.
+    expect(row(m, 'pushToGithub')?.disabled).toBe(true);
+    expect(row(m, 'gitCommitProject')?.disabled).toBeUndefined();
+    // `wxString::Format( _( "Pull from %s" ), m_gitCurrentUpstream )`
+    expect(row(m, 'gitPull')).toMatchObject({
+      label: 'Pull from origin/main',
+      help: 'Pull changes from remote repository into local',
+      noTranslate: true,
+    });
+    expect(row(m, 'gitPull')?.disabled).toBeUndefined();
+    // "Skip the first one (that is the current branch)", and `ii < 6`: five at most.
+    const quick = row(m, 'gitSwitchToBranch')!.submenu!;
+    expect(quick.map((e) => (e === 'separator' ? '--' : e.label))).toStrictEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'Other...',
+    ]);
+    expect(quick[0]).toMatchObject({
+      id: 'gitSwitchBranch',
+      branch: 'a',
+      help: 'Switch to branch a',
+      noTranslate: true,
+    });
+    expect((quick[0] as { disabled?: true }).disabled).toBeUndefined();
+  });
+
+  it('a linked project before its upstream is known reads plain Pull', () => {
+    const m = sub(projectTreeMenu([sel('TXT')], vcs({ connected: true, linked: true })));
+    expect(row(m, 'gitPull')?.label).toBe('Pull');
+    expect(row(m, 'gitPull')?.noTranslate).toBeUndefined();
   });
 });
