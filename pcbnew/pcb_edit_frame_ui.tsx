@@ -2325,10 +2325,19 @@ export function PcbEditor({
         const pushed = Object.keys(TOOL_MANAGER_TOOLS).find((k) =>
           f.IsCurrentTool(TOOL_MANAGER_TOOLS[k]!),
         );
+        // The ref says what has been ASKED for, not what has rendered: a pop and a push in one
+        // tick (the router restarting at the cursor on a second X - IsActivate pops MainLoop and
+        // the transition pushes it again) read the pre-pop value on the push, dropped it, and left
+        // the selection tool queued, whose arming effect then popped the router just restarted
+        // (uartbridge, U-16). Each request moves the ref at once; the render sets it to the same.
+        const want = (aTool: string): void => {
+          activeToolRef.current = aTool;
+          setActiveTool(aTool);
+        };
         if (pushed) {
-          if (activeToolRef.current !== pushed) setActiveTool(pushed);
+          if (activeToolRef.current !== pushed) want(pushed);
         } else if (TOOL_MANAGER_TOOLS[activeToolRef.current]) {
-          setActiveTool(selectModeRef.current);
+          want(selectModeRef.current);
         }
       },
       fetchNetlistFromSchematic: (aNetlist, aMessage) =>
