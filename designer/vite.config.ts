@@ -168,6 +168,10 @@ export default defineConfig({
         // vercel.json's rewrite already says. Serving it from the precache is
         // what makes a cold-start with no network still paint the launcher.
         navigateFallback: 'index.html',
+        // ...except the server functions, which vercel.json's rewrite leaves out too. GitHub's
+        // sign-in window lands on /api/github/callback as a NAVIGATION; answered from the
+        // precache, it would be the app and not the page that hands the tokens back.
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // WASM kernels are hashed like every other asset, so cache-first is
