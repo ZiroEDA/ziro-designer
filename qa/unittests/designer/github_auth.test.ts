@@ -9,12 +9,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   GITHUB_CALLBACK_URL,
   GITHUB_CLIENT_ID,
+  GITHUB_MESSAGE_TYPE,
   GithubAuthError,
   GithubAuthRequired,
   GithubSession,
   type GithubTokens,
   type KeyValueStore,
   acceptCallbackMessage,
+  beginGithubConnect,
   authorizeUrl,
   clearTokens,
   loadTokens,
@@ -299,5 +301,50 @@ describe('the GitHub session', () => {
     );
     expect(h.cleared).toBe(1);
     expect(h.refreshBodies).toEqual([]);
+  });
+});
+
+describe("the GitHub window's answer", () => {
+  /** A window that records its message listeners and the URL it opened. */
+  function fakeWindow() {
+    const listeners: ((e: MessageEvent) => void)[] = [];
+    let opened = '';
+    const win = {
+      location: { origin: 'https://designer.ziroeda.com' },
+      open: (url: string) => {
+        opened = url;
+        return {};
+      },
+      addEventListener: (_t: string, fn: (e: MessageEvent) => void) => listeners.push(fn),
+      removeEventListener: () => {},
+    } as unknown as Window;
+    const post = (origin: string, data: unknown) =>
+      listeners.forEach((fn) => fn({ origin, data } as MessageEvent));
+    return { win, post, state: () => new URL(opened).searchParams.get('state')! };
+  }
+
+  it('is taken from this site only: the same message from another origin is ignored', async () => {
+    const w = fakeWindow();
+    let settled = false;
+    const connect = beginGithubConnect(w.win).then((t) => {
+      settled = true;
+      return t;
+    });
+    const answer = {
+      type: GITHUB_MESSAGE_TYPE,
+      state: w.state(),
+      access_token: 'gho_fake',
+      refresh_token: 'ghr_fake',
+      expires_in: 28800,
+      refresh_token_expires_in: 15897600,
+    };
+    // Any page holding a reference to this window can post to it; only the callback page on
+    // this site may hand it tokens.
+    w.post('https://evil.example', answer);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(settled).toBe(false);
+
+    w.post('https://designer.ziroeda.com', answer);
+    expect((await connect).accessToken).toBe('gho_fake');
   });
 });
