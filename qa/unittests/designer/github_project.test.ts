@@ -12,6 +12,8 @@ import { describe, expect, it } from 'vitest';
 import {
   GIT_LINK_FILE,
   GitBehindError,
+  addBranch,
+  branchNames,
   GitSyncError,
   KICAD_GITIGNORE_TEXT,
   type GitLink,
@@ -119,6 +121,8 @@ describe('the link file', () => {
   });
   it('refuses anything that is not one', () => {
     expect(parseGitLink('{"v":1,"owner":"o"}')).toBeNull();
+    // A version this build does not know is not read as this one.
+    expect(parseGitLink(JSON.stringify({ ...link, v: 2 }))).toBeNull();
     expect(parseGitLink('not json')).toBeNull();
     expect(parseGitLink(undefined)).toBeNull();
   });
@@ -221,6 +225,17 @@ describe('Push to GitHub... on a project with no repository', () => {
     expect(entries.find((e) => e.path === 'board.kicad_pcb')?.content).toBe(
       '(kicad_pcb (version 20250216))\n',
     );
+  });
+
+  it('reads the new tree back, and moves no branch when GitHub stored a file differently', async () => {
+    const gh = new FakeGithub();
+    // e.g. line endings normalised on the way in: the CRLF schematic would come back changed.
+    gh.mangle = (c) => c.replace(/\r\n/g, '\n');
+    await expect(pushNewRepository(gh.fetch, 'board', true, PROJECT)).rejects.toThrow(
+      'GitHub did not store board.kicad_sch as this project has it, so nothing was pushed.',
+    );
+    // Only the Contents API's one-file commit: the project's commit never became the branch.
+    expect(Object.keys(gh.filesAt(gh.repo('octo', 'board'), 'main'))).toEqual(['.gitignore']);
   });
 
   it("says GitHub's own words when the name is taken", async () => {
@@ -448,6 +463,21 @@ describe('Pull', () => {
     expect(plan.conflicts).toEqual(['bom.csv']);
   });
 
+  it('writes nothing it cannot check: a damaged download stops the pull', async () => {
+    const { gh, r, link, files } = await linked();
+    gh.commitFiles(r, 'main', {
+      'board.kicad_pro': '{}\n',
+      'board.kicad_sch': 'sch theirs\n',
+      'board.kicad_pcb': 'pcb v1\n',
+      'notes.txt': 'notes v1\n',
+    });
+    const plan = await planPull(gh.fetch, link, files);
+    gh.damageBlobs = true;
+    await expect(fetchPull(gh.fetch, plan, false)).rejects.toThrow(
+      'board.kicad_sch arrived damaged from GitHub.',
+    );
+  });
+
   it('switches to another branch the same way', async () => {
     const { gh, r, link, files } = await linked();
     r.refs.set('rev-b', link.commit);
@@ -463,6 +493,26 @@ describe('Pull', () => {
     await expect(planPull(gh.fetch, link, files, 'nope')).rejects.toThrow(
       'There is no branch nope in octo/board on GitHub.',
     );
+  });
+});
+
+describe('branches', () => {
+  it('lists the current branch first, then the others in order (GetBranchNames)', async () => {
+    const { gh, r, link } = await linked();
+    r.refs.set('zeta', link.commit);
+    r.refs.set('alpha', link.commit);
+    expect(await branchNames(gh.fetch, { ...link, branch: 'zeta' })).toEqual([
+      'zeta',
+      'alpha',
+      'main',
+    ]);
+  });
+
+  it("Add makes the branch at the project's commit and links the project to it", async () => {
+    const { gh, r, link } = await linked();
+    const next = await addBranch(gh.fetch, link, 'rev-b');
+    expect(r.refs.get('rev-b')).toBe(link.commit);
+    expect(next).toEqual({ ...link, branch: 'rev-b' });
   });
 });
 

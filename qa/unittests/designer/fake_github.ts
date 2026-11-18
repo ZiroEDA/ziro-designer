@@ -63,6 +63,10 @@ export class FakeGithub {
   login = 'octo';
   /** Every Authorization header seen. */
   readonly auth: string[] = [];
+  /** What GitHub does to a tree entry's inline `content` before writing it (normally nothing). */
+  mangle: ((content: string) => string) | null = null;
+  /** Serve every blob with its last byte flipped: a download damaged on the way. */
+  damageBlobs = false;
 
   repo(owner: string, name: string): FakeRepo {
     const r = this.repos.get(`${owner}/${name}`);
@@ -308,7 +312,11 @@ export class FakeGithub {
       }
       for (const e of body.tree) {
         if ('content' in e && 'sha' in e) return json(422, { message: 'content and sha both set' });
-        if ('content' in e) files.set(e.path, this.putBlob(r, enc.encode(e.content)));
+        if ('content' in e)
+          files.set(
+            e.path,
+            this.putBlob(r, enc.encode(this.mangle ? this.mangle(e.content) : e.content)),
+          );
         else if (e.sha === null) {
           if (!files.has(e.path)) return json(422, { message: `${e.path} does not exist` });
           files.delete(e.path);
@@ -326,8 +334,10 @@ export class FakeGithub {
       return json(201, { sha: this.putBlob(r, bytes) });
     }
     if (kind === 'blobs' && method === 'GET') {
-      const b = r.blobs.get(rest[2]!);
-      if (!b) return json(404, { message: 'Not Found' });
+      const stored = r.blobs.get(rest[2]!);
+      if (!stored) return json(404, { message: 'Not Found' });
+      const b = this.damageBlobs && stored.length > 0 ? stored.slice() : stored;
+      if (b !== stored) b[b.length - 1]! ^= 1;
       // GitHub wraps its base64 at 60 columns.
       const b64 = Buffer.from(b)
         .toString('base64')
