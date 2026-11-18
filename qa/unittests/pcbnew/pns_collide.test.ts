@@ -659,12 +659,25 @@ describe('the location-dependent slow path', () => {
     });
   };
 
-  it('throws rather than guess when the collider cannot say where they met', () => {
+  it('asks the locating collider when the installed one cannot say where they met', () => {
+    // pns_item.cpp:240-249 always has the position: `Collide( …, &actual, &pos )`.
+    // The default collider has none, and this threw - the router wedged on a solder
+    // jumper's net-tie pads (uartbridge, U-15). The two segments lie on top of each
+    // other along y = 0, so wherever the locating collider puts the point, it is on both.
     const node = new TestNode();
     node.clearance = 1000;
     (node.resolver as TestResolver).nonPlatedSlot = true;
 
-    expect(() => hSeg(0, 1).collide(hSeg(0, 2), node, 0)).toThrow(/collision location/);
+    node.edgeExcludes = false;
+    expect(hSeg(0, 1).collide(hSeg(0, 2), node, 0)).toBe(true);
+    expect(node.edgeCalls).toHaveLength(1);
+    const at = node.edgeCalls[0]!;
+    expect(at.y).toBe(0);
+    expect(at.x).toBeGreaterThanOrEqual(0);
+    expect(at.x).toBeLessThanOrEqual(1000);
+
+    node.edgeExcludes = true;
+    expect(hSeg(0, 1).collide(hSeg(0, 2), node, 0)).toBe(false);
   });
 
   it('is not entered at all when neither castellation nor a net tie applies', () => {

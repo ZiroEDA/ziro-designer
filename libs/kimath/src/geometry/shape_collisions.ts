@@ -3521,8 +3521,9 @@ export function collideShapeLists(
   aA: readonly Shape[],
   aB: readonly Shape[],
   aClearance: number,
+  aCollider: ShapeCollider = getShapeCollider(),
 ): ShapeCollision {
-  const collider = getShapeCollider();
+  const collider = aCollider;
 
   let collides = false;
   let actual = Number.POSITIVE_INFINITY;

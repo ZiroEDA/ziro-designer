@@ -127,12 +127,28 @@ afterEach(() => {
 // ----- the two halves ----------------------------------------------------------
 
 describe('the castellation and net-tie path', () => {
-  it('still throws under the default collider, which cannot say where', () => {
+  it('finds where under the default collider too: the slow path is always the locating Collide', () => {
+    // pns_item.cpp:240-249: with castellation or a net tie in play it is
+    // `shapeH->Collide( shapeI, …, &actual, &pos )`, whatever the fast path uses.
+    // The app runs the distance-only default, and this threw there - the router
+    // wedged on a solder jumper's net-tie pads (uartbridge, U-15). The point is
+    // the one the locating collider gives below: the head's A endpoint.
     const node = new TestNode();
     node.clearance = 10;
     node.resolver.nonPlatedSlot = true;
 
-    expect(() => hSeg(0, 1).collide(hSeg(8, 2), node, 0)).toThrow(/collision location/);
+    expect(hSeg(0, 1).collide(hSeg(8, 2), node, 0)).toBe(true);
+    expect(node.edgeCalls).toEqual([{ x: 0, y: 8 }]);
+  });
+
+  it('a net-tie exclusion at that point cancels the collision under the default collider', () => {
+    const node = new TestNode();
+    node.clearance = 10;
+    node.resolver.inNetTie = true;
+    node.resolver.netTieExcludes = true;
+
+    expect(hSeg(0, 1).collide(hSeg(8, 2), node, 0)).toBe(false);
+    expect(node.resolver.netTieCalls).toEqual([{ x: 0, y: 8 }]);
   });
 
   it('works once a location-capable collider is installed', () => {

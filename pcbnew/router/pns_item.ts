@@ -49,6 +49,7 @@
 import {
   collideShapeLists,
   getShapeCollider,
+  locatingShapeCollider,
 } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PnsRouterIface } from './pns_router.js';
 import type { CollisionNode, CollisionSearchContext, PnsRuleResolver } from './pns_node.js';
@@ -704,18 +705,20 @@ function collideSimple(
     // The extra "1" accounts for hulls being built to exactly the clearance
     // distance, so there must be no collision when exactly at that distance.
     const effective = clearance + lineWidthH + lineWidthI - 1;
-    const hit = collideShapeLists(shapeH, shapeI, effective);
+    const slow = checkCastellation || checkNetTie;
+    let hit = collideShapeLists(shapeH, shapeI, effective);
+
+    // "Slow method": the answer depends on WHERE the two shapes met -
+    // `shapeH->Collide( shapeI, …, &actual, &pos )`. A collider that cannot say
+    // where (the distance-only default the app runs) is asked again through the
+    // locating one; this threw instead, and wedged the router on a solder
+    // jumper's net-tie pads (uartbridge, U-15).
+    if (slow && hit.collides && hit.location === null)
+      hit = collideShapeLists(shapeH, shapeI, effective, locatingShapeCollider);
 
     if (hit.collides) {
-      if (checkCastellation || checkNetTie) {
-        // Slow method: the answer depends on where the two shapes met.
-        if (hit.location === null) {
-          throw new Error(
-            'PNS: castellation/net-tie collision needs a collision location; ' +
-              'install a location-capable shape collider via setShapeCollider().',
-          );
-        }
-
+      // A pair `collideShapes` cannot place stays an obstacle: the conservative answer.
+      if (slow && hit.location !== null) {
         if (checkCastellation && aNode.queryEdgeExclusions(hit.location)) return false;
 
         if (checkNetTie && (resolver?.isNetTieExclusion(aHead, hit.location, aItem) ?? false)) {
