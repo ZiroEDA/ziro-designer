@@ -178,7 +178,11 @@ import {
   restoreConfirmMessage,
   type Snapshot,
 } from '@ziroeda/common/local_history.js';
-import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import {
+  MessageDialogYesNo,
+  MessageDialogYesNoCancel,
+} from '@ziroeda/common/dialogs/dialog_message.js';
+import { formatSize } from '../fs/format.js';
 
 import {
   filesFromFileList,
@@ -779,6 +783,11 @@ export function HomePage({
   /** File > Open Project from GitHub...'s link dialog (#640). */
   const [githubUrlOpen, setGithubUrlOpen] = useState(false);
   /** A repository with several projects: the chooser, and who is waiting on it. */
+  /** The big files of a GitHub project, asked about before any is fetched. */
+  const [githubLarge, setGithubLarge] = useState<{
+    files: readonly { path: string; size: number }[];
+    resolve: (answer: 'all' | 'skip' | null) => void;
+  } | null>(null);
   const [githubChoice, setGithubChoice] = useState<{
     projects: readonly string[];
     resolve: (path: string | null) => void;
@@ -815,20 +824,38 @@ export function HomePage({
     let d: DemoMeta;
     try {
       if (gh)
-        ({ files, meta: d } = await openGithubProject(gh, progress, undefined, (projects) => {
-          // The download gauge comes down while the chooser is up - it sat
-          // on top and covered the list - and goes back up once one is picked.
-          setLoading(null);
-          return new Promise((resolve) =>
-            setGithubChoice({
-              projects,
-              resolve: (path) => {
-                if (path) setLoading({ title, label: { message, value: 0 } });
-                resolve(path);
-              },
-            }),
-          );
-        }));
+        ({ files, meta: d } = await openGithubProject(
+          gh,
+          progress,
+          undefined,
+          (projects) => {
+            // The download gauge comes down while the chooser is up - it sat
+            // on top and covered the list - and goes back up once one is picked.
+            setLoading(null);
+            return new Promise((resolve) =>
+              setGithubChoice({
+                projects,
+                resolve: (path) => {
+                  if (path) setLoading({ title, label: { message, value: 0 } });
+                  resolve(path);
+                },
+              }),
+            );
+          },
+          (large) => {
+            // The same hand-off as the chooser: the gauge comes down while the question is up.
+            setLoading(null);
+            return new Promise((resolve) =>
+              setGithubLarge({
+                files: large,
+                resolve: (answer) => {
+                  if (answer) setLoading({ title, label: { message, value: 0 } });
+                  resolve(answer);
+                },
+              }),
+            );
+          },
+        ));
       else {
         d = known!;
         files = await openDemo(d, progress);
@@ -2642,6 +2669,26 @@ export function HomePage({
                 ? 'pcb'
                 : undefined;
             void openDemoProject(githubIdFor(spec), view);
+          }}
+        />
+      )}
+      {githubLarge && (
+        <MessageDialogYesNoCancel
+          caption={_('Open Project from GitHub')}
+          message={wxFormat(
+            _(
+              '%d files in this project are large (%s in all):\n\n%s\n\nDownload them too, or open the project without them?',
+            ),
+            githubLarge.files.length,
+            formatSize(githubLarge.files.reduce((n, f) => n + f.size, 0)),
+            githubLarge.files.map((f) => `${f.path} (${formatSize(f.size)})`).join('\n'),
+          )}
+          icon="question"
+          defaultButton="yes"
+          labels={{ yes: _('Download Them'), no: _('Skip Them') }}
+          onResult={(r) => {
+            githubLarge.resolve(r === 'yes' ? 'all' : r === 'no' ? 'skip' : null);
+            setGithubLarge(null);
           }}
         />
       )}

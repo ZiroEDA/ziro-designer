@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   GithubOpenCancelled,
   GithubOpenError,
+  MAX_FILE_BYTES,
   filesForProject,
   githubIdFor,
   githubSpecFromId,
@@ -220,6 +221,12 @@ describe('which project, which files', () => {
       'hw/gerbers/a.drl',
       'hw/a.pdf',
       'hw/NOTES.md',
+      // The project folder's 3D model: the 3D view reads it (it used to stay on GitHub, and the
+      // board came up bare). An image still stays: nothing here reads it.
+      'hw/3d/R.step',
+      // A big file is listed here and asked about before it is fetched (openGithubProject's
+      // askLarge) - no longer dropped without a word.
+      'hw/huge.pdf',
     ]);
   });
 
@@ -306,6 +313,100 @@ describe('openGithubProject', () => {
     // Half the board in, before it is whole: the bar moved while the file was still coming.
     expect(seen.some(([d]) => d >= 500 && d < 1000)).toBe(true);
     expect(seen.at(-1)![0]).toBe(1002);
+  });
+
+  describe('a file over MAX_FILE_BYTES is asked about before anything is fetched', () => {
+    const BIG = MAX_FILE_BYTES + 1;
+    const big = () =>
+      github({
+        [TREE]: json({
+          tree: [
+            { path: 'a.kicad_pro', type: 'blob', size: 2 },
+            { path: '3d/big.step', type: 'blob', size: BIG },
+          ],
+        }),
+        [`${RAW}a.kicad_pro`]: new Response('{}'),
+        [`${RAW}3d/big.step`]: new Response(new Uint8Array([0x49, 0x53, 0x4f])),
+      });
+    const names = (files: { name: string }[]) => files.map((f) => f.name);
+
+    it('is asked about once, with its path and size, before any file is fetched', async () => {
+      const gh = big();
+      const asked: unknown[] = [];
+      await openGithubProject(
+        { owner: 'o', repo: 'r' },
+        undefined,
+        gh.fetch,
+        undefined,
+        async (l) => {
+          asked.push(l);
+          expect(gh.asked.some((u) => u.startsWith(RAW))).toBe(false);
+          return 'skip';
+        },
+      );
+      expect(asked).toEqual([[{ path: '3d/big.step', size: BIG }]]);
+    });
+
+    it("'all' fetches it, bytes and all", async () => {
+      const { files } = await openGithubProject(
+        { owner: 'o', repo: 'r' },
+        undefined,
+        big().fetch,
+        undefined,
+        async () => 'all',
+      );
+      expect(names(files)).toEqual(['r/a.kicad_pro', 'r/3d/big.step']);
+      expect([...files[1]!.bytes!]).toEqual([0x49, 0x53, 0x4f]);
+    });
+
+    it("'skip' opens the project without it", async () => {
+      const gh = big();
+      const { files } = await openGithubProject(
+        { owner: 'o', repo: 'r' },
+        undefined,
+        gh.fetch,
+        undefined,
+        async () => 'skip',
+      );
+      expect(names(files)).toEqual(['r/a.kicad_pro']);
+      expect(gh.asked).not.toContain(`${RAW}3d/big.step`);
+    });
+
+    it('Cancel opens nothing', async () => {
+      await expect(
+        openGithubProject(
+          { owner: 'o', repo: 'r' },
+          undefined,
+          big().fetch,
+          undefined,
+          async () => null,
+        ),
+      ).rejects.toBeInstanceOf(GithubOpenCancelled);
+    });
+
+    it('with no one to ask, it is skipped', async () => {
+      const { files } = await openGithubProject({ owner: 'o', repo: 'r' }, undefined, big().fetch);
+      expect(names(files)).toEqual(['r/a.kicad_pro']);
+    });
+
+    it('nothing is asked when every file is small', async () => {
+      const gh = github({
+        [TREE]: json({ tree: [blob('a.kicad_pro')] }),
+        [`${RAW}a.kicad_pro`]: new Response('{}'),
+      });
+      let asked = false;
+      await openGithubProject(
+        { owner: 'o', repo: 'r' },
+        undefined,
+        gh.fetch,
+        undefined,
+        async () => {
+          asked = true;
+          return 'all';
+        },
+      );
+      expect(asked).toBe(false);
+    });
   });
 
   it('an LFS pointer is followed to the media host', async () => {

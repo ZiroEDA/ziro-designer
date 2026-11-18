@@ -90,16 +90,28 @@ const READ_BUT_UNLISTED = /\.(kicad_prl|kicad_mod|dcm)$|(^|\/)(sym-lib-table|fp-
 /** At most this many files: a fetch per file, and a repository can hold thousands. */
 export const MAX_FILES = 600;
 
-/** A file bigger than this is left on GitHub (a fetch of tens of MB to show a row). */
+/**
+ * A file bigger than this is asked about before it is fetched: the person waits for it, or the
+ * project opens without it. It used to be left on GitHub without a word - a board's 3D models
+ * among them, so the 3D view came up bare and nothing said why.
+ */
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+/**
+ * 3D model files, the extensions KiCad's 3D plugins read (STEP, VRML, IGES). Not in the tree's
+ * allow list - KiCad's tree does not show them either - but the 3D viewer reads them from the
+ * project folder, where a `${KIPRJMOD}/...` model path points.
+ */
+const MODEL_3D = /\.(step|stp|stpz|wrl|wrz|igs|iges)$/i;
 
 /**
  * The tree entries to fetch for a project: its whole folder as KiCad's project
  * tree shows it - every name `s_allowedExtensionsToList` lists (fs/allowlist.ts:
  * sheets, boards, other projects, PDFs, gerbers, drill files, notes), in
- * subfolders too - plus what the project reads but the tree hides. 3D models
- * and images are not in that list, so they stay on GitHub, as they would stay
- * out of KiCad's tree.
+ * subfolders too - plus what the project reads but the tree hides: the library
+ * tables, and the 3D models in its folder, which the 3D view needs. Images stay
+ * on GitHub, as they stay out of KiCad's tree. Size is not decided here: the big
+ * files are asked about before anything is fetched (openGithubProject).
  *
  * `proPath` comes first among the `.kicad_pro` files: the open project is the
  * first one (App's activeProName), and any other is a row the user can
@@ -113,8 +125,7 @@ export function filesForProject(tree: readonly TreeEntry[], proPath: string): Tr
     (e) =>
       e.type === 'blob' &&
       e.path.startsWith(dir) &&
-      (e.size ?? 0) <= MAX_FILE_BYTES &&
-      (isListedFile(base(e.path)) || READ_BUT_UNLISTED.test(e.path)),
+      (isListedFile(base(e.path)) || READ_BUT_UNLISTED.test(e.path) || MODEL_3D.test(e.path)),
   );
   const at = picked.findIndex((e) => e.path === proPath);
   if (at > 0) picked.unshift(...picked.splice(at, 1));
@@ -159,6 +170,11 @@ export async function openGithubProject(
    * ({@link kicadProjectsIn}'s order).
    */
   choose?: (projects: readonly string[]) => Promise<string | null>,
+  /**
+   * Files over {@link MAX_FILE_BYTES}: 'all' fetches them, 'skip' opens the project without
+   * them, null is Cancel. Absent, they are skipped.
+   */
+  askLarge?: (large: readonly { path: string; size: number }[]) => Promise<'all' | 'skip' | null>,
 ): Promise<{ files: PickedHomeFile[]; meta: DemoMeta }> {
   const ref = spec.ref ?? 'HEAD';
   const where = `${spec.owner}/${spec.repo}`;
@@ -199,7 +215,15 @@ export async function openGithubProject(
           ? `There is no KiCad project (.kicad_pro) at ${spec.path} in ${where}.`
           : `${where} has no KiCad project (.kicad_pro) in it.`,
     );
-  const wanted = filesForProject(tree, pro);
+  let wanted = filesForProject(tree, pro);
+  const large = wanted.filter((e) => (e.size ?? 0) > MAX_FILE_BYTES);
+  if (large.length > 0) {
+    const answer = askLarge
+      ? await askLarge(large.map((e) => ({ path: e.path, size: e.size ?? 0 })))
+      : 'skip';
+    if (answer === null) throw new GithubOpenCancelled('cancelled');
+    if (answer === 'skip') wanted = wanted.filter((e) => !large.includes(e));
+  }
   if (wanted.length > MAX_FILES)
     throw new GithubOpenError(
       `That project has ${wanted.length} files to fetch; more than ${MAX_FILES} cannot be opened from GitHub yet.`,
