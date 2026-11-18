@@ -576,6 +576,16 @@ export function HomePage({
     () => chooserPlacesFor({ mode: 'open' }),
     [],
   );
+  /**
+   * Open Existing Project's places: the same rows, but double-clicking a project opens it rather
+   * than walking into its folder (ChooserPlace.activateOpens). Reported: every project read as a
+   * folder you had to enter to find its .kicad_pro, where a project list opens the project you
+   * pick. Only this window: an editor's Open looks for a file, and walking in is how it finds one.
+   */
+  const openProjectPlaces = useMemo<readonly ChooserPlace[]>(
+    () => chooserPlaces.map((p) => ({ ...p, activateOpens: true })),
+    [chooserPlaces],
+  );
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   // NewProject is two windows upstream: the template selector, then the
@@ -2392,7 +2402,7 @@ export function HomePage({
           mode="open"
           title={_('Open Existing Project')}
           accept="Open"
-          places={chooserPlaces}
+          places={openProjectPlaces}
           // Recent is listed first but Open Project opens on the account's own
           // tree, the way upstream opens on defaultDir with Home lit.
           initialPlace="projects"
