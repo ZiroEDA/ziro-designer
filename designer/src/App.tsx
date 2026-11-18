@@ -23,6 +23,7 @@ import type { SYMBOL_EDITOR_REQUEST } from '@ziroeda/eeschema/symbol_editor/symb
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 import { placeEditorFiles } from './home/editor_files.js';
+import { cloudRetryDelay } from './cloud/push_retry.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { IsOK } from '@ziroeda/common/confirm.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
@@ -1153,6 +1154,8 @@ export function App(): JSX.Element {
    */
   const cloudTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cloudTarget = useRef<string | null>(null);
+  /** Failed pushes in a row: the backoff before the next try (cloud/push_retry.ts). */
+  const cloudFailures = useRef(0);
   const pushNow = useCallback(() => {
     const id = cloudTarget.current;
     const uid = userIdRef.current;
@@ -1160,13 +1163,34 @@ export function App(): JSX.Element {
     cloudTarget.current = null;
     reportCloudPending(true);
     void pushProject(uid, id, { onlyIfChanged: true }).then(
-      () => reportCloudOk(),
+      () => {
+        cloudFailures.current = 0;
+        reportCloudOk();
+      },
       (e: unknown) => {
         reportCloudFailed();
         console.warn('Cloud push failed:', e);
+        // Try again by itself rather than wait for the next edit (U-12): a newer edit's push,
+        // already scheduled, keeps its own target and timer.
+        cloudFailures.current += 1;
+        if (cloudTarget.current === null) {
+          cloudTarget.current = id;
+          clearTimeout(cloudTimer.current);
+          cloudTimer.current = setTimeout(pushNow, cloudRetryDelay(cloudFailures.current));
+        }
       },
     );
   }, []);
+  // Back online with a push still owed: try it now, not at the end of the backoff.
+  useEffect(() => {
+    const onOnline = (): void => {
+      if (!cloudTarget.current) return;
+      clearTimeout(cloudTimer.current);
+      pushNow();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [pushNow]);
   const scheduleCloudPush = useCallback(
     (id: string) => {
       if (!userIdRef.current) return; // signed out: local is the whole story
