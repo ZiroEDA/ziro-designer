@@ -59,6 +59,20 @@ describe('a grid cell editor in a dialog', () => {
     expect([input.selectionStart, input.selectionEnd]).toEqual([0, 5]);
   });
 
+  it('a click inside the open editor keeps it open, to place the caret (Sentry 1Z session)', () => {
+    // The user's breadcrumbs: click after click on a Fields value. The first opened the editor
+    // with its value selected; the next, meant to put the caret in it, closed it again.
+    const { cell, editorIn } = setup();
+    fireEvent.mouseDown(cell(0, 1), { button: 0 });
+    fireEvent.mouseUp(cell(0, 1));
+    const input = editorIn(0, 1)!;
+    fireEvent.mouseDown(input, { button: 0 });
+    fireEvent.mouseUp(input);
+    fireEvent.click(input);
+    expect(editorIn(0, 1)).toBe(input);
+    expect(document.activeElement).toBe(input);
+  });
+
   it('opened by a typed letter, holds that letter with the caret after it', () => {
     const { g, table, editorIn } = setup();
     act(() => g.SetGridCursor(1, 1));

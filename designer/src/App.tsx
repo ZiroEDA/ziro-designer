@@ -45,6 +45,7 @@ import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { pushProject } from './cloud/sync.js';
+import { stampActiveView } from './nav/active_view.js';
 import { useRoute } from './nav/useRoute.js';
 import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
@@ -794,7 +795,7 @@ export function App(): JSX.Element {
   // handlers must only act for the visible frame, a keystroke in eeschema
   // must not drive the hidden board editor. Handlers read this stamp.
   useEffect(() => {
-    document.body.dataset.activeView = view;
+    stampActiveView(view);
   }, [view]);
 
   // `EDA_BASE_FRAME::CommonSettingsChanged`'s appearance half, for the settings

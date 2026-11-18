@@ -300,6 +300,12 @@ export function WxGridView({
   const onCellMouseDown = (aRow: number, aCol: number, e: React.MouseEvent): void => {
     if (e.button !== 0) return;
 
+    // A press inside the open editor is the editor's: wxGridCellEditor's control is a window
+    // of its own, and a click in it places the caret. It bubbles here, though, and taking the
+    // focus to the grid window blurred the entry and closed the edit under the click - so a
+    // click to put the caret in a value just opened (and now all selected) shut it again.
+    if ((e.target as Element).closest?.('.ze-grid-editor')) return;
+
     tableRef.current?.focus();
 
     if (editor && (aRow !== cursorRow || aCol !== cursorCol)) grid.DisableCellEditControl();
