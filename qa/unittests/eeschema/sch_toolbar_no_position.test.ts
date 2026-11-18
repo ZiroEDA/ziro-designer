@@ -68,9 +68,29 @@ describe('a toolbar drawing button', () => {
     expect(rect!.GetStart()).toEqual(TOOLBAR);
   });
 
-  it("the frame's right toolbar hands the tool a positionless event, as onToolEvent does", () => {
-    const body = UI.slice(UI.indexOf('const onRightToolbar'), UI.indexOf('const onLeftToggle'));
+  it("the frame's TOOL_MANAGER tools are armed with a positionless event, as onToolEvent does", () => {
+    const body = UI.slice(UI.indexOf('const runToolManagerTool'), UI.indexOf('const onToolSelect'));
     expect(body).toMatch(/evt\.SetHasPosition\(false\);\s*galMgr\.ProcessEvent\(evt\);/);
-    expect(body).not.toMatch(/galMgr\.RunAction\(galAction\)/);
+    expect(body).not.toMatch(/RunAction/);
+  });
+
+  // Per call site, because each of them used to have its own copy - and the menu's had none:
+  // Place > Draw Hierarchical Sheets set the record tool state, which no TOOL_MANAGER tool
+  // reads, so the menu armed nothing (uartbridge, U-1). ACTION_MENU::OnMenuEvent runs the same
+  // TOOL_ACTION the button does.
+  it.each([
+    ['the right toolbar', 'const onRightToolbar', 'const onLeftToggle'],
+    ['a Place menu row', 'const onToolSelect', 'const onImageFile'],
+  ])('%s runs it before anything else', (_name, aFrom, aTo) => {
+    const start = UI.indexOf(aFrom);
+    const body = UI.slice(start, UI.indexOf(aTo, start));
+    const first = body
+      .slice(body.indexOf('=>') + 2)
+      .match(/^\s*\{?\s*(?:\/\/[^\n]*\n\s*)*(.+)$/m)?.[1];
+    expect(first).toBe('if (runToolManagerTool(id)) return;');
+  });
+
+  it('the menus hand their tool rows to onToolSelect', () => {
+    expect(UI).toMatch(/buildMenus\(\s*\{\s*tool: onToolSelect,/);
   });
 });

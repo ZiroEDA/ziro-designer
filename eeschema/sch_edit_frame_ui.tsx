@@ -4825,29 +4825,53 @@ export function SchematicEditor({
   );
 
   // Selecting a placement tool reopens its chooser/dialog (clears any attached item).
-  const onToolSelect = useCallback((id: string) => {
-    // Every one of these is an AF_ACTIVATE tool, so picking the one already
-    // running stops it — see `activateTool`. Checked before the two tools that
-    // open something, or clicking a lit Image button would reopen the file
-    // picker instead of putting the tool away.
-    if (activeToolRef.current === id) {
-      setActiveTool('select');
+  /**
+   * A tool that runs on the frame's TOOL_MANAGER (TRANSITIONAL, W2), armed from a toolbar button
+   * or a menu row: `ACTION_TOOLBAR::onToolEvent` and `ACTION_MENU::OnMenuEvent` both send the
+   * action's event with no position (action_toolbar.cpp:804-811), so a drawing tool does not
+   * prime its first point where the pointer happens to be. False when the id is not one of them.
+   */
+  const runToolManagerTool = useCallback((id: string): boolean => {
+    const galAction = schToolbarAction(id);
+    const galMgr = schFrameRef.current?.GetToolManager();
+    if (!galAction || !galMgr) return false;
+    const evt = galAction.MakeEvent();
+    evt.SetHasPosition(false);
+    galMgr.ProcessEvent(evt);
+    return true;
+  }, []);
+
+  const onToolSelect = useCallback(
+    (id: string) => {
+      // A Place menu row runs the same TOOL_ACTION its toolbar button runs. These rows used to set
+      // only the record tool state below, which no TOOL_MANAGER tool reads: Place > Draw
+      // Hierarchical Sheets lit the status bar and ignored every click, and left the name there
+      // after the tool was gone (uartbridge, U-1/U-2).
+      if (runToolManagerTool(id)) return;
+      // Every one of these is an AF_ACTIVATE tool, so picking the one already
+      // running stops it — see `activateTool`. Checked before the two tools that
+      // open something, or clicking a lit Image button would reopen the file
+      // picker instead of putting the tool away.
+      if (activeToolRef.current === id) {
+        setActiveTool('select');
+        setPlaceLib(null);
+        setPendingLabel(null);
+        setPendingImage(null);
+        return;
+      }
+      // The Image tool opens a file picker; the image then follows the cursor
+      // (SCH_ACTIONS::placeImage).
+      if (id === 'image') {
+        imageInputRef.current?.click();
+        return;
+      }
+      setActiveTool(id);
       setPlaceLib(null);
       setPendingLabel(null);
       setPendingImage(null);
-      return;
-    }
-    // The Image tool opens a file picker; the image then follows the cursor
-    // (SCH_ACTIONS::placeImage).
-    if (id === 'image') {
-      imageInputRef.current?.click();
-      return;
-    }
-    setActiveTool(id);
-    setPlaceLib(null);
-    setPendingLabel(null);
-    setPendingImage(null);
-  }, []);
+    },
+    [runToolManagerTool],
+  );
 
   /**
    * "Place Pins from Sheet" (`SCH_ACTIONS::importSheetPin`).
@@ -5063,20 +5087,10 @@ export function SchematicEditor({
    */
   const onRightToolbar = useCallback(
     (id: string) => {
-      // the tools run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
-      const galAction = schToolbarAction(id);
-      const galMgr = schFrameRef.current?.GetToolManager();
-      if (galAction && galMgr) {
-        // ACTION_TOOLBAR::onToolEvent (action_toolbar.cpp:804-811): the event has no
-        // position, so a drawing tool does not prime its first point at the toolbar.
-        const evt = galAction.MakeEvent();
-        evt.SetHasPosition(false);
-        galMgr.ProcessEvent(evt);
-        return;
-      }
+      if (runToolManagerTool(id)) return;
       if (RIGHT_TOOLBAR_COMMANDS.has(id)) onTopAction(id);
     },
-    [onTopAction],
+    [onTopAction, runToolManagerTool],
   );
 
   const onLeftToggle = useCallback(
