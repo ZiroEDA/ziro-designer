@@ -106,3 +106,16 @@ describe('DIALOG_PAGES_SETTINGS_BASE', () => {
     expect(onOk.mock.calls[0]![1].comments[0]).toBe(true);
   });
 });
+
+describe('the custom paper size fields', () => {
+  it("are wxDefaultSize text controls: the shell's measured entry width, not shrunk to fit", () => {
+    // dialog_page_settings_base.cpp builds both with wxDefaultSize and wxEXPAND in fgSizer1, so
+    // their column is a default entry's best width (--ctl-entry-width, measured). `size: 1` let
+    // them shrink to 68 px, the mils value filling the field to the last pixel (uartbridge, U-4).
+    open('eeschema');
+    for (const tip of ['Custom paper height.', 'Custom paper width.']) {
+      const field = screen.getByTitle(tip) as HTMLInputElement;
+      expect(field.style.width).toBe('var(--ctl-entry-width)');
+    }
+  });
+});

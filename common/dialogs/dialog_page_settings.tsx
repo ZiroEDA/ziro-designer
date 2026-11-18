@@ -741,7 +741,10 @@ export function DialogPageSettings({
           label: wxGetTranslation('Height:'),
           units,
           range,
-          size: 1,
+          // A wxDefaultSize wxTextCtrl, as dialog_page_settings_base.cpp builds it: its best width
+          // is the shell's measured entry width. `size: 1` let it shrink to 68 px, the mils value
+          // filling it to the last pixel (uartbridge, U-4).
+          width: 'var(--ctl-entry-width)',
           value: s.customHeightMM,
           onCommit: (mm: number) => set({ customHeightMM: mm }),
           onError: setError,
@@ -752,7 +755,7 @@ export function DialogPageSettings({
           label: wxGetTranslation('Width:'),
           units,
           range,
-          size: 1,
+          width: 'var(--ctl-entry-width)',
           value: s.customWidthMM,
           onCommit: (mm: number) => set({ customWidthMM: mm }),
           onError: setError,
