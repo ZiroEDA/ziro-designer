@@ -22,6 +22,7 @@ import {
 import type { SYMBOL_EDITOR_REQUEST } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame_ui.js';
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
+import { placeEditorFiles } from './home/editor_files.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { IsOK } from '@ziroeda/common/confirm.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
@@ -1214,11 +1215,12 @@ export function App(): JSX.Element {
     (changed: PickedFile[], opts?: { push?: boolean }) => {
       const cur = projectFilesRef.current;
       if (!cur || !storageAvailable()) return;
-      const fullByBase = new Map(cur.map((f) => [pcbBasename(f.name), f.name]));
       const fresh = new Map<string, string>();
-      for (const f of changed) {
-        const full = fullByBase.get(pcbBasename(f.name));
-        if (!full) continue;
+      // A new sub-sheet's file joins the project rather than being dropped (editor_files.ts).
+      const added: PickedFile[] = [];
+      for (const f of placeEditorFiles(cur, changed)) {
+        const full = f.name;
+        if (f.added) added.push({ name: full, text: f.text });
         pendingWrite.current.set(full, enc.encode(f.text));
         // The in-memory project learns about the edit at the same moment the
         // write queue does. Anything that re-reads the project — the home tree,
@@ -1230,14 +1232,24 @@ export function App(): JSX.Element {
       if (fresh.size === 0) return;
       setProjectFiles((prev) => {
         if (!prev) return prev;
+        // The editors reopen on openNonce/rootPro only, and projectMetaKey leaves .kicad_sch
+        // files out, so a sheet joining the list reloads nothing.
+        const joining = added.filter((a) => !prev.some((f) => f.name === a.name));
         // Same array back when nothing moved: the editors re-serialise
         // identical content on a sheet switch, and a new array for that would
         // be a render of every frame for no change at all.
-        if (!prev.some((f) => fresh.has(f.name) && fresh.get(f.name) !== f.text)) return prev;
-        return prev.map((f) => {
-          const text = fresh.get(f.name);
-          return text === undefined || text === f.text ? f : { name: f.name, text };
-        });
+        if (
+          joining.length === 0 &&
+          !prev.some((f) => fresh.has(f.name) && fresh.get(f.name) !== f.text)
+        )
+          return prev;
+        return [
+          ...prev.map((f) => {
+            const text = fresh.get(f.name);
+            return text === undefined || text === f.text ? f : { name: f.name, text };
+          }),
+          ...joining,
+        ];
       });
       // A batch that is only a peer's work is saved here and goes no further:
       // see `pendingIsMine` in SchematicEditor. Sticky until the write runs, so

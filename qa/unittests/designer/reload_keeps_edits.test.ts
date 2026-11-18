@@ -100,7 +100,11 @@ describe('the in-memory project is the freshest copy, not the file as opened', (
   it('hands the same array back when nothing moved, so idle re-serialization is free', () => {
     // The editors re-serialize identical content on a sheet switch; a fresh
     // array for that would re-render every mounted frame for no change.
-    expect(queue()).toMatch(/if \(!prev\.some\(.*\)\) return prev;/s);
+    // "Nothing moved" is two things since a new sub-sheet's file can join the list (U-6): no
+    // file joined, and no file's text changed.
+    expect(queue()).toMatch(
+      /if \(\s*joining\.length === 0 &&\s*!prev\.some\(.*\)\s*\)\s*return prev;/s,
+    );
   });
 
   it('drops those edits when a different project is opened, and at no other time', () => {
