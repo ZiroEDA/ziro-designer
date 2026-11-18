@@ -234,7 +234,12 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           } catch {
             login = undefined;
           }
-          await saveTokens(userKey, login ? { ...t, login } : t);
+          try {
+            await saveTokens(userKey, login ? { ...t, login } : t);
+          } catch (e) {
+            DisplayErrorMessage(_('Could not connect GitHub.'), why(e));
+            return;
+          }
           setAccount({ connected: true, ...(login ? { login } : {}) });
           if (login) showFeedback(wxFormat(_('Connected to GitHub as %s.'), login));
           aThen?.();

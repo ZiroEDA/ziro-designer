@@ -437,6 +437,24 @@ describe('Pull', () => {
     expect(got.deletes).toEqual([]);
   });
 
+  it('a file edited here and deleted on GitHub is a conflict, never a silent delete', async () => {
+    const { gh, r, link, files } = await linked();
+    const local = [
+      ...files.filter((f) => f.name !== 'notes.txt'),
+      file('notes.txt', 'notes mine\n'),
+    ];
+    gh.commitFiles(r, 'main', {
+      'board.kicad_pro': '{}\n',
+      'board.kicad_sch': 'sch v1\n',
+      'board.kicad_pcb': 'pcb v1\n',
+    });
+    const plan = await planPull(gh.fetch, link, local);
+    expect(plan).toMatchObject({ conflicts: ['notes.txt'], take: [], drop: [] });
+    // Use Remote: GitHub's side of it is "deleted".
+    const got = await fetchPull(gh.fetch, plan, true);
+    expect(got).toMatchObject({ writes: [], deletes: ['notes.txt'] });
+  });
+
   it('a change made the same way on both sides is no conflict', async () => {
     const { gh, r, link, files } = await linked();
     const local = [...files.filter((f) => f.name !== 'notes.txt'), file('notes.txt', 'same\n')];

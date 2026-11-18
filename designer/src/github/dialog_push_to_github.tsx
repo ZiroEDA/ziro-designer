@@ -91,6 +91,8 @@ export function DialogPushToGithub({
             onChange={() => setPrivate(false)}
           />
         </SizerItem>
+        {/* The notes wrap at the name row's width - its label and the entry's 300 minimum - so
+            a sentence is a paragraph under the row, not a line that widens the dialog (ours). */}
         <SizerItem flag={wxALL} border={10}>
           <StaticText
             wrap={420}
