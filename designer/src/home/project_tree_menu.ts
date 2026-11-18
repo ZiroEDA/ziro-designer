@@ -49,6 +49,7 @@ export type TreeMenuEntryId =
   | 'newDirectory'
   | 'editInTextEditor'
   | 'download'
+  | 'downloadProject'
   | 'runJobs'
   | 'renameFile'
   | 'moveToTrash';
@@ -211,7 +212,18 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
   // menu form of the answer `handOffFile` gives to the four Activate branches
   // that end in the operating system: a browser cannot open a file with the
   // system's application, so the most it can do is hand the bytes over.
-  if (single) {
+  //
+  // On the root row it is the whole project: that row IS the project, and a .kicad_pro on its own
+  // is of no use to anyone - the same zip File > Archive Project makes.
+  if (single && selection[0]!.isTreeRoot) {
+    menu.push({
+      id: 'downloadProject',
+      label: 'Download Project...',
+      help: 'Save the whole project to your computer as a .zip archive',
+      icon: 'export_file',
+      ours: true,
+    });
+  } else if (single) {
     menu.push({
       id: 'download',
       label: 'Download...',

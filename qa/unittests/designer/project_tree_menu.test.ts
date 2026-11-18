@@ -250,6 +250,25 @@ describe('the multiple-selection quirk, ported as written', () => {
   });
 });
 
+describe('Download on the project row', () => {
+  it('the root row downloads the whole project, not its .kicad_pro alone', () => {
+    // The root row IS the project: right-click > Download Project... is the zip File > Archive
+    // Project makes. The single-file Download stays on every other row.
+    const root = projectTreeMenu([sel('JSON_PROJECT', true)]);
+    expect(entry(root, 'downloadProject')?.label).toBe('Download Project...');
+    expect(has(root, 'download')).toBe(false);
+    // and nothing that would touch the project file itself (CanDelete, :880 can_rename).
+    // New Directory is upstream's row; the pane does not draw it (no folder to create it in).
+    expect(ids(root)).toStrictEqual(['newDirectory', 'editInTextEditor', 'downloadProject']);
+  });
+
+  it('another project file in the tree keeps the single-file Download', () => {
+    const other = projectTreeMenu([sel('JSON_PROJECT')]);
+    expect(has(other, 'download')).toBe(true);
+    expect(has(other, 'downloadProject')).toBe(false);
+  });
+});
+
 describe('what is deliberately not here', () => {
   it('never draws "Open Directory in File Explorer"', () => {
     // There is no OS file manager and no folder to point one at.

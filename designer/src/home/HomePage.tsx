@@ -2270,6 +2270,7 @@ export function HomePage({
             onDeletePaths={deletePaths}
             onViewTextPath={(path) => setTextView(fileAtPath(path))}
             onDownloadPath={(path) => downloadFileAtPath(path)}
+            onDownloadProject={() => void archiveProject()}
             rootOpen={rootOpen}
             onToggleRoot={() => setRootOpen((o) => !o)}
             onActivate={(node) => {

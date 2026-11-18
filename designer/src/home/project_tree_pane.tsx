@@ -49,6 +49,7 @@ export function ProjectTreePane({
   onDeletePaths,
   onViewTextPath,
   onDownloadPath,
+  onDownloadProject,
   onActivate,
 }: {
   picked: PickedHomeFile[] | null;
@@ -79,6 +80,8 @@ export function ProjectTreePane({
   onViewTextPath?: (path: string) => void;
   /** Download a single file from the project to the browser's local storage. */
   onDownloadPath?: (path: string) => void;
+  /** The root row's Download Project: the whole project as a .zip (File > Archive Project). */
+  onDownloadProject?: () => void;
   /**
    * `item->Activate( this )`.
    *
@@ -224,6 +227,10 @@ export function ProjectTreePane({
             <div
               className={`ze-tree-item root${selected.has(ROOT_SELECTION) ? ' active' : ''}`}
               onClick={() => onSelect(ROOT_SELECTION, false)}
+              // Upstream's tree root has a popup like every other row
+              // (PROJECT_TREE_PANE::onRight); ours had none, so a right-click
+              // on the project did nothing at all.
+              onContextMenu={(e) => openContextMenu(e, ROOT_SELECTION)}
             >
               <span
                 className={`twisty expandable${rootOpen ? ' open' : ''}`}
@@ -275,6 +282,8 @@ export function ProjectTreePane({
                 single !== null && single !== ROOT_SELECTION && onDownloadPath
                   ? () => onDownloadPath(single)
                   : undefined,
+              downloadProject:
+                single === ROOT_SELECTION && onDownloadProject ? onDownloadProject : undefined,
               renameFile:
                 single !== null && single !== ROOT_SELECTION && onRenamePath
                   ? () => onRenamePath(single)
