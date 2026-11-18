@@ -62,6 +62,7 @@ import {
 } from './import_project.js';
 import type { AuthStep } from '../nav/route.js';
 import {
+  pullProjectNow,
   syncAllProjects,
   pushProject,
   deleteCloudProject,
@@ -146,7 +147,8 @@ import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
 import { listFileSystem } from '../fs/list_fs.js';
-import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
+import { projectAt, projectStoreFileSystem, setCloudOnlyProjects } from '../fs/project_store_fs.js';
+import { type CloudOnlyProject, cloudOnlyProjects } from '../cloud/catalog.js';
 import {
   NEW_PROJECT_FOLDER_FILTERS,
   OPEN_PROJECT_FILTERS,
@@ -427,6 +429,33 @@ export function HomePage({
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   /**
+   * The account's projects not on this device yet (cloud/catalog.ts): listed at once, fetched on
+   * open. Shrinks as the background sync brings each one down - `saved` then holds it.
+   */
+  const [cloudOnly, setCloudOnly] = useState<CloudOnlyProject[]>([]);
+  const cloudOnlyHere = useMemo(
+    () => cloudOnly.filter((c) => !saved.some((p) => p.id === c.localId)),
+    [cloudOnly, saved],
+  );
+  const cloudOnlyRef = useRef(cloudOnlyHere);
+  cloudOnlyRef.current = cloudOnlyHere;
+  useEffect(() => setCloudOnlyProjects(cloudOnlyHere), [cloudOnlyHere]);
+  /** Open Recent's rows: this device's projects, then the account's others, never opened here. */
+  const recentProjects = useMemo<ProjectMeta[]>(
+    () => [
+      ...saved,
+      ...cloudOnlyHere.map((c) => ({
+        id: c.localId,
+        name: c.name,
+        createdAt: c.updatedAt ?? 0,
+        updatedAt: c.updatedAt ?? 0,
+        fileCount: 0,
+        bytes: 0,
+      })),
+    ],
+    [saved, cloudOnlyHere],
+  );
+  /**
    * Whether `saved` has been read at least once. Before that, an empty list
    * means "not looked yet", not "nothing there" - and the two must be told
    * apart by whoever reads the open project's id off it (below).
@@ -620,7 +649,12 @@ export function HomePage({
    * that was already there. The selector refuses a taken name rather than
    * letting it reach that path.
    */
-  const takenProjectNames = useMemo(() => new Set(saved.map((p) => p.name.toLowerCase())), [saved]);
+  // A project still only in the account counts too: a new one of the same name would meet it
+  // the moment it downloads, and the account would hold two.
+  const takenProjectNames = useMemo(
+    () => new Set([...saved, ...cloudOnlyHere].map((p) => p.name.toLowerCase())),
+    [saved, cloudOnlyHere],
+  );
   /**
    * BuildTemplateList scans both roots every time, and RefreshTemplateList
    * re-runs it whenever the watcher sees the directories change. Duplicating or
@@ -1077,6 +1111,11 @@ export function HomePage({
   // user's cloud projects into the local store and push any local-only ones up,
   // then refresh the list.
   const userId = session?.user.id;
+  // Another account's list must not outlive its sign-out.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: userId is the trigger; the setter is stable
+  useEffect(() => {
+    setCloudOnly([]);
+  }, [userId]);
   useEffect(() => {
     if (!userId || !storageAvailable()) return;
     // Not until the account is open: an encrypted row cannot be read or
@@ -1085,6 +1124,13 @@ export function HomePage({
     // a build without auth reports `absent` and syncs in the clear.
     if (keyState !== 'unlocked' && keyState !== 'absent') return;
     let cancelled = false;
+    // The account's whole list first - names from the rows, no files - so it shows while the
+    // reconcile below is still downloading project by project.
+    void cloudOnlyProjects(userId)
+      .then((list) => {
+        if (!cancelled) setCloudOnly(list);
+      })
+      .catch((e: unknown) => console.warn('Listing the account failed:', e));
     // Redeem first, and do not let a failure stop the sync. A bad link is the
     // reader's problem with that link; it says nothing about the twenty
     // projects they already have, and refusing to sync those because a
@@ -1503,7 +1549,22 @@ export function HomePage({
   ): Promise<void> => {
     setLoading({ title: 'Open Project', label: _('Opening project...') });
     await nextPaint();
+    /** Whether what failed was fetching it from the account, which leaves nothing in this browser. */
+    let fromAccount = false;
     try {
+      // Still only in the account: fetch this one now, ahead of the background sync (which
+      // waits on this pull rather than repeating it).
+      const remote = cloudOnlyRef.current.find((c) => c.localId === id);
+      fromAccount = !!(remote && userId);
+      if (remote && userId) {
+        setLoading({
+          title: 'Open Project',
+          label: wxFormat(_('Downloading %s from your account...'), remote.name),
+        });
+        await pullProjectNow(userId, remote);
+        fromAccount = false;
+        setCloudOnly((prev) => prev.filter((c) => c.localId !== id));
+      }
       const loaded = await loadProject(id);
       let opened: PickedHomeFile[] | null = null;
       if (loaded) {
@@ -1541,7 +1602,9 @@ export function HomePage({
       // exporting it is still possible. Saying so is the whole fix.
       window.alert(
         `Could not open this project: ${e instanceof Error ? e.message : String(e)}\n\n` +
-          'It is still saved in this browser — nothing has been deleted.',
+          (fromAccount
+            ? 'It is still in your account — nothing has been deleted. Check the connection and open it again.'
+            : 'It is still saved in this browser — nothing has been deleted.'),
       );
     } finally {
       setLoading(null);
@@ -2098,7 +2161,7 @@ export function HomePage({
     openFromGithub: () => setGithubUrlOpen(true),
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
-    recent: saved,
+    recent: recentProjects,
     // COMMON_SETTINGS: how many rows Open Recent shows, and the checked
     // language row (EDA_BASE_FRAME::AddMenuLanguageList).
     fileHistorySize: common.system.file_history_size,

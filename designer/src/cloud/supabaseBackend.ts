@@ -17,7 +17,7 @@
  */
 
 import { supabase } from '../auth/supabaseClient.js';
-import type { CloudBackend, ProjectRow, RowFile, SettingsRow } from './backend.js';
+import type { CatalogRow, CloudBackend, ProjectRow, RowFile, SettingsRow } from './backend.js';
 import { base64ToBytes } from './crypto.js';
 
 /**
@@ -116,6 +116,16 @@ export function supabaseBackend(): CloudBackend {
       // "every visible row is this user's own" — true, on a database that
       // cannot share anything.
       return (legacy ?? []) as { id: string; version: number }[];
+    },
+
+    async listCatalog() {
+      // No fallback: a database without these columns answers with an error, and the caller
+      // then lists what is on the device, as it did before this existed.
+      const { data, error } = await db
+        .from('projects')
+        .select('id, uid, user_id, version, name, enc_meta, updated_at');
+      if (error) throw new Error(`list catalog: ${error.message}`);
+      return (data ?? []) as CatalogRow[];
     },
 
     async getProject(id, uid) {

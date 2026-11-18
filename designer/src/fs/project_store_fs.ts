@@ -21,6 +21,7 @@
  * taken.
  */
 
+import type { CloudOnlyProject } from '../cloud/catalog.js';
 import {
   type ProjectMeta,
   deleteProject,
@@ -64,8 +65,35 @@ interface Resolved {
  * the bare name and a later namesake takes the suffix. Sorting the other way
  * would move an existing project's path whenever a new one was saved.
  */
+/**
+ * The account's projects that are not on this device yet (cloud/catalog.ts), set by the home page
+ * as soon as the user is signed in. Listed beside the local ones, so the Open Project window shows
+ * the whole account at once; opening one fetches it first (HomePage's openStored).
+ */
+let s_cloudOnly: readonly CloudOnlyProject[] = [];
+
+export function setCloudOnlyProjects(aList: readonly CloudOnlyProject[]): void {
+  s_cloudOnly = aList;
+}
+
 async function byDisplayName(): Promise<Map<string, ProjectMeta>> {
-  const all = [...(await listProjects())].sort((a, b) => a.createdAt - b.createdAt);
+  const local = await listProjects();
+  const here = new Set(local.map((p) => p.id));
+  const all = [
+    ...local,
+    // After every local project in the naming order, so a cloud-only one is the one renamed
+    // "(2)" when the device already holds a project of the same name.
+    ...s_cloudOnly
+      .filter((c) => !here.has(c.localId))
+      .map((c) => ({
+        id: c.localId,
+        name: c.name,
+        createdAt: Number.MAX_SAFE_INTEGER,
+        updatedAt: c.updatedAt ?? 0,
+        fileCount: 0,
+        bytes: 0,
+      })),
+  ].sort((a, b) => a.createdAt - b.createdAt);
   const out = new Map<string, ProjectMeta>();
   // The user-data folders own their names before any project does, so a project
   // called `Templates` displays as `Templates (2)` through the machinery that

@@ -14,7 +14,11 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FsErrorCode } from '@ziroeda/designer/src/fs/filesystem.js';
-import { projectAt, projectStoreFileSystem } from '@ziroeda/designer/src/fs/project_store_fs.js';
+import {
+  projectAt,
+  projectStoreFileSystem,
+  setCloudOnlyProjects,
+} from '@ziroeda/designer/src/fs/project_store_fs.js';
 import { USER_DIRS } from '@ziroeda/designer/src/fs/chooser_places.js';
 import {
   deleteProject,
@@ -640,5 +644,37 @@ describe('a user-data folder is a row the cloud will accept', () => {
     await saveProject('Templates', [file('b.kicad_wks', 'b')], USER_DIR_IDS.templates!);
     expect((await listProjects()).map((p) => p.name)).toEqual([]);
     expect(await names('/Templates')).toEqual(['b.kicad_wks']);
+  });
+});
+
+describe("the account's projects not on this device yet (cloud/catalog.ts)", () => {
+  const cloud = (localId: string, name: string) => ({
+    localId,
+    remoteId: localId,
+    role: 'owner' as const,
+    name,
+    updatedAt: 5000,
+  });
+  afterEach(() => setCloudOnlyProjects([]));
+
+  it('are listed beside the local ones, as projects, and found by projectAt', async () => {
+    setCloudOnlyProjects([cloud('remote-1', 'Uplink')]);
+    const entry = (await fs.list('/')).find((e) => e.name === 'Uplink');
+    expect(entry?.kind).toBe('project');
+    expect(entry?.modified).toBe(5000);
+    expect((await projectAt('/Uplink'))?.id).toBe('remote-1');
+  });
+
+  it('a local project keeps its name; the cloud-only one of the same name is the "(2)"', async () => {
+    const here = await saveProject('Twin', [file('twin.kicad_sch', '(kicad_sch)')]);
+    setCloudOnlyProjects([cloud('remote-2', 'Twin')]);
+    expect((await projectAt('/Twin'))?.id).toBe(here);
+    expect((await projectAt('/Twin (2)'))?.id).toBe('remote-2');
+  });
+
+  it('one that has since arrived on this device is listed once, as the local one', async () => {
+    const id = await saveProject('Arrived', [file('a.kicad_sch', '(kicad_sch)')]);
+    setCloudOnlyProjects([cloud(id, 'Arrived')]);
+    expect((await fs.list('/')).filter((e) => e.name.startsWith('Arrived'))).toHaveLength(1);
   });
 });

@@ -215,6 +215,40 @@ export async function cloudListMeta(): Promise<
  * migration, where nothing is shared with anybody. Absent from the map means
  * "not a shared project", which is the same as "mine".
  */
+/**
+ * The account's projects as a list shows them - name, owner, when each last changed - read from
+ * the rows alone: no manifest walked, no blob fetched. An encrypted row's name is opened with the
+ * project's key (one small key read each, cached by `projectKeyFor`); a row whose name cannot be
+ * opened (locked account, no key to a shared row) is left out here, as the sync reports it.
+ * Empty on a backend without a catalog.
+ */
+export async function cloudCatalog(): Promise<
+  { id: string; uid?: string; ownerId?: string; name: string; updatedAt: number | null }[]
+> {
+  const be = need();
+  if (!be.listCatalog) return [];
+  const rows = await be.listCatalog();
+  const named = await mapLimit(rows, 6, async (r) => {
+    let name = r.name ?? '';
+    if (r.enc_meta) {
+      try {
+        name = (await openRow(be, r as unknown as ProjectRow)).meta.name;
+      } catch {
+        name = '';
+      }
+    }
+    const at = r.updated_at ? Date.parse(r.updated_at) : Number.NaN;
+    return {
+      id: r.id,
+      ...(r.uid ? { uid: r.uid } : {}),
+      ...(r.user_id ? { ownerId: r.user_id } : {}),
+      name,
+      updatedAt: Number.isFinite(at) ? at : null,
+    };
+  });
+  return named.filter((r) => r.name !== '');
+}
+
 export async function cloudMemberships(): Promise<Map<string, 'owner' | 'editor' | 'viewer'>> {
   const be = need();
   if (!be.listMemberships) return new Map();

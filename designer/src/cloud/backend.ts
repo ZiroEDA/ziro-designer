@@ -143,6 +143,18 @@ export interface ProjectKeyRow {
  * idempotent — writing the same path twice writes identical content — and makes
  * an overwrite incapable of destroying anything.
  */
+/** One row of {@link CloudBackend.listCatalog}. */
+export interface CatalogRow {
+  id: string;
+  version: number;
+  uid?: string;
+  user_id?: string;
+  /** A plaintext row's name; empty on an encrypted row, whose name is in `enc_meta`. */
+  name?: string | null;
+  enc_meta?: string | null;
+  updated_at?: string | null;
+}
+
 export interface CloudBackend {
   /**
    * Every project the signed-in user can reach: their own, and any shared with
@@ -155,6 +167,15 @@ export interface CloudBackend {
   listProjects(): Promise<
     { id: string; version: number; uid?: string; user_id?: string; encrypted?: boolean }[]
   >;
+
+  /**
+   * What a project list shows, for every project the user can see, and none of their files:
+   * the name of a plaintext row, the sealed name (`enc_meta`) of an encrypted one, and when the
+   * row last changed. The home page lists the account from this the moment the user is signed in,
+   * instead of waiting for every project to download (EasyEDA lists, then fetches the one you
+   * open). Optional: without it the list is what is on this device, as before.
+   */
+  listCatalog?(): Promise<CatalogRow[]>;
 
   /**
    * One project row, or null when there is no such project.

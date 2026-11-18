@@ -220,6 +220,46 @@ interface ProjectRef {
   role: 'owner' | 'editor' | 'viewer';
 }
 
+/**
+ * One pull per project at a time. The background pass and a person opening a project that is
+ * not here yet can ask for the same one; the second waits on the first instead of writing the
+ * same record twice at once.
+ */
+const pulling = new Map<string, Promise<Outcome>>();
+function pullOnce(aLocalId: string, aPull: () => Promise<Outcome>): Promise<Outcome> {
+  let p = pulling.get(aLocalId);
+  if (!p) {
+    p = aPull().finally(() => pulling.delete(aLocalId));
+    pulling.set(aLocalId, p);
+  }
+  return p;
+}
+
+/**
+ * Bring one project of the account onto this device now - the one being opened - whatever the
+ * background pass is doing. A conflict cannot arise: there is no local copy to differ from.
+ */
+export async function pullProjectNow(
+  userId: string,
+  p: {
+    localId: string;
+    remoteId: string;
+    uid?: string;
+    ownerId?: string;
+    role: 'owner' | 'editor' | 'viewer';
+  },
+): Promise<void> {
+  await pullOnce(p.localId, () =>
+    pullOne(userId, {
+      localId: p.localId,
+      remoteId: p.remoteId,
+      ...(p.uid ? { uid: p.uid } : {}),
+      ...(p.ownerId ? { ownerId: p.ownerId } : {}),
+      role: p.role,
+    }),
+  );
+}
+
 /** Reconcile all local and cloud projects for the signed-in user. */
 export async function syncAllProjects(
   userId: string,
@@ -386,16 +426,18 @@ export async function syncAllProjects(
     // importing over it would replace their work with somebody else's.
     const localId = role === 'owner' ? there.id : (there.uid ?? there.id);
     track(localId, 'pull', () =>
-      pullOne(
-        userId,
-        {
-          localId,
-          remoteId: there.id,
-          ...(there.uid ? { uid: there.uid } : {}),
-          ...(there.ownerId ? { ownerId: there.ownerId } : {}),
-          role,
-        },
-        result.conflicts,
+      pullOnce(localId, () =>
+        pullOne(
+          userId,
+          {
+            localId,
+            remoteId: there.id,
+            ...(there.uid ? { uid: there.uid } : {}),
+            ...(there.ownerId ? { ownerId: there.ownerId } : {}),
+            role,
+          },
+          result.conflicts,
+        ),
       ),
     );
   }
