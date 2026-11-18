@@ -684,8 +684,21 @@ export class TOOL_MANAGER {
     queueMicrotask(() => {
       this.m_drainScheduled = false;
 
-      while (this.m_eventQueue.length !== 0 && this.m_eventDepth === 0 && !this.m_shuttingDown)
+      let ran = false;
+      while (this.m_eventQueue.length !== 0 && this.m_eventDepth === 0 && !this.m_shuttingDown) {
         this.ProcessEvent(this.m_eventQueue.shift()!);
+        ran = true;
+      }
+
+      // Upstream every one of these runs inside EDA_DRAW_PANEL_GAL::OnEvent, which ends in
+      // Refresh() (draw_panel_gal.cpp:727-732) - a dialog's ShowModal returns in there. Drained
+      // here, after the event that opened the dialog has already painted, nothing repainted what
+      // the tool did next: Cancel in Sheet Properties left the "Untitled Sheet" preview on the
+      // canvas until the mouse moved (uartbridge, U-3).
+      if (ran)
+        (this.m_frame as { GetCanvas?(): { Refresh(): void } | null } | null)
+          ?.GetCanvas?.()
+          ?.Refresh();
     });
   }
 
