@@ -141,6 +141,9 @@ describe('schematic setup .kicad_pro persistence', () => {
       '0.1',
     ]);
     expect([dflt.dpWidth, dflt.dpGap, dflt.dpViaGap]).toEqual(['0.2', '0.25', '0.25']);
+    // DEFAULT_WIRE_WIDTH 6 mils, DEFAULT_BUS_WIDTH 12 mils (netclass.cpp:50-51), set by the same
+    // constructor - a new project's Default showed them blank in Schematic Setup.
+    expect([dflt.wireThickness, dflt.busThickness]).toEqual(['6', '12']);
   });
 
   it('round-trips every persisted field', () => {

@@ -119,6 +119,9 @@ export function defaultNetClasses(): NetClassesData {
         dpWidth: '0.2',
         dpGap: '0.25',
         dpViaGap: '0.25',
+        // DEFAULT_WIRE_WIDTH / DEFAULT_BUS_WIDTH (netclass.cpp:50-51): mils, as the file stores them.
+        wireThickness: '6',
+        busThickness: '12',
       },
     ],
     assignments: [],
