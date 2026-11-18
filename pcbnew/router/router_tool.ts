@@ -2799,12 +2799,16 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     const mode = aEvent.Parameter<PnsRouterMode>();
     const frame = this.editFrame();
     const controls = this.controls();
-    const router = this.m_router!;
+    // Every use goes through the member, as upstream's `m_router->` does: `Activate()` below
+    // runs TOOL_MANAGER::runTool, whose `Reset( RUN )` builds a NEW router
+    // (PNS_TOOL_BASE::Reset). A router held from before it was a discarded one - the
+    // diff-pair mode, the undo/redo world syncs and the saved sizes all went to it, so a
+    // "Route Differential Pair" routed one track (uartbridge, U-14).
 
-    if (router.routingInProgress()) {
-      if (router.mode() === mode) return 0;
+    if (this.m_router!.routingInProgress()) {
+      if (this.m_router!.mode() === mode) return 0;
 
-      router.stopRouting();
+      this.m_router!.stopRouting();
     }
 
     // Deselect all items
@@ -2824,7 +2828,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     // Set initial cursor
     setCursor();
 
-    router.setMode(mode);
+    this.m_router!.setMode(mode);
     this.m_cancelled = false;
     this.m_startWithVia = false;
 
@@ -2846,12 +2850,12 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
         frame.PopTool(pushedEvent);
         break;
       } else if (evt.Action() === TOOL_ACTIONS.TA_UNDO_REDO_PRE) {
-        router.clearWorld();
+        this.m_router!.clearWorld();
       } else if (
         evt.Action() === TOOL_ACTIONS.TA_UNDO_REDO_POST ||
         evt.Action() === TOOL_ACTIONS.TA_MODEL_CHANGE
       ) {
-        router.syncWorld();
+        this.m_router!.syncWorld();
       } else if (evt.IsMotion()) {
         this.updateStartItem(evt);
       } else if (evt.IsAction(PCB_ACTIONS.dragFreeAngle)) {
@@ -2876,7 +2880,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
         this.m_startWithVia = true;
         this.m_toolMgr!.RunAction(PCB_ACTIONS.layerToggle);
       } else if (evt.IsAction(PCB_ACTIONS.layerChanged)) {
-        router.switchLayer(this.m_iface!.GetPNSLayerFromBoardLayer(frame.GetActiveLayer()));
+        this.m_router!.switchLayer(this.m_iface!.GetPNSLayerFromBoardLayer(frame.GetActiveLayer()));
         this.updateStartItem(evt);
         this.updateSizesAfterRouterEvent(
           this.m_iface!.GetPNSLayerFromBoardLayer(frame.GetActiveLayer()),
@@ -2900,8 +2904,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     }
 
     // Store routing settings till the next invocation
-    this.m_savedSizes = copySizes(router.sizes());
-    router.clearViewDecorations();
+    this.m_savedSizes = copySizes(this.m_router!.sizes());
+    this.m_router!.clearViewDecorations();
 
     return 0;
   }
