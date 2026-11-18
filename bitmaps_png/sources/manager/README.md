@@ -15,6 +15,12 @@ maps them is `home/project_tree.ts`; the bitmaps are `project`, `project_kicad`,
 `directory`, `icon_cvpcb_24`, `tools`, `file_pos`, `file_drl`, `file_svg`,
 `file_csv`, `icon_pagelayout_editor_24`, `module`, `library` and `zip`.
 
+**Git state images** — the seven `PROJECT_TREE::LoadIcons` registers as the tree's state
+images (`kicad/project_tree.cpp:147-158`), one per `KIGIT_COMMON::GIT_STATUS`: `git_good_check`
+(CURRENT), `git_modified` (MODIFIED), `git_add` (ADDED), `git_delete` (DELETED),
+`git_out_of_date` (BEHIND), `git_changed_ahead` (AHEAD), `git_conflict` (CONFLICTED). UNTRACKED and
+IGNORED are blank bitmaps upstream, so they have no file.
+
 **Tree context menu** (`PROJECT_TREE_PANE::onRight`): `open_project`,
 `directory`, `editor`, `exchange`, `right`, `trash` — every row upstream builds
 carries a `KiBitmap`, so the icon column is never empty. `export_file` is the

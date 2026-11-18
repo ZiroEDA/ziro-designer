@@ -92,6 +92,35 @@ export interface GitLink {
   commit: string;
   /** That commit's tree, which the next commit is built on. */
   tree: string;
+  /**
+   * That commit's synced files (under `dir`, by their path in the project) and their blob ids:
+   * what the tree's Git status compares the project with, without asking GitHub. Absent on a link
+   * written before it was kept; then the tree is fetched.
+   */
+  files?: Record<string, string>;
+  /** Commits made here and not pushed yet, oldest first (Commit Project... records them). */
+  pending?: PendingCommit[];
+}
+
+/** One change of a commit not pushed yet: a file's new content, or its deletion (`sha` null). */
+export interface PendingChange {
+  path: string;
+  /** The new content's blob id; null deletes the file. */
+  sha: string | null;
+  /** The content, as text when it is text (`inlineText`), else base64. */
+  text?: string;
+  base64?: string;
+}
+
+/** A commit Commit Project... made, kept in the project until Push sends it to GitHub. */
+export interface PendingCommit {
+  message: string;
+  /** Who made it: the GitHub account, and its id for the commit's noreply address. */
+  author: { login: string; id?: number };
+  /** When (ISO 8601): the commit's own date on GitHub. */
+  at: string;
+  /** What it changes against the commit before it - the files that changed and nothing else. */
+  changes: PendingChange[];
 }
 
 const utf8 = new TextEncoder();
@@ -120,6 +149,16 @@ export function parseGitLink(bytes: Uint8Array | string | undefined): GitLink | 
       !isStr(o.tree)
     )
       return null;
+    const files =
+      o.files && typeof o.files === 'object' && Object.values(o.files).every(isStr)
+        ? { ...o.files }
+        : undefined;
+    const pending = Array.isArray(o.pending)
+      ? o.pending.filter(
+          (c): c is PendingCommit =>
+            !!c && isStr(c.message) && isStr(c.at) && Array.isArray(c.changes) && !!c.author,
+        )
+      : undefined;
     return {
       v: 1,
       owner: o.owner,
@@ -128,6 +167,8 @@ export function parseGitLink(bytes: Uint8Array | string | undefined): GitLink | 
       dir: o.dir,
       commit: o.commit,
       tree: o.tree,
+      ...(files ? { files } : {}),
+      ...(pending && pending.length > 0 ? { pending } : {}),
     };
   } catch {
     return null;
@@ -428,7 +469,16 @@ async function seedEmptyRepository(
       ),
     );
   await updateBranch(f, owner, name, branch, commit, true);
-  return { v: 1, owner, repo: name, branch, dir: '', commit, tree };
+  return {
+    v: 1,
+    owner,
+    repo: name,
+    branch,
+    dir: '',
+    commit,
+    tree,
+    files: Object.fromEntries([...local].map(([p, e]) => [p, e.sha])),
+  };
 }
 
 const unfinished = (full: string, e: unknown): GitSyncError =>
@@ -590,7 +640,36 @@ export async function runCommit(
       throw new GitBehindError(behindMessage(link));
     throw e;
   }
-  return { ...link, commit, tree };
+  return { ...link, commit, tree, files: Object.fromEntries(expected) };
+}
+
+// --- the tree's Git status --------------------------------------------------------
+
+const blobMap = (view: ReadonlyMap<string, RemoteEntry>): Map<string, string> =>
+  new Map([...view].map(([p, e]) => [p, e.sha]));
+
+/** The synced commit's files: the link's own record, or - a link older than it - its tree. */
+export async function syncedFilesOf(f: GithubFetch, link: GitLink): Promise<Map<string, string>> {
+  if (link.files) return new Map(Object.entries(link.files));
+  return blobMap(remoteView(await getTree(f, link.owner, link.repo, link.tree), link.dir));
+}
+
+/**
+ * The remote check `onGitSyncTimer` makes (a fetch, there): the branch's head on GitHub and its
+ * files, read fresh. Null when the branch is gone.
+ */
+export async function remoteFilesOf(
+  f: GithubFetch,
+  link: GitLink,
+): Promise<{ head: string; files: Map<string, string> } | null> {
+  const head = await getBranchHead(f, link.owner, link.repo, link.branch);
+  if (!head) return null;
+  if (head === link.commit) return { head, files: await syncedFilesOf(f, link) };
+  const commit = await getCommit(f, link.owner, link.repo, head);
+  return {
+    head,
+    files: blobMap(remoteView(await getTree(f, link.owner, link.repo, commit.tree.sha), link.dir)),
+  };
 }
 
 // --- Pull / Switch to Branch ----------------------------------------------------
@@ -663,7 +742,13 @@ export async function planPull(
     else take.push(path);
   }
   return {
-    link: { ...link, branch, commit: head, tree: commit.tree.sha },
+    link: {
+      ...link,
+      branch,
+      commit: head,
+      tree: commit.tree.sha,
+      files: Object.fromEntries([...target].map(([p, e]) => [p, e.sha])),
+    },
     upToDate: false,
     take,
     drop,
@@ -922,7 +1007,16 @@ export async function cloneRepository(
   const files = await fetchBlobs(f, { owner, repo: repo.name }, [...view.keys()], view, onProgress);
   return {
     files,
-    link: { v: 1, owner, repo: repo.name, branch, dir, commit: head, tree: commit.tree.sha },
+    link: {
+      v: 1,
+      owner,
+      repo: repo.name,
+      branch,
+      dir,
+      commit: head,
+      tree: commit.tree.sha,
+      files: Object.fromEntries([...view].map(([p, e]) => [p, e.sha])),
+    },
     project: pro.slice(dir.length),
   };
 }

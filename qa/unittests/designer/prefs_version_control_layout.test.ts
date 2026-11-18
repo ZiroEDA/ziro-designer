@@ -76,8 +76,20 @@ describe('every control binds to its stored setting', () => {
     expect(CODE).not.toContain('value=""');
   });
 
-  it('disables all five, because there is no local repository', () => {
-    expect(CODE.match(/\bdisabled\b/g) ?? []).toHaveLength(5);
+  /** The JSX of the one control that binds `git.<key>`: from its opening tag to the next `/>`. */
+  const control = (key: string): string => {
+    const at = CODE.indexOf(`git.${key}`);
+    const open = CODE.lastIndexOf('<', at);
+    return CODE.slice(open, CODE.indexOf('/>', at));
+  };
+
+  it('leaves live the two the project manager reads, and disables the commit data', () => {
+    // Read for a project linked to GitHub: enableGit gates Version Control, updatInterval is the
+    // remote check's period.
+    expect(control('enableGit')).not.toMatch(/\bdisabled\b/);
+    expect(control('updatInterval')).not.toMatch(/\bdisabled\b/);
+    for (const key of ['useDefaultAuthor', 'authorName', 'authorEmail'])
+      expect(control(key), key).toMatch(/\bdisabled\b/);
   });
 
   it('gives the interval the range the wxSpinCtrl declares', () => {

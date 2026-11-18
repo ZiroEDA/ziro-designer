@@ -16,12 +16,13 @@
  * page is its own width and the entries are their own width too, not the
  * page's. Ours stretched them across the whole panel.
  *
- * Everything is drawn and disabled. Upstream this drives libgit2 against a
- * project checked out on disk: it polls a remote for changes to the project's
- * files and stamps commits with an author. Ours live in the cloud store and are
- * versioned by it, so there is no local repository for any of this to
- * configure. That reason belongs HERE — it was on the page as a banner and
- * repeated in every control's tooltip, and KiCad has neither.
+ * Upstream this drives libgit2 against a project checked out on disk. Here
+ * "Enable Git tracking" and the update interval are live: the project manager
+ * reads both for a project linked to GitHub (designer/src/github/) - the first
+ * gates the Version Control menu and the tree's Git status, the second is how
+ * often the remote is checked (`onGitSyncTimer`). The commit-data three stay
+ * disabled: a commit's author is the connected GitHub account, which nothing
+ * here can change.
  *
  * The controls bind to `common.git.*` rather than to literals: the panel is a
  * `RESETTABLE_PANEL` upstream (`panel_git_repos.cpp:48`), so its footer button
@@ -46,7 +47,6 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
         <Check
           label={_('Enable Git tracking')}
           checked={git.enableGit}
-          disabled
           onChange={(v) =>
             upC((s) => {
               s.git.enableGit = v;
@@ -64,7 +64,6 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
             /* [data] `wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 60, 5 )`. */
             min={0}
             max={60}
-            disabled
             ariaLabel={_('Update interval')}
             onChange={(v) =>
               upC((s) => {

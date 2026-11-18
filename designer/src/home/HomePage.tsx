@@ -2130,6 +2130,7 @@ export function HomePage({
     picked,
     projectName: projName,
     enableGit: common.git.enableGit,
+    remoteIntervalMinutes: common.git.updatInterval,
     takenNames: takenProjectNames,
     setLoading,
     openStored: async (id) => {
@@ -2427,6 +2428,8 @@ export function HomePage({
             showAllSchematics={(!!demoSource && isGithubId(demoSource.id)) || !!github.link}
             versionControl={github.versionControl}
             onVersionControl={github.onVersionControl}
+            gitBranch={common.git.enableGit ? github.link?.branch : null}
+            gitStatus={github.gitStatus}
             width={panelWidth}
             expanded={expanded}
             onToggleDir={toggleDir}

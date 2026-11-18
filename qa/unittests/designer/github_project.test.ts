@@ -32,8 +32,10 @@ import {
   planCommit,
   planPull,
   pushNewRepository,
+  remoteFilesOf,
   repoNameFor,
   runCommit,
+  syncedFilesOf,
 } from '@ziroeda/designer/src/github/github_project.js';
 import { FakeGithub, gitBlobId } from './fake_github.js';
 
@@ -198,7 +200,8 @@ describe('Push to GitHub... on a project with no repository', () => {
     const tree = r.trees.get(r.commits.get(head)!.tree)!;
     expect(tree.get('3d/part.wrz')).toBe(gitBlobId(PROJECT[4]!.bytes));
 
-    expect(link).toEqual({
+    // Exactly these, plus `files` (pinned on its own below).
+    expect(link).toMatchObject({
       v: 1,
       owner: 'octo',
       repo: 'board',
@@ -391,7 +394,7 @@ describe('Pull', () => {
     });
     // Never the board (edited here) nor scratch.txt (never in the repository).
     expect(got.deletes).toEqual(['notes.txt']);
-    expect(got.link).toEqual({ ...link, commit: head, tree: r.commits.get(head)!.tree });
+    expect(got.link).toMatchObject({ ...link, commit: head, tree: r.commits.get(head)!.tree });
   });
 
   it('refuses the whole pull when a file changed on both sides, and changes nothing', async () => {
@@ -566,7 +569,7 @@ describe('Clone Project from Repository...', () => {
       'amp.kicad_pcb': 'amp pcb\n',
       'lib/x.kicad_sym': 'sym\n',
     });
-    expect(got!.link).toEqual({
+    expect(got!.link).toMatchObject({
       v: 1,
       owner: 'octo',
       repo: 'hw',
@@ -653,5 +656,69 @@ describe('Clone Project from Repository: a taken name', () => {
     expect(asked).toEqual(['amp']);
     // the tree was read to find the project; no file was fetched
     expect(gh.log.some((l) => l.path.includes('/git/blobs/'))).toBe(false);
+  });
+});
+
+describe("the link remembers the synced commit's files, for the tree's Git status", () => {
+  it('after the first push, a commit, a pull and an open', async () => {
+    const gh = new FakeGithub();
+    const { link: first } = await pushNewRepository(gh.fetch, 'board', true, PROJECT);
+    const ids = Object.fromEntries(
+      await Promise.all(
+        PROJECT.filter((f) => isSyncedPath(f.name)).map(async (f) => [
+          f.name,
+          await gitBlobSha(f.bytes),
+        ]),
+      ),
+    );
+    expect(first.files).toEqual(ids);
+
+    const edited = [
+      ...PROJECT.filter((f) => f.name !== 'board.kicad_sch'),
+      file('board.kicad_sch', 'v2\n'),
+    ];
+    const second = await runCommit(gh.fetch, await planCommit(gh.fetch, first, edited), 'v2');
+    expect(second.files?.['board.kicad_sch']).toBe(await gitBlobSha(enc.encode('v2\n')));
+
+    const r = gh.repo('octo', 'board');
+    gh.commitFiles(r, 'main', { ...gh.filesAt(r, 'main'), 'board.kicad_pcb': 'theirs\n' });
+    const pulled = await fetchPull(gh.fetch, await planPull(gh.fetch, second, edited), false);
+    expect(pulled.link.files?.['board.kicad_pcb']).toBe(await gitBlobSha(enc.encode('theirs\n')));
+  });
+
+  it('the remote check reads the branch head and its files fresh, or the synced ones when it has not moved', async () => {
+    const { gh, r, link } = await linked();
+    const withFiles = { ...link, files: { 'board.kicad_pro': 'synced-id' } };
+    expect(await remoteFilesOf(gh.fetch, withFiles)).toEqual({
+      head: link.commit,
+      files: new Map([['board.kicad_pro', 'synced-id']]),
+    });
+    const head = gh.commitFiles(r, 'main', { 'board.kicad_pro': '{}\n', 'x.txt': 'x\n' });
+    const moved = await remoteFilesOf(gh.fetch, withFiles);
+    expect(moved?.head).toBe(head);
+    expect(moved?.files.get('x.txt')).toBe(gitBlobId(enc.encode('x\n')));
+    expect(await syncedFilesOf(gh.fetch, link)).toEqual(
+      new Map([
+        ['board.kicad_pro', gitBlobId(enc.encode('{}\n'))],
+        ['board.kicad_sch', gitBlobId(enc.encode('sch v1\n'))],
+        ['board.kicad_pcb', gitBlobId(enc.encode('pcb v1\n'))],
+        ['notes.txt', gitBlobId(enc.encode('notes v1\n'))],
+      ]),
+    );
+  });
+
+  it('a link file keeps the files and pending commits it holds', () => {
+    const l = {
+      v: 1 as const,
+      owner: 'o',
+      repo: 'r',
+      branch: 'main',
+      dir: '',
+      commit: 'c',
+      tree: 't',
+      files: { 'a.kicad_sch': 'id' },
+      pending: [{ message: 'm', author: { login: 'o' }, at: '2026-11-19T00:00:00Z', changes: [] }],
+    };
+    expect(parseGitLink(gitLinkBytes(l))).toEqual(l);
   });
 });

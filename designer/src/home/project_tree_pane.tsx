@@ -28,6 +28,7 @@ import {
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { _ } from '@ziroeda/wx/translation.js';
 import { MenuEntry, type MenuItem } from '@ziroeda/wx/menu_ui.js';
+import { GIT_STATE_BITMAP, type GitFileStatus, rootLabelWithBranch } from '../github/git_status.js';
 
 // KiCad's own dark-theme manager icons (GPL), vendored under assets/.
 export const mgrUrl = (name: string): string | undefined => svgUrl('manager', name);
@@ -85,6 +86,8 @@ export function ProjectTreePane({
   onActivate,
   versionControl,
   onVersionControl,
+  gitBranch,
+  gitStatus,
 }: {
   picked: PickedHomeFile[] | null;
   dirRoot: DirNode | null;
@@ -134,6 +137,14 @@ export function ProjectTreePane({
   versionControl?: VcsMenuState | null;
   /** A Version Control row was chosen: the `ID_GIT_*` handlers, by row id. */
   onVersionControl?: (id: TreeMenuEntryId, branch?: string) => void;
+  /** `m_gitCurrentBranchName`: shown after the project's name, `name.kicad_pro [branch]`. */
+  gitBranch?: string | null;
+  /**
+   * Each file's Git status by its name in the project, for the state images
+   * (`updateGitStatusIcons`); null - not linked - draws none: "No icons are shown if the project is
+   * not part of a Git repository".
+   */
+  gitStatus?: ReadonlyMap<string, GitFileStatus> | null;
 }): JSX.Element {
   // KiCad's addItemToProjectTree: a .kicad_sch is listed only when its basename
   // is one of the folder's project names (getProjects), i.e. the root sheet of
@@ -237,6 +248,12 @@ export function ProjectTreePane({
     const openFn = onActivate
       ? (): void => onActivate({ name: node.name, path: node.path, file: node.file })
       : undefined;
+    // `SetItemState( child, status )`: a state image left of the icon, for a linked project only.
+    const state = gitStatus
+      ? gitStatus.get((node.file?.name ?? node.path).replace(/\\/g, '/').replace(/^\/+/, ''))
+      : undefined;
+    const stateBitmap = state ? GIT_STATE_BITMAP[state] : null;
+    const stateUrl = stateBitmap ? mgrUrl(stateBitmap) : undefined;
     // KiCad's project tree: single click selects, double click opens the file.
     // No tooltip on either kind of row - there is no SetToolTip anywhere in
     // project_tree_pane.cpp, project_tree.cpp or project_tree_item.cpp, so a
@@ -251,6 +268,12 @@ export function ProjectTreePane({
         onContextMenu={(e) => openContextMenu(e, node.path)}
         onDoubleClick={openFn}
       >
+        {gitStatus &&
+          (stateUrl ? (
+            <img className="ze-tree-state" src={stateUrl} alt={state} />
+          ) : (
+            <span className="ze-tree-state" />
+          ))}
         <TreeIcon name={treeIconFor(node.name)} />
         <span className="ze-tree-name">{node.name}</span>
       </div>
@@ -281,7 +304,7 @@ export function ProjectTreePane({
                 }}
               />
               <TreeIcon name="project" />
-              <span className="ze-tree-name">{rootLabel}</span>
+              <span className="ze-tree-name">{rootLabelWithBranch(rootLabel, gitBranch)}</span>
             </div>
             {/* project directory contents, flat and KiCad-sorted */}
             {rootOpen && dirRoot?.children.map((c) => renderDir(c, 1))}

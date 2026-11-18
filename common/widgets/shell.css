@@ -3618,6 +3618,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 22px;
   height: 22px;
 }
+/* A linked project's Git state image, left of the file's own icon as wxGenericTreeCtrl draws
+   state images; UNTRACKED and IGNORED are KiCad's blank bitmap, so the slot stays. [data]
+   c_gitDefSize = 16 against c_fileDefSize = 22 (kicad/project_tree.cpp:74-75). */
+.ze-projecttree .ze-tree-item .ze-tree-state,
+.ze-projecttree .ze-tree-item img.ze-tree-state {
+  display: inline-block;
+  width: 16px; /* [data] c_gitDefSize, kicad/project_tree.cpp:76 */
+  height: 16px; /* [data] c_gitDefSize, kicad/project_tree.cpp:76 */
+  flex: 0 0 auto;
+}
 
 /* Project-manager left toolbar (narrow vertical strip) */
 /* An EDA_PANE().VToolbar() docked on the frame, so it sits on the frame

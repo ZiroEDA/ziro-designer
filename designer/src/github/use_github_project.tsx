@@ -67,6 +67,9 @@ import {
   findKicadProjects,
   gitLinkBytes,
   gitLinkOf,
+  localView,
+  remoteFilesOf,
+  syncedFilesOf,
   isValidBranchName,
   planCommit,
   planPull,
@@ -83,6 +86,7 @@ import {
   type OpenFromGithubAnswer,
 } from './dialog_open_from_github.js';
 import { DialogGithubNotice, openGithubPage } from './dialog_github_notice.js';
+import { type GitFileStatus, gitFileStatuses, startRemoteChecks } from './git_status.js';
 
 type Loading = { title: string; label: string | ProgressSnapshot } | null;
 
@@ -102,6 +106,8 @@ export interface GithubProjectHost {
   projectName: string;
   /** `COMMON_SETTINGS::m_Git.enableGit`. */
   enableGit: boolean;
+  /** `COMMON_SETTINGS::m_Git.updatInterval`: minutes between remote checks; 0, only the first. */
+  remoteIntervalMinutes: number;
   /** Names (lower-cased) of the projects already in the store: an opened one must not take one. */
   takenNames: ReadonlySet<string>;
   setLoading: (aLoading: Loading) => void;
@@ -147,6 +153,8 @@ export interface GithubProject {
   feedback: string | null;
   /** The link of the open project, if it has one. */
   link: GitLink | null;
+  /** Each file's Git status, for the tree's state images; null when there are none to draw. */
+  gitStatus: ReadonlyMap<string, GitFileStatus> | null;
   /** Whatever dialog a command has up. */
   dialogs: JSX.Element | null;
 }
@@ -256,6 +264,100 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       if (timer.current) clearTimeout(timer.current);
     },
     [],
+  );
+
+  // --- the tree's Git status (updateGitStatusIconMap) --------------------------------
+
+  /** The synced commit's files: the link's record, or fetched for a link older than it. */
+  const [synced, setSynced] = useState<ReadonlyMap<string, string> | null>(null);
+  /** The project's files by blob id, as the tree holds them. */
+  const [working, setWorking] = useState<ReadonlyMap<string, string> | null>(null);
+  /** The remote branch at the last check: its head and files. */
+  const [remote, setRemote] = useState<{ head: string; files: ReadonlyMap<string, string> } | null>(
+    null,
+  );
+  const syncKey = link ? `${link.owner}/${link.repo}#${link.branch}@${link.commit}` : '';
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: syncKey is the trigger; the link is read through its ref
+  useEffect(() => {
+    const l = linkRef.current;
+    setSynced(null);
+    setRemote(null);
+    if (!l) return;
+    if (l.files) {
+      setSynced(new Map(Object.entries(l.files)));
+      return;
+    }
+    if (!account.connected) return;
+    let live = true;
+    syncedFilesOf(session.fetch, l).then(
+      (m) => {
+        if (live) setSynced(m);
+      },
+      (e) => console.warn('GitHub tree failed:', why(e)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [syncKey, account.connected, session]);
+
+  // The files' blob ids, again whenever the tree's copy changes.
+  useEffect(() => {
+    const files = host.picked;
+    if (!link || !files) {
+      setWorking(null);
+      return;
+    }
+    let live = true;
+    const enc = new TextEncoder();
+    const timer = setTimeout(() => {
+      void localView(
+        files.map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) })),
+      ).then((view) => {
+        if (live) setWorking(new Map([...view].map(([p, e]) => [p, e.sha])));
+      });
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [host.picked, link]);
+
+  // `onGitSyncTimer`: the remote check, once soon and then every `updatInterval` minutes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: syncKey is the trigger; the link is read through its ref
+  useEffect(() => {
+    if (!linkRef.current || !account.connected || !host.enableGit) return;
+    return startRemoteChecks({
+      intervalMinutes: host.remoteIntervalMinutes,
+      check: async () => {
+        const l = linkRef.current;
+        if (!l) return;
+        try {
+          const r = await remoteFilesOf(session.fetch, l);
+          if (linkRef.current?.commit === l.commit) setRemote(r);
+        } catch (e) {
+          console.warn('GitHub remote check failed:', why(e));
+        }
+      },
+      isVisible: () => document.visibilityState === 'visible',
+      onVisible: (listener) => {
+        const on = (): void => {
+          if (document.visibilityState === 'visible') listener();
+        };
+        document.addEventListener('visibilitychange', on);
+        return () => document.removeEventListener('visibilitychange', on);
+      },
+      setTimer: (run, ms) => setTimeout(run, ms),
+      clearTimer: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    });
+  }, [syncKey, account.connected, session, host.enableGit, host.remoteIntervalMinutes]);
+
+  const gitStatus = useMemo(
+    () =>
+      host.enableGit && link && synced && working
+        ? gitFileStatuses(working, synced, link.pending, remote ? remote.files : null)
+        : null,
+    [host.enableGit, link, synced, working, remote],
   );
 
   // GetBranchNames() for the quick Switch to Branch rows, whenever the link names a new place.
@@ -894,6 +996,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
     openFromGithub,
     feedback,
     link,
+    gitStatus,
     dialogs,
   };
 }

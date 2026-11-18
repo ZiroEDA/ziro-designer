@@ -71,6 +71,12 @@ the engineering detail (3,700+ commits since 29 June 2026).
   your repositories, one per folder, and the one you open is saved as your
   project, linked to its repository for Commit and Pull. Links to any public
   project open read-only as before.
+- **Git status in the project tree**, as in KiCad 10: a project linked to
+  GitHub shows its branch after the project name, and each file shows
+  KiCad's Git state image (current, modified, added, ahead, behind,
+  conflicted). The remote is checked when the project opens and then every
+  few minutes, as set by the update interval in Preferences > Version
+  Control.
 - **Projects in your account are listed at once** on a new device, or after
   the browser clears its storage, and each one downloads when you open it.
   The list used to stay empty until every project had downloaded.
