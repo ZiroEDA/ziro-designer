@@ -118,7 +118,7 @@ const memoryStore = (): KeyValueStore & { map: Map<string, string> } => {
 describe('the tokens on this device', () => {
   afterEach(() => setLocalVaultKey(null));
   const tokens: GithubTokens = {
-    accessToken: 'gho_secret',
+    accessToken: 'ghu_secret',
     refreshToken: 'ghr_secret',
     expiresAt: 5,
   };
@@ -139,7 +139,7 @@ describe('the tokens on this device', () => {
     setLocalVaultKey(new Uint8Array(32).fill(7));
     await saveTokens('user-a', tokens, store);
     const raw = store.map.get(tokenKey('user-a'))!;
-    expect(raw).not.toContain('gho_secret');
+    expect(raw).not.toContain('ghu_secret');
     expect(raw).not.toContain('ghr_secret');
     expect(await loadTokens('user-a', store)).toEqual(tokens);
     setLocalVaultKey(new Uint8Array(32).fill(8)); // another account's key

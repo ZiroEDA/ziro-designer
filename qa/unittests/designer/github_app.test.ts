@@ -22,6 +22,7 @@ import {
   beginGithubConnect,
   disconnectGithub,
   installUrl,
+  loadTokens,
   isAccessUpdate,
   onGithubAccessUpdated,
   revokeToken,
@@ -425,5 +426,20 @@ describe('Disconnect GitHub on this device', () => {
       'GitHub is not set up on this server yet.',
     );
     expect(store.map.has(tokenKey('me'))).toBe(false);
+  });
+});
+
+describe('a connection made through the retired OAuth app', () => {
+  it('reads as not connected, so the person connects again through the App', async () => {
+    const map = new Map<string, string>();
+    const store = {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+    };
+    await saveTokens('me', { accessToken: 'gho_from_the_oauth_app', refreshToken: 'ghr_x' }, store);
+    expect(await loadTokens('me', store)).toBeNull();
+    await saveTokens('me', { accessToken: 'ghu_from_the_app' }, store);
+    expect((await loadTokens('me', store))?.accessToken).toBe('ghu_from_the_app');
   });
 });

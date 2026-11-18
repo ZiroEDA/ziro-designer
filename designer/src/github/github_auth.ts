@@ -235,6 +235,14 @@ const defaultStore = (): KeyValueStore | null => {
   }
 };
 
+/**
+ * A token of the retired OAuth app: `gho_`, where the App's user tokens are `ghu_` (GitHub: "OAuth
+ * tokens for GitHub Apps ... have the prefix ghu_"). The App's installations do not cover it and
+ * its refresh token is not the App's to trade, so a person who connected before the move reads as
+ * not connected, and simply connects again.
+ */
+export const isRetiredToken = (accessToken: string): boolean => accessToken.startsWith('gho_');
+
 export async function loadTokens(
   userKey: string,
   store: KeyValueStore | null = defaultStore(),
@@ -247,7 +255,9 @@ export async function loadTokens(
       'sealed' in parsed && typeof parsed.sealed === 'string'
         ? await openRecord<GithubTokens>({ sealed: base64ToBytes(parsed.sealed), v: 1 })
         : (parsed as GithubTokens);
-    return rec && typeof rec.accessToken === 'string' ? rec : null;
+    return rec && typeof rec.accessToken === 'string' && !isRetiredToken(rec.accessToken)
+      ? rec
+      : null;
   } catch {
     return null;
   }
