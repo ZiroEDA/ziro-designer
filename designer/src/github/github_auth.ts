@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * Connecting a GitHub account: the OAuth web flow, the tokens it yields, and a
- * `fetch` that carries them.
+ * Connecting a GitHub account through the ZiroEDA GitHub App: the sign-in
+ * window, the installation that decides which repositories the app may use,
+ * the tokens, and a `fetch` that carries them.
  *
  * KiCad asks for git credentials per remote (DIALOG_GIT_CREDENTIALS) and keeps
  * them in the OS keychain (`KIPLATFORM::SECRETS::StoreSecret`). A browser has
@@ -13,7 +14,13 @@
  * ## The flow
  *
  * 1. `beginGithubConnect` opens `github.com/login/oauth/authorize` in a popup
- *    with a random `state`, and listens.
+ *    with a random `state`, and listens. A person who has not installed the
+ *    App yet (no installation in `GET /user/installations`) is then sent to
+ *    its install page instead (`installUrl`, the same state): there GitHub asks
+ *    "All repositories" or "Only select repositories", installs, and - with
+ *    "Request user authorization during installation" on - finishes the
+ *    sign-in at the same callback. Someone who installed it already, signing
+ *    in on a new device, only ever sees the authorize step.
  * 2. GitHub sends the person to `/api/github/callback` (api/github/callback.js),
  *    which trades the code for tokens with the client secret - which only the
  *    server has - and answers with a page that hands them back to this window
@@ -27,7 +34,7 @@
  *
  * ## The tokens
  *
- * The OAuth app issues expiring user tokens: the access token lasts eight
+ * The App issues expiring user tokens: the access token lasts eight
  * hours, and a refresh token trades for a new pair (`/api/github/refresh`, the
  * secret again). Once used, a refresh token and the access token it replaced
  * are both dead, so every refresh in this window goes through ONE in-flight
@@ -40,34 +47,97 @@
  */
 import { base64ToBytes, bytesToBase64 } from '../cloud/crypto.js';
 import { isSealed, openRecord, sealRecord } from '../home/local_vault.js';
+import type { GithubInstallation } from './github_api.js';
 
 /**
- * The ZiroEDA OAuth app's client id. Public by design - it is in every
- * authorize URL - so it is written here rather than configured; the secret
- * that goes with it lives only in the server's environment.
+ * The ZiroEDA GitHub App's client id (App ID 5822864). Public by design - it is in every
+ * authorize URL - so it is written here rather than configured; the secret that goes with it
+ * lives only in the server's environment.
  */
-export const GITHUB_CLIENT_ID = 'Ov23liGnKwht1kDri6zX';
+export const GITHUB_CLIENT_ID = 'Iv23liWBsV0BNxfsmQQ8';
 
-/** The callback URL registered with the OAuth app; GitHub redirects nowhere else. */
+/** The App's slug: github.com/apps/ziroeda. */
+export const GITHUB_APP_SLUG = 'ziroeda';
+
+/** The callback URL registered with the App; GitHub redirects nowhere else. */
 export const GITHUB_CALLBACK_URL = 'https://designer.ziroeda.com/api/github/callback';
 
-/** `repo`: read and write the person's repositories, private ones included. */
-export const GITHUB_SCOPE = 'repo';
+/**
+ * Where a person installs the App, uninstalls it, or changes its repositories when they have
+ * more than one installation (an organisation's beside their own).
+ */
+export const GITHUB_INSTALLATIONS_SETTINGS = 'https://github.com/settings/installations';
 
 /** The `type` of the callback page's message, and the name of its channel. */
 export const GITHUB_MESSAGE_TYPE = 'ziroeda-github';
 
 export const GITHUB_REFRESH_ENDPOINT = '/api/github/refresh';
 
+/**
+ * "Change repository access on GitHub": the one installation's own settings page, or - with none
+ * known, or one per account (the person's and an organisation's) - the list of them all.
+ */
+export function accessSettingsUrl(installations: readonly GithubInstallation[]): string {
+  if (installations.length !== 1) return GITHUB_INSTALLATIONS_SETTINGS;
+  const [only] = installations;
+  return only!.html_url || `${GITHUB_INSTALLATIONS_SETTINGS}/${only!.id}`;
+}
+
+/**
+ * The web flow's first step. No `scope`: a GitHub App's token can do what its installation's
+ * permissions allow, on the repositories the installation covers, and nothing a scope would add.
+ */
 export function authorizeUrl(state: string): string {
   const q = new URLSearchParams({
     client_id: GITHUB_CLIENT_ID,
     redirect_uri: GITHUB_CALLBACK_URL,
-    scope: GITHUB_SCOPE,
     state,
     allow_signup: 'true',
   });
   return `https://github.com/login/oauth/authorize?${q}`;
+}
+
+/**
+ * The App's install page, with the state to bring back: "To preserve a state, add it to the
+ * installation URL" (GitHub, "Sharing your GitHub App").
+ */
+export function installUrl(state: string): string {
+  return `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new?${new URLSearchParams({ state })}`;
+}
+
+/**
+ * Whether a message from the callback page says the App's repository access changed - an
+ * install, or the person changing its repositories on GitHub ("Redirect on update") - so any
+ * open window lists the repositories again. It carries no tokens and needs no state: all it can
+ * cause is a fresh listing.
+ */
+export function isAccessUpdate(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as { type?: unknown; event?: unknown; setup_action?: unknown };
+  return (
+    d.type === GITHUB_MESSAGE_TYPE &&
+    (d.event === 'access-updated' || d.setup_action === 'install' || d.setup_action === 'update')
+  );
+}
+
+/**
+ * Call `aOnUpdate` whenever the callback page (in this window's popup, or in any tab of this
+ * site) reports an access change. Returns the unsubscribe.
+ */
+export function onGithubAccessUpdated(aOnUpdate: () => void, win: Window = window): () => void {
+  const onWindow = (e: MessageEvent): void => {
+    if (e.origin === win.location.origin && isAccessUpdate(e.data)) aOnUpdate();
+  };
+  win.addEventListener('message', onWindow);
+  const channel =
+    typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(GITHUB_MESSAGE_TYPE);
+  channel?.addEventListener('message', (e) => {
+    if (isAccessUpdate((e as MessageEvent).data)) aOnUpdate();
+  });
+  return () => {
+    win.removeEventListener('message', onWindow);
+    channel?.close();
+  };
 }
 
 /** 32 random bytes, base64url: unguessable, and safe in a URL. */
@@ -329,6 +399,34 @@ export class GithubSession {
   };
 }
 
+// --- disconnecting -----------------------------------------------------------
+
+export const GITHUB_REVOKE_ENDPOINT = '/api/github/revoke';
+
+/**
+ * Ask GitHub, through the server (api/github/revoke.js: the client secret), to revoke this
+ * device's token. Null when it is revoked - or was already dead - else the reason in words; the
+ * caller forgets the token either way.
+ */
+export async function revokeToken(
+  accessToken: string,
+  fetchFn: typeof fetch,
+  endpoint: string = GITHUB_REVOKE_ENDPOINT,
+): Promise<string | null> {
+  try {
+    const res = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    if (res.ok) return null;
+    const answer = (await res.json().catch(() => ({}))) as TokenAnswer;
+    return answerError(answer) ?? `The server answered ${res.status}.`;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
 // --- connecting --------------------------------------------------------------
 
 /** How long a GitHub window is waited on before its listeners go. */
@@ -345,10 +443,15 @@ let pendingConnect: (() => void) | null = null;
  * cannot be told apart from an opener link the browser severed - and a second
  * attempt drops the first one's listeners.
  */
-export function beginGithubConnect(win: Window = window): Promise<GithubTokens> {
+export function beginGithubConnect(
+  win: Window = window,
+  /** `authorize`: sign in. `install`: install the App (and sign in) - for a person with none. */
+  how: 'authorize' | 'install' = 'authorize',
+): Promise<GithubTokens> {
   pendingConnect?.();
   const state = newState();
-  const popup = win.open(authorizeUrl(state), 'ziroeda-github', 'popup,width=720,height=800');
+  const url = how === 'install' ? installUrl(state) : authorizeUrl(state);
+  const popup = win.open(url, 'ziroeda-github', 'popup,width=1020,height=800');
   if (!popup)
     return Promise.reject(
       new GithubAuthError(

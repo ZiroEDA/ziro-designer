@@ -103,6 +103,8 @@ export interface GithubRepo {
   owner: { login: string };
   private: boolean;
   default_branch?: string;
+  /** When the repository was last pushed to: a cache of what is in it is good until it moves. */
+  pushed_at?: string | null;
 }
 
 /**
@@ -117,25 +119,85 @@ export const createUserRepo = (
   call<GithubRepo>(f, 'POST', '/user/repos', { name, private: isPrivate, auto_init: false });
 
 /** At most this many pages of 100: a chooser of more than a thousand rows is not one. */
-const MAX_REPO_PAGES = 10;
+const MAX_PAGES = 10;
+
+/** One installation of the ZiroEDA App, as `GET /user/installations` lists it. */
+export interface GithubInstallation {
+  id: number;
+  account: { login: string; type?: string } | null;
+  /** `all`, or `selected`: the person chose which repositories it may use. */
+  repository_selection: 'all' | 'selected';
+  /** The installation's settings page on GitHub, where its repositories are changed. */
+  html_url?: string;
+}
 
 /**
- * Every repository the account can push to or read, private ones included,
- * most recently pushed first - the order a person looking for "the one I was
- * just working on" wants.
+ * The App's installations this person can reach: their own account's, and any organisation's
+ * they belong to that installed it. Empty means the App is not installed anywhere for them yet.
  */
-export async function listUserRepos(f: GithubFetch): Promise<GithubRepo[]> {
-  const out: GithubRepo[] = [];
-  for (let page = 1; page <= MAX_REPO_PAGES; page++) {
-    const batch = await call<GithubRepo[]>(
+export async function listInstallations(f: GithubFetch): Promise<GithubInstallation[]> {
+  const out: GithubInstallation[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const batch = await call<{ installations: GithubInstallation[] }>(
       f,
       'GET',
-      `/user/repos?per_page=100&sort=pushed&page=${page}`,
+      `/user/installations?per_page=100&page=${page}`,
     );
-    out.push(...batch);
-    if (batch.length < 100) break;
+    out.push(...batch.installations);
+    if (batch.installations.length < 100) break;
   }
   return out;
+}
+
+/** The repositories one installation lets the App use, for this person. */
+export async function listInstallationRepos(
+  f: GithubFetch,
+  installationId: number,
+): Promise<GithubRepo[]> {
+  const out: GithubRepo[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const batch = await call<{ repositories: GithubRepo[] }>(
+      f,
+      'GET',
+      `/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
+    );
+    out.push(...batch.repositories);
+    if (batch.repositories.length < 100) break;
+  }
+  return out;
+}
+
+/**
+ * After a sign-in: who the person is - the Author line, and the owner a new repository goes under -
+ * and where the App is installed for them. No installation means the App has to be installed
+ * before it can reach any repository.
+ */
+export async function connectionInfo(
+  f: GithubFetch,
+): Promise<{ login: string; installations: GithubInstallation[] }> {
+  const [user, installations] = await Promise.all([getAuthenticatedUser(f), listInstallations(f)]);
+  return { login: user.login, installations };
+}
+
+/**
+ * Every repository the App may use for this person - across all its installations, each once -
+ * most recently pushed first, the order a person looking for "the one I was just working on"
+ * wants. Not `GET /user/repos`: that lists what the PERSON can reach, and a repository the
+ * installation does not cover would be offered and then refused.
+ */
+export async function listAppRepos(
+  f: GithubFetch,
+): Promise<{ installations: GithubInstallation[]; repos: GithubRepo[] }> {
+  const installations = await listInstallations(f);
+  const byName = new Map<string, GithubRepo>();
+  for (const inst of installations)
+    for (const r of await listInstallationRepos(f, inst.id))
+      if (!byName.has(r.full_name)) byName.set(r.full_name, r);
+  const when = (r: GithubRepo): number => (r.pushed_at ? Date.parse(r.pushed_at) || 0 : 0);
+  const repos = [...byName.values()].sort(
+    (a, b) => when(b) - when(a) || (a.full_name < b.full_name ? -1 : 1),
+  );
+  return { installations, repos };
 }
 
 // --- refs, commits, trees, blobs --------------------------------------------

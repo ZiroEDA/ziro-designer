@@ -30,16 +30,18 @@ const NOW = 1_800_000_000_000;
 const STATE = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
 
 describe('the authorize URL', () => {
-  it('names the app, the registered callback, the repo scope and the state', () => {
+  it('names the ZiroEDA GitHub App, its registered callback and the state, and no scope', () => {
     const u = new URL(authorizeUrl(STATE));
     expect(u.origin + u.pathname).toBe('https://github.com/login/oauth/authorize');
-    expect(u.searchParams.get('client_id')).toBe('Ov23liGnKwht1kDri6zX');
-    expect(GITHUB_CLIENT_ID).toBe('Ov23liGnKwht1kDri6zX');
+    // The App's registration (App ID 5822864, slug ziroeda), not the retired OAuth app's.
+    expect(u.searchParams.get('client_id')).toBe('Iv23liWBsV0BNxfsmQQ8');
+    expect(GITHUB_CLIENT_ID).toBe('Iv23liWBsV0BNxfsmQQ8');
     expect(u.searchParams.get('redirect_uri')).toBe(
       'https://designer.ziroeda.com/api/github/callback',
     );
     expect(GITHUB_CALLBACK_URL).toBe('https://designer.ziroeda.com/api/github/callback');
-    expect(u.searchParams.get('scope')).toBe('repo');
+    // A GitHub App's token reaches what its installation allows; a scope would be ignored.
+    expect(u.searchParams.has('scope')).toBe(false);
     expect(u.searchParams.get('state')).toBe(STATE);
   });
 

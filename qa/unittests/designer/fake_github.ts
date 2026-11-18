@@ -67,6 +67,16 @@ export class FakeGithub {
   mangle: ((content: string) => string) | null = null;
   /** Serve every blob with its last byte flipped: a download damaged on the way. */
   damageBlobs = false;
+  /**
+   * The ZiroEDA App's installations this person can reach (`GET /user/installations`). Null is
+   * the usual case: one, on their own account, for all repositories.
+   */
+  installations: { id: number; login: string; selected?: string[]; html_url?: string }[] | null =
+    null;
+  /** `POST /user/repos` answers 403 "Resource not accessible by integration". */
+  createDenied = false;
+  /** Run right after a Contents API write: another client pushing at that moment. */
+  afterPut: ((r: FakeRepo) => void) | null = null;
 
   repo(owner: string, name: string): FakeRepo {
     const r = this.repos.get(`${owner}/${name}`);
@@ -173,10 +183,66 @@ export class FakeGithub {
     return this.log.filter((l) => l.method !== 'GET');
   }
 
+  /** A repository as GitHub's listings describe it. */
+  repoJson(r: FakeRepo) {
+    return {
+      name: r.name,
+      full_name: `${r.owner}/${r.name}`,
+      owner: { login: r.owner },
+      private: r.private,
+      default_branch: r.default_branch,
+      // Moves with every commit, as `pushed_at` moves with every push.
+      pushed_at: new Date(Date.UTC(2026, 0, 1) + r.commits.size * 1000).toISOString(),
+    };
+  }
+
+  private installationList() {
+    return (
+      this.installations ?? [
+        { id: 1, login: this.login, html_url: 'https://github.com/settings/installations/1' },
+      ]
+    );
+  }
+
   private route(method: string, url: URL, body: any): Response {
     const p = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    const page = Number(url.searchParams.get('page') ?? '1');
+    const per = Number(url.searchParams.get('per_page') ?? '30');
+    const slice = <T>(all: T[]): T[] => all.slice((page - 1) * per, page * per);
     if (method === 'GET' && url.pathname === '/user') return json(200, { login: this.login });
+    if (method === 'GET' && url.pathname === '/user/installations') {
+      const all = this.installationList().map((i) => ({
+        id: i.id,
+        account: { login: i.login, type: 'User' },
+        repository_selection: i.selected ? 'selected' : 'all',
+        ...(i.html_url ? { html_url: i.html_url } : {}),
+      }));
+      return json(200, { total_count: all.length, installations: slice(all) });
+    }
+    if (
+      method === 'GET' &&
+      p[0] === 'user' &&
+      p[1] === 'installations' &&
+      p[3] === 'repositories'
+    ) {
+      const inst = this.installationList().find((i) => String(i.id) === p[2]);
+      if (!inst) return json(404, { message: 'Not Found' });
+      const all = [...this.repos.values()]
+        .filter((r) => r.owner === inst.login && (!inst.selected || inst.selected.includes(r.name)))
+        .map((r) => this.repoJson(r));
+      return json(200, {
+        total_count: all.length,
+        repository_selection: inst.selected ? 'selected' : 'all',
+        repositories: slice(all),
+      });
+    }
     if (method === 'POST' && url.pathname === '/user/repos') {
+      if (this.createDenied)
+        return json(403, {
+          message: 'Resource not accessible by integration',
+          documentation_url:
+            'https://docs.github.com/rest/repos/repos#create-a-repository-for-the-authenticated-user',
+        });
       if (this.repos.has(`${this.login}/${body.name}`))
         return json(422, {
           message: 'Repository creation failed.',
@@ -228,6 +294,7 @@ export class FakeGithub {
         message: body.message,
       });
       r.refs.set(branch, commit);
+      this.afterPut?.(r);
       return json(201, { content: { path }, commit: { sha: commit, tree: { sha: tree } } });
     }
     if (rest[0] === 'branches' && method === 'GET') {
@@ -281,7 +348,9 @@ export class FakeGithub {
       return json(201, { sha: id });
     }
     if (kind === 'trees' && method === 'GET') {
-      const t = r.trees.get(rest[2]!);
+      // A tree by its id, or - as GitHub takes it - by a branch name.
+      const byBranch = r.refs.get(rest.slice(2).join('/'));
+      const t = r.trees.get(byBranch ? r.commits.get(byBranch)!.tree : rest[2]!);
       if (!t) return json(404, { message: 'Not Found' });
       const dirs = new Set<string>();
       for (const path of t.keys()) {

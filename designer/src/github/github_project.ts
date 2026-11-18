@@ -385,8 +385,14 @@ export function repoNameFor(projectName: string): string {
 export const INITIAL_COMMIT_MESSAGE = 'Initial commit';
 
 /**
- * Create the repository under the signed-in account and push every synced
- * file of the project to it as its first commit.
+ * GitHub would not create the repository with the access the App has: the installation is likely
+ * limited to chosen repositories. Said in words, never GitHub's "Resource not accessible by
+ * integration", and the caller offers the link to change the access.
+ */
+export class GithubAccessError extends GitSyncError {}
+
+/**
+ * Fill an EMPTY repository with the project, as its first commit.
  *
  * An empty repository has no branch, and the Git database API will not write
  * to one (see `putFile`). So `.gitignore` - KiCad's own seed, which its "Add
@@ -395,6 +401,47 @@ export const INITIAL_COMMIT_MESSAGE = 'Initial commit';
  * branch. The real first commit is then built as a ROOT commit holding that
  * `.gitignore` and every project file, and the branch is moved onto it, so the
  * history starts with one commit that is the whole project.
+ */
+async function seedEmptyRepository(
+  f: GithubFetch,
+  owner: string,
+  name: string,
+  branch: string,
+  local: ReadonlyMap<string, LocalEntry>,
+): Promise<GitLink> {
+  const gitignore = utf8.encode(KICAD_GITIGNORE_TEXT);
+  const seed = await putFile(f, owner, name, '.gitignore', gitignore, INITIAL_COMMIT_MESSAGE);
+  const tree = await writeTree(f, owner, name, [
+    { path: '.gitignore', bytes: gitignore },
+    ...[...local].map(([path, e]) => ({ path, bytes: e.bytes })),
+  ]);
+  await verifyTree(f, owner, name, tree, '', new Map([...local].map(([path, e]) => [path, e.sha])));
+  const commit = await createCommit(f, owner, name, INITIAL_COMMIT_MESSAGE, tree, []);
+  // The force replaces the one-file commit the Contents API just made, and nothing else: the
+  // branch is checked to be still on it, in a repository that had no commit before it.
+  if ((await getBranchHead(f, owner, name, branch)) !== seed.commit)
+    throw new GitSyncError(
+      wxFormat(
+        _('Someone else pushed to %s while ZiroEDA was filling it, so nothing was overwritten.'),
+        `${owner}/${name}`,
+      ),
+    );
+  await updateBranch(f, owner, name, branch, commit, true);
+  return { v: 1, owner, repo: name, branch, dir: '', commit, tree };
+}
+
+const unfinished = (full: string, e: unknown): GitSyncError =>
+  new GitSyncError(
+    wxFormat(
+      _('%s was created on GitHub, but the push did not finish: %s'),
+      full,
+      e instanceof Error ? e.message : String(e),
+    ),
+  );
+
+/**
+ * Push to GitHub... > Create a new repository: the repository under the signed-in account, and
+ * every synced file of the project as its first commit.
  */
 export async function pushNewRepository(
   f: GithubFetch,
@@ -405,34 +452,66 @@ export async function pushNewRepository(
   const local = await localView(files);
   if (local.size === 0) throw new GitSyncError(_('This project has no files to push.'));
 
-  const repo = await createUserRepo(f, name, isPrivate);
-  const owner = repo.owner.login;
-  const branch = repo.default_branch || 'main';
+  let repo: GithubRepo;
   try {
-    const gitignore = utf8.encode(KICAD_GITIGNORE_TEXT);
-    await putFile(f, owner, repo.name, '.gitignore', gitignore, INITIAL_COMMIT_MESSAGE);
-    const tree = await writeTree(f, owner, repo.name, [
-      { path: '.gitignore', bytes: gitignore },
-      ...[...local].map(([path, e]) => ({ path, bytes: e.bytes })),
-    ]);
-    await verifyTree(
+    repo = await createUserRepo(f, name, isPrivate);
+  } catch (e) {
+    // 403 "Resource not accessible by integration" (or a 404 hiding it): not a name problem.
+    if (e instanceof GithubApiError && (e.status === 403 || e.status === 404))
+      throw new GithubAccessError(
+        _(
+          'GitHub did not let ZiroEDA create a repository. ZiroEDA may be limited to the repositories you chose for it: give it access to all repositories on GitHub, or create the repository there, give ZiroEDA access to it, and choose Use an existing repository.',
+        ),
+      );
+    throw e;
+  }
+  const owner = repo.owner.login;
+  try {
+    const link = await seedEmptyRepository(
       f,
       owner,
       repo.name,
-      tree,
-      '',
-      new Map([...local].map(([path, e]) => [path, e.sha])),
+      repo.default_branch || 'main',
+      local,
     );
-    const commit = await createCommit(f, owner, repo.name, INITIAL_COMMIT_MESSAGE, tree, []);
-    // Replaces the one-file commit the Contents API made: nothing else can be on a branch that
-    // was created a moment ago, in a repository nobody else knows exists yet.
-    await updateBranch(f, owner, repo.name, branch, commit, true);
-    return { link: { v: 1, owner, repo: repo.name, branch, dir: '', commit, tree }, repo };
+    return { link, repo };
+  } catch (e) {
+    throw unfinished(`${owner}/${repo.name}`, e);
+  }
+}
+
+/**
+ * Push to GitHub... > Use an existing repository: one the App may use, and only an EMPTY one. A
+ * repository with commits holds somebody's history; pushing a project over it would need a force
+ * push, and joining the two is what Clone Project from Repository... is for.
+ */
+export async function pushToExistingRepository(
+  f: GithubFetch,
+  repo: Pick<GithubRepo, 'name' | 'owner' | 'default_branch'>,
+  files: readonly ProjectFile[],
+): Promise<{ link: GitLink }> {
+  const local = await localView(files);
+  if (local.size === 0) throw new GitSyncError(_('This project has no files to push.'));
+  const owner = repo.owner.login;
+  const full = `${owner}/${repo.name}`;
+  if ((await listBranches(f, owner, repo.name)).length > 0)
+    throw new GitSyncError(
+      wxFormat(
+        _(
+          '%s already has commits, and Push to GitHub... fills only an empty repository. Choose an empty one or create a new repository; to work on the project that is in it, use Clone Project from Repository... instead.',
+        ),
+        full,
+      ),
+    );
+  try {
+    return {
+      link: await seedEmptyRepository(f, owner, repo.name, repo.default_branch || 'main', local),
+    };
   } catch (e) {
     throw new GitSyncError(
       wxFormat(
-        _('%s was created on GitHub, but the push did not finish: %s'),
-        `${owner}/${repo.name}`,
+        _('The push to %s did not finish: %s'),
+        full,
         e instanceof Error ? e.message : String(e),
       ),
     );
@@ -672,6 +751,76 @@ export async function addBranch(f: GithubFetch, link: GitLink, name: string): Pr
   return { ...link, branch: name };
 }
 
+// --- which repositories hold a KiCad project ------------------------------------
+
+/** The `.kicad_pro` files of a repository tree, likeliest first, never in a tooling folder. */
+export function projectsInTree(tree: readonly GitTreeItem[]): string[] {
+  return kicadProjectsIn(
+    tree
+      .filter((e) => e.type === 'blob' && !isToolingPath(e.path))
+      .map((e) => ({ path: e.path, type: 'blob' as const })),
+  );
+}
+
+/**
+ * What is known about which repositories hold a project, for this session: by repository, its
+ * default branch and when it was last pushed, so a push since makes it ask again.
+ */
+export type KicadScanCache = Map<string, boolean>;
+export const sessionKicadScan: KicadScanCache = new Map();
+
+const scanKey = (r: Pick<GithubRepo, 'full_name' | 'default_branch' | 'pushed_at'>): string =>
+  `${r.full_name}#${r.default_branch ?? ''}#${r.pushed_at ?? ''}`;
+
+/**
+ * Whether a repository's default branch holds a `.kicad_pro`. An empty repository holds none. One
+ * GitHub would not list (too large, or refused) cannot be ruled out, so it counts as holding one:
+ * hiding a person's project is worse than showing a repository that turns out to have none.
+ */
+export async function hasKicadProject(
+  f: GithubFetch,
+  repo: Pick<GithubRepo, 'name' | 'full_name' | 'owner' | 'default_branch' | 'pushed_at'>,
+  cache: KicadScanCache = sessionKicadScan,
+): Promise<boolean> {
+  const key = scanKey(repo);
+  const known = cache.get(key);
+  if (known !== undefined) return known;
+  let found: boolean;
+  try {
+    found =
+      projectsInTree(await getTree(f, repo.owner.login, repo.name, repo.default_branch || 'HEAD'))
+        .length > 0;
+  } catch (e) {
+    if (!(e instanceof GithubApiError)) throw e;
+    found = !(e.status === 404 || e.status === 409);
+  }
+  cache.set(key, found);
+  return found;
+}
+
+/** How many repositories are looked into at once: a person with hundreds waits, GitHub is spared. */
+export const KICAD_SCAN_CONCURRENCY = 4;
+
+/**
+ * The repositories, in their order, that hold a KiCad project. `onEach` reports each one as it is
+ * answered (from the cache or from GitHub), so a list can grow while the rest are looked into.
+ */
+export async function findKicadRepos<R extends Parameters<typeof hasKicadProject>[1]>(
+  f: GithubFetch,
+  repos: readonly R[],
+  onEach?: (done: number, total: number, repo: R, holdsProject: boolean) => void,
+  cache: KicadScanCache = sessionKicadScan,
+): Promise<R[]> {
+  let done = 0;
+  const found = await mapLimit(repos, KICAD_SCAN_CONCURRENCY, async (r) => {
+    const yes = await hasKicadProject(f, r, cache);
+    done += 1;
+    onEach?.(done, repos.length, r, yes);
+    return yes;
+  });
+  return repos.filter((_r, i) => found[i]);
+}
+
 // --- Clone Project from Repository... -----------------------------------------
 
 /** More files than this is not a project; it is a monorepo, and one fetch per file. */
@@ -711,14 +860,7 @@ export async function cloneRepository(
     );
   const commit = await getCommit(f, owner, repo.name, head);
   const tree = await getTree(f, owner, repo.name, commit.tree.sha);
-  const projects = kicadProjectsIn(
-    tree
-      .filter((e) => e.type === 'blob' && !isToolingPath(e.path))
-      .map((e) => ({
-        path: e.path,
-        type: 'blob' as const,
-      })),
-  );
+  const projects = projectsInTree(tree);
   if (projects.length === 0)
     throw new GitSyncError(_('No project files were found in the repository.'));
   const pro = projects.length > 1 ? await choose(projects) : projects[0]!;
