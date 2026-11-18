@@ -68,10 +68,10 @@ export interface ManagerMenuHandlers {
   /** File > Import Non-KiCad Project > <format>... (KICAD_MANAGER_FRAME::OnImportXxx). */
   importNonKicadProject: (aFormat: ImportFormat) => void;
   /**
-   * File > Clone Project from Repository... (KICAD_MANAGER_ACTIONS::newFromRepository). Absent
-   * when `m_Git.enableGit` is off, which is when upstream does not add the row.
+   * Open Project from GitHub... (#640): a public project's link, or - GitHub connected - one of
+   * the person's own repositories.
    */
-  cloneFromRepository?: () => void;
+  openFromGithub: () => void;
   hasProject: boolean;
   hasTextFileSelected: boolean;
   recent: readonly ProjectMeta[];
@@ -124,22 +124,15 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // before the page sees the key. BROWSER_REBINDS in ui/browser_hotkeys.ts
         // holds the substitution and the reasoning.
         { label: _HKI('New Project...'), shortcut: 'Ctrl+Alt+N', action: h.newProject },
-        // KICAD_MANAGER_ACTIONS::newFromRepository (kicad/menubar.cpp:84-85), added only
-        // `if( m_Git.enableGit )`. Upstream clones with libgit2; ours clones one of the
-        // repositories the ZiroEDA GitHub App may use, private ones included, over GitHub's API
-        // (designer/src/github/), into a new project linked to it - and takes a link to any
-        // public project, which opens read-only. That is what "Open Project from GitHub..."
-        // (#640) did on a row of its own beside this one, which it has replaced; the
-        // `/gh/<owner>/<repo>` addresses still open the same way.
-        ...(h.cloneFromRepository
-          ? [
-              {
-                label: _HKI('Clone Project from Repository...'),
-                icon: 'project_clone',
-                action: h.cloneFromRepository,
-              },
-            ]
-          : []),
+        // KICAD_MANAGER_ACTIONS::newFromRepository's slot (kicad/menubar.cpp:85),
+        // "Clone Project from Repository...". Upstream clones with libgit2 and
+        // credentials; a browser cannot reach git hosts' smart-HTTP endpoints,
+        // so this is the web take (#640): a public GitHub repository's project
+        // by its link, opened read-only like a demo - and, with GitHub
+        // connected, one of the person's own repositories, opened as their
+        // project and linked to it for the Version Control menu
+        // (designer/src/github/). Not upstream's label: there is no git clone.
+        { label: _('Open Project from GitHub...'), action: h.openFromGithub },
         // Upstream shows this only when the stock demos path exists; ours
         // lists the bundled demos as a submenu (the web take on its picker).
         {

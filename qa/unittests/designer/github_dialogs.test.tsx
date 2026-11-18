@@ -2,18 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * The GitHub dialogs as drawn and clicked: Clone Project from Git Repository (the KiCad-only list,
- * Show all repositories, a pasted link, Connect GitHub...), Push to GitHub (a new or an existing
- * repository) and the notice whose button takes the step.
+ * The GitHub dialogs as drawn and clicked: Open Project from GitHub (its three states - not
+ * connected, connected with the person's projects listed, a pasted link), Push to GitHub (a new or
+ * an existing repository) and the notice whose button takes the step.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GithubRepo } from '@ziroeda/designer/src/github/github_api.js';
 import {
-  type CloneRepoList,
-  DialogCloneFromGithub,
-  cloneListStatus,
-} from '@ziroeda/designer/src/github/dialog_clone_from_github.js';
+  DialogOpenFromGithub,
+  type GithubRepoList,
+  projectRows,
+  repoListStatus,
+} from '@ziroeda/designer/src/github/dialog_open_from_github.js';
 import { DialogPushToGithub } from '@ziroeda/designer/src/github/dialog_push_to_github.js';
 import { DialogGithubNotice } from '@ziroeda/designer/src/github/dialog_github_notice.js';
 
@@ -28,11 +29,23 @@ const repo = (name: string, isPrivate = true): GithubRepo => ({
 });
 const AMP = repo('amp');
 const FIRMWARE = repo('firmware', false);
-const READY: CloneRepoList = { all: [AMP, FIRMWARE], kicad: [AMP], status: 'ready' };
+const BOARDS = repo('pcb-projects');
+const HUGE = repo('huge');
+const READY: GithubRepoList = {
+  all: [AMP, FIRMWARE, BOARDS, HUGE],
+  found: [
+    { repo: AMP, projects: ['amp.kicad_pro'] },
+    { repo: BOARDS, projects: ['amp/amp.kicad_pro', 'psu/psu.kicad_pro'] },
+    { repo: HUGE, projects: null },
+  ],
+  status: 'ready',
+};
 
 const button = (label: string) => screen.getByRole('button', { name: label }) as HTMLButtonElement;
+const cell = (text: string) =>
+  screen.getByText((_c, el) => el?.textContent?.trim() === text && el.tagName === 'SPAN');
 
-function clone(over: Partial<Parameters<typeof DialogCloneFromGithub>[0]> = {}) {
+function open(over: Partial<Parameters<typeof DialogOpenFromGithub>[0]> = {}) {
   const props = {
     connected: true,
     list: READY,
@@ -41,85 +54,126 @@ function clone(over: Partial<Parameters<typeof DialogCloneFromGithub>[0]> = {}) 
     onResult: vi.fn(),
     ...over,
   };
-  render(<DialogCloneFromGithub {...props} />);
+  render(<DialogOpenFromGithub {...props} />);
   return props;
 }
 
-describe('Clone Project from Git Repository', () => {
-  it('lists only the repositories that hold a KiCad project, until asked for all of them', () => {
-    clone();
-    expect(screen.queryByText('octo/amp')).not.toBeNull();
-    expect(screen.queryByText('octo/firmware')).toBeNull();
-    fireEvent.click(button('Show all repositories'));
-    expect(screen.queryByText('octo/firmware')).not.toBeNull();
-    fireEvent.click(button('Show only repositories with a KiCad project'));
-    expect(screen.queryByText('octo/firmware')).toBeNull();
-  });
-
-  it('clones the repository chosen', () => {
-    const p = clone();
-    expect(button('Clone').disabled).toBe(true);
-    fireEvent.click(screen.getByText('octo/amp'));
-    fireEvent.click(button('Clone'));
-    expect(p.onResult).toHaveBeenCalledWith({ kind: 'repo', repo: AMP });
-  });
-
-  it('takes a pasted link to any public project, which it opens rather than clones', () => {
-    const p = clone();
-    const entry = screen.getByLabelText('GitHub link:');
-    fireEvent.change(entry, { target: { value: 'not a link' } });
-    expect(button('Open').disabled).toBe(true);
+describe('Open Project from GitHub: a pasted link', () => {
+  it("keeps the dialog's caption, label and notes, and OK opens what was pasted", () => {
+    const p = open({ connected: false, list: null });
+    expect(screen.queryByText('Open Project from GitHub')).not.toBeNull();
     expect(
-      screen.queryByText('That is not a link to a GitHub repository, folder or file.'),
+      screen.queryByText(
+        'The repository must be public. Projects open read-only; "Save a copy" keeps one of your own.',
+      ),
     ).not.toBeNull();
-    fireEvent.change(entry, {
-      target: { value: 'https://github.com/someone/board/blob/main/hw/board.kicad_pcb' },
+    fireEvent.change(screen.getByLabelText('GitHub link:'), {
+      target: { value: 'https://github.com/someone/board/tree/main/hw' },
     });
-    fireEvent.click(button('Open'));
+    fireEvent.click(button('OK'));
     expect(p.onResult).toHaveBeenCalledWith({
       kind: 'link',
-      spec: { owner: 'someone', repo: 'board', ref: 'main', path: 'hw/board.kicad_pcb' },
+      text: 'https://github.com/someone/board/tree/main/hw',
     });
   });
 
-  it('not connected, it still takes a link, and offers Connect GitHub... instead of a list', () => {
-    const p = clone({ connected: false, list: null });
-    expect(screen.queryByText('octo/amp')).toBeNull();
-    fireEvent.click(button('Connect GitHub...'));
-    expect(p.onConnect).toHaveBeenCalledTimes(1);
+  it('a link typed after choosing a project is what OK opens', () => {
+    const p = open();
+    fireEvent.click(cell('octo/amp'));
     fireEvent.change(screen.getByLabelText('GitHub link:'), {
       target: { value: 'https://github.com/someone/board' },
     });
-    fireEvent.click(button('Open'));
+    fireEvent.click(button('OK'));
     expect(p.onResult).toHaveBeenCalledWith({
       kind: 'link',
-      spec: { owner: 'someone', repo: 'board' },
+      text: 'https://github.com/someone/board',
+    });
+  });
+});
+
+describe('Open Project from GitHub: not connected', () => {
+  it('offers the connection in place of a list', () => {
+    const p = open({ connected: false, list: null });
+    expect(
+      screen.queryByText('Open your private repositories: connect your GitHub account.'),
+    ).not.toBeNull();
+    expect(screen.queryByText('octo/amp')).toBeNull();
+    fireEvent.click(button('Connect GitHub...'));
+    expect(p.onConnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Open Project from GitHub: connected', () => {
+  it('lists the projects under their repositories, and nothing that holds none', () => {
+    open();
+    expect(screen.queryByText('octo/firmware')).toBeNull();
+    // No "Show all repositories": a repository without a project is not offered at all.
+    expect(screen.queryByRole('button', { name: 'Show all repositories' })).toBeNull();
+    for (const t of [
+      'octo/amp',
+      'octo/pcb-projects',
+      'amp/amp.kicad_pro',
+      'psu/psu.kicad_pro',
+      'octo/huge',
+    ])
+      expect(cell(t), t).not.toBeNull();
+  });
+
+  it('opens the project chosen, with its path in the repository', () => {
+    const p = open();
+    fireEvent.click(cell('psu/psu.kicad_pro'));
+    fireEvent.click(button('OK'));
+    expect(p.onResult).toHaveBeenCalledWith({
+      kind: 'repo',
+      repo: BOARDS,
+      project: 'psu/psu.kicad_pro',
     });
   });
 
+  it("a repository's own row heads its projects and is not one to open", () => {
+    const p = open();
+    fireEvent.click(cell('octo/pcb-projects'));
+    fireEvent.click(button('OK'));
+    expect(p.onResult).toHaveBeenCalledWith({ kind: 'link', text: '' });
+  });
+
+  it('a repository GitHub would not list opens with its project asked for then', () => {
+    const p = open();
+    fireEvent.click(cell('octo/huge'));
+    fireEvent.click(button('OK'));
+    expect(p.onResult).toHaveBeenCalledWith({ kind: 'repo', repo: HUGE });
+  });
+
   it('links to the access settings on GitHub', () => {
-    const p = clone();
+    const p = open();
     fireEvent.click(button('Change repository access on GitHub'));
     expect(p.onChangeAccess).toHaveBeenCalledTimes(1);
   });
 
+  it('rows: one row for a lone project at the root, a group for a repository of folders', () => {
+    const rows = projectRows(READY.found);
+    expect(rows.map((r) => [r.label.trim(), r.group, r.project ?? null])).toEqual([
+      ['octo/amp', false, 'amp.kicad_pro'],
+      ['octo/pcb-projects', true, null],
+      ['amp/amp.kicad_pro', false, 'amp/amp.kicad_pro'],
+      ['psu/psu.kicad_pro', false, 'psu/psu.kicad_pro'],
+      ['octo/huge', false, null],
+    ]);
+  });
+
   it('says what it is doing, and why a list is empty', () => {
-    expect(cloneListStatus({ all: [], kicad: [], status: 'listing' }, false)).toBe(
+    expect(repoListStatus({ all: [], found: [], status: 'listing' })).toBe(
       'Asking GitHub for your repositories...',
     );
     expect(
-      cloneListStatus(
-        { all: [AMP, FIRMWARE], kicad: [], status: 'scanning', done: 1, total: 2 },
-        false,
-      ),
+      repoListStatus({ all: [AMP, FIRMWARE], found: [], status: 'scanning', done: 1, total: 2 }),
     ).toBe('Looking for KiCad projects: 1 of 2 repositories...');
-    expect(cloneListStatus({ all: [], kicad: [], status: 'ready' }, false)).toBe(
+    expect(repoListStatus({ all: [], found: [], status: 'ready' })).toBe(
       'ZiroEDA cannot use any of your repositories yet.',
     );
-    expect(cloneListStatus({ all: [FIRMWARE], kicad: [], status: 'ready' }, false)).toBe(
+    expect(repoListStatus({ all: [FIRMWARE], found: [], status: 'ready' })).toBe(
       'None of the repositories ZiroEDA can use holds a KiCad project.',
     );
-    expect(cloneListStatus({ all: [FIRMWARE], kicad: [], status: 'ready' }, true)).toBe('');
   });
 });
 

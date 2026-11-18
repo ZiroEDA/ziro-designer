@@ -31,7 +31,6 @@ import {
   updateProjectFiles,
 } from '../home/projectStore.js';
 import type { TreeMenuEntryId, VcsMenuState } from '../home/project_tree_menu.js';
-import type { GithubSpec } from '../home/github_id.js';
 import {
   type GithubInstallation,
   type GithubRepo,
@@ -60,11 +59,12 @@ import {
   type GitLink,
   GithubAccessError,
   type PullPlan,
+  type RepoProjects,
   addBranch,
   branchNames,
   cloneRepository,
   fetchPull,
-  findKicadRepos,
+  findKicadProjects,
   gitLinkBytes,
   gitLinkOf,
   isValidBranchName,
@@ -78,10 +78,10 @@ import {
 } from './github_project.js';
 import { DialogPushToGithub, type PushToGithubAnswer } from './dialog_push_to_github.js';
 import {
-  type CloneAnswer,
-  type CloneRepoList,
-  DialogCloneFromGithub,
-} from './dialog_clone_from_github.js';
+  DialogOpenFromGithub,
+  type GithubRepoList,
+  type OpenFromGithubAnswer,
+} from './dialog_open_from_github.js';
 import { DialogGithubNotice, openGithubPage } from './dialog_github_notice.js';
 
 type Loading = { title: string; label: string | ProgressSnapshot } | null;
@@ -102,10 +102,10 @@ export interface GithubProjectHost {
   projectName: string;
   /** `COMMON_SETTINGS::m_Git.enableGit`. */
   enableGit: boolean;
-  /** Names (lower-cased) of the projects already in the store: a clone must not take one. */
+  /** Names (lower-cased) of the projects already in the store: an opened one must not take one. */
   takenNames: ReadonlySet<string>;
   setLoading: (aLoading: Loading) => void;
-  /** Re-read a project from the store into the tree (and open it, for a new clone). */
+  /** Re-read a project from the store into the tree (and open it, for one just brought in). */
   openStored: (aId: string) => Promise<void>;
   /**
    * Every open editor's unsaved work into the store, settled once written. A pull, commit or
@@ -120,10 +120,11 @@ export interface GithubProjectHost {
   /** A project's record was written: refresh the list and push it to the account. */
   onStoreWritten: (aId: string) => void;
   /**
-   * A GitHub link given to Clone Project from Repository...: open that project read-only, as the
-   * `/gh/<owner>/<repo>` address does (and File > Open Project from GitHub... did).
+   * The link pasted into Open Project from GitHub...: that project, read-only, as its
+   * `/gh/<owner>/<repo>` address opens it - or, for an address that is no GitHub link, the error
+   * the dialog has always given.
    */
-  openGithubLink: (aSpec: GithubSpec) => void;
+  openGithubLink: (aText: string) => void;
 }
 
 /** A notice with a link to GitHub, or a question whose button takes the step (DialogGithubNotice). */
@@ -140,8 +141,8 @@ export interface GithubProject {
   versionControl: VcsMenuState | null;
   /** The submenu's rows, by id. */
   onVersionControl: (aId: TreeMenuEntryId, aBranch?: string) => void;
-  /** File > Clone Project from Repository... */
-  cloneFromRepository: () => void;
+  /** File > Open Project from GitHub... */
+  openFromGithub: () => void;
   /** `showGitFeedback`'s line for the status bar, while it lasts. */
   feedback: string | null;
   /** The link of the open project, if it has one. */
@@ -167,9 +168,9 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   const [commitPlan, setCommitPlan] = useState<CommitPlan | null>(null);
   const [conflict, setConflict] = useState<PullPlan | null>(null);
   const [switchList, setSwitchList] = useState<string[] | null>(null);
-  /** Clone Project from Repository... is up. */
-  const [cloneOpen, setCloneOpen] = useState(false);
-  const [cloneList, setCloneList] = useState<CloneRepoList | null>(null);
+  /** Open Project from GitHub... is up, and its list of the person's projects. */
+  const [openOpen, setOpenOpen] = useState(false);
+  const [repoList, setRepoList] = useState<GithubRepoList | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   /** Moves when GitHub says the App's repository access changed: everything listed is stale. */
   const [accessNonce, setAccessNonce] = useState(0);
@@ -658,55 +659,59 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
     }
   };
 
-  // --- Clone Project from Repository... --------------------------------------------
+  // --- Open Project from GitHub... ------------------------------------------------
 
-  /** File > Clone Project from Repository...: the dialog is up at once, connected or not. */
-  const cloneFromRepository = (): void => setCloneOpen(true);
+  /** File > Open Project from GitHub...: the dialog is up at once, connected or not. */
+  const openFromGithub = (): void => setOpenOpen(true);
 
-  // The dialog's list: the repositories the App may use, then which of them hold a KiCad project,
-  // growing as each is answered. Again whenever the access changes, or GitHub is connected.
+  // The dialog's list: the repositories the App may use, then the KiCad projects in each, growing
+  // as each is answered. Again whenever the access changes, or GitHub is connected.
   // biome-ignore lint/correctness/useExhaustiveDependencies: accessNonce is the trigger; appRepos reads refs and the session
   useEffect(() => {
-    if (!cloneOpen || !account.connected) {
-      setCloneList(null);
+    if (!openOpen || !account.connected) {
+      setRepoList(null);
       return;
     }
     let live = true;
-    setCloneList({ all: [], kicad: [], status: 'listing' });
+    setRepoList({ all: [], found: [], status: 'listing' });
     (async () => {
       try {
         const { repos } = await appRepos();
         if (!live) return;
-        const kicad: GithubRepo[] = [];
-        setCloneList({ all: repos, kicad, status: 'scanning', done: 0, total: repos.length });
-        const found = await findKicadRepos(session.fetch, repos, (done, total, repo, yes) => {
+        const found: RepoProjects[] = [];
+        setRepoList({ all: repos, found, status: 'scanning', done: 0, total: repos.length });
+        const all = await findKicadProjects(session.fetch, repos, (done, total, hit) => {
           if (!live) return;
-          if (yes) kicad.push(repo);
-          setCloneList({ all: repos, kicad: [...kicad], status: 'scanning', done, total });
+          if (hit) found.push(hit);
+          setRepoList({ all: repos, found: [...found], status: 'scanning', done, total });
         });
-        if (live) setCloneList({ all: repos, kicad: found, status: 'ready' });
+        if (live) setRepoList({ all: repos, found: all, status: 'ready' });
       } catch (e) {
         if (!live) return;
         if (e instanceof GithubAuthRequired) setAccount({ connected: false });
-        setCloneList({ all: [], kicad: [], status: 'error', error: why(e) });
+        setRepoList({ all: [], found: [], status: 'error', error: why(e) });
       }
     })();
     return () => {
       live = false;
     };
-  }, [cloneOpen, account.connected, session, accessNonce]);
+  }, [openOpen, account.connected, session, accessNonce]);
 
-  const onCloneResult = (aAnswer: CloneAnswer | null): void => {
-    setCloneOpen(false);
+  const onOpenResult = (aAnswer: OpenFromGithubAnswer | null): void => {
+    setOpenOpen(false);
     if (!aAnswer) return;
-    if (aAnswer.kind === 'link') hostRef.current.openGithubLink(aAnswer.spec);
-    else void onCloneRepo(aAnswer.repo);
+    if (aAnswer.kind === 'link') hostRef.current.openGithubLink(aAnswer.text);
+    else void onOpenRepo(aAnswer.repo, aAnswer.project);
   };
 
-  const onCloneRepo = async (repo: GithubRepo): Promise<void> => {
+  /**
+   * One of the person's repositories, opened as their own project linked to it: what Clone does
+   * in KiCad. `project`, chosen in the list already, skips "Open which one?".
+   */
+  const onOpenRepo = async (repo: GithubRepo, project?: string): Promise<void> => {
     const { setLoading } = hostRef.current;
-    const title = _('Clone Repository');
-    const message = wxFormat(_('Cloning %s...'), repo.full_name);
+    const title = _('Open Project from GitHub');
+    const message = wxFormat(_('Downloading %s from GitHub...'), repo.full_name);
     setLoading({ title, label: { message, value: 0 } });
     try {
       const got = await cloneRepository(
@@ -730,18 +735,19 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           hostRef.current.takenNames.has(name.toLowerCase())
             ? wxFormat(
                 _(
-                  'A project named %s already exists. Rename or delete it first, then clone again.',
+                  'A project named %s already exists. Rename or delete it first, then open it again.',
                 ),
                 name,
               )
             : null,
+        project,
       );
       if (!got) return;
       const name = got.project.slice(got.project.lastIndexOf('/') + 1).replace(/\.kicad_pro$/i, '');
       if (hostRef.current.takenNames.has(name.toLowerCase()))
         throw new Error(
           wxFormat(
-            _('A project named %s already exists. Rename or delete it first, then clone again.'),
+            _('A project named %s already exists. Rename or delete it first, then open it again.'),
             name,
           ),
         );
@@ -754,9 +760,9 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       const id = await saveProject(name, files);
       hostRef.current.onStoreWritten(id);
       await hostRef.current.openStored(id);
-      showFeedback(wxFormat(_('Cloned %s.'), repo.full_name));
+      showFeedback(wxFormat(_('Opened %s.'), repo.full_name));
     } catch (e) {
-      report(_('Failed to clone repository'), e);
+      report(wxFormat(_('Could not open %s.'), repo.full_name), e);
     } finally {
       setLoading(null);
     }
@@ -849,13 +855,13 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           onResult={(r) => void onSwitchResult(r)}
         />
       )}
-      {cloneOpen && (
-        <DialogCloneFromGithub
+      {openOpen && (
+        <DialogOpenFromGithub
           connected={account.connected}
-          list={cloneList}
+          list={repoList}
           onConnect={() => connect()}
           onChangeAccess={changeAccess}
-          onResult={onCloneResult}
+          onResult={onOpenResult}
         />
       )}
       {notice && (
@@ -870,7 +876,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       )}
       {cloneChoice && (
         <SingleChoiceDialog
-          caption={_('Clone Project from Git Repository')}
+          caption={_('Open Project from GitHub')}
           message={_('This repository holds several KiCad projects. Open which one?')}
           choices={cloneChoice.projects.map((p) => ({ value: p, label: p }))}
           onResult={(p) => {
@@ -885,7 +891,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   return {
     versionControl,
     onVersionControl,
-    cloneFromRepository,
+    openFromGithub,
     feedback,
     link,
     dialogs,

@@ -14,8 +14,7 @@ the engineering detail (3,700+ commits since 29 June 2026).
 ### Added
 - **GitHub**: connect your GitHub account, push a project to a new
   repository, then commit, pull and switch branches from the project's
-  right-click menu (Version Control), as in KiCad 10. File > Clone Project
-  from Repository... opens one of your repositories, private ones too.
+  right-click menu (Version Control), as in KiCad 10.
 - **The interface in your language**: ZiroEDA uses KiCad's own translations,
   in every language KiCad ships, and follows the browser's language until you
   pick one in Preferences > Set Language. ZiroEDA's own additions (accounts,
@@ -67,10 +66,11 @@ the engineering detail (3,700+ commits since 29 June 2026).
   fill an existing empty repository.
 - **Disconnect GitHub** in the Version Control menu forgets the connection on
   this device and links to GitHub, where the app can be uninstalled.
-- **Clone Project from Repository... lists your KiCad projects and takes a
-  link**: it shows the repositories that hold a KiCad project (or all of them,
-  on request), and a link to any public GitHub project opens it read-only, so
-  File > Open Project from GitHub... is gone. Links to /gh/... still work.
+- **Open Project from GitHub... opens your private repositories too** once
+  GitHub is connected: below the link field it lists the KiCad projects in
+  your repositories, one per folder, and the one you open is saved as your
+  project, linked to its repository for Commit and Pull. Links to any public
+  project open read-only as before.
 - **Projects in your account are listed at once** on a new device, or after
   the browser clears its storage, and each one downloads when you open it.
   The list used to stay empty until every project had downloaded.

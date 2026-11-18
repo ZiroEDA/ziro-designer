@@ -45,7 +45,9 @@ import {
   GithubOpenCancelled,
   GithubOpenError,
   githubIdFor,
+  githubLinkView,
   githubSpecFromId,
+  githubSpecFromUrl,
   isGithubId,
   openGithubProject,
 } from './github_source.js';
@@ -2119,7 +2121,7 @@ export function HomePage({
 
   const common = useCommonSettings();
   /**
-   * The Version Control submenu's commands and File > Clone Project from Repository..., over
+   * The Version Control submenu's commands and File > Open Project from GitHub...'s own repositories, over
    * GitHub (designer/src/github/). A demo is not the user's project: it has no submenu.
    */
   const github = useGithubProject({
@@ -2158,15 +2160,18 @@ export function HomePage({
           console.warn('Cloud push failed:', e),
         );
     },
-    // A link pasted into Clone Project from Repository... (#640): the project read-only, as its
-    // `/gh/...` address opens it - a schematic's or a board's link in that editor.
-    openGithubLink: (spec) => {
-      const view = spec.path?.endsWith('.kicad_sch')
-        ? 'schematic'
-        : spec.path?.endsWith('.kicad_pcb')
-          ? 'pcb'
-          : undefined;
-      void openDemoProject(githubIdFor(spec), view);
+    // File > Open Project from GitHub...'s link (#640): the project read-only, as its `/gh/...`
+    // address opens it - a schematic's or a board's link in that editor.
+    openGithubLink: (value) => {
+      const spec = githubSpecFromUrl(value);
+      if (!spec) {
+        DisplayErrorMessage(
+          wxFormat(_('"%s" is not a link to a GitHub repository.'), value.trim()),
+          'Paste the address of the repository from your browser, for example https://github.com/owner/repository',
+        );
+        return;
+      }
+      void openDemoProject(githubIdFor(spec), githubLinkView(spec));
     },
   });
   // `ShowChangedLanguage()`: the frame redraws when the language changes.
@@ -2217,7 +2222,7 @@ export function HomePage({
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
     // `if( m_Git.enableGit ) fileMenu->Add( KICAD_MANAGER_ACTIONS::newFromRepository )`.
-    ...(common.git.enableGit ? { cloneFromRepository: github.cloneFromRepository } : {}),
+    openFromGithub: github.openFromGithub,
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
     recent: recentProjects,

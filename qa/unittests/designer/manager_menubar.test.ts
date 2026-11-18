@@ -41,6 +41,7 @@ const handlers = {
   showAbout: noop,
   showHotkeys: noop,
   openDemo: noop,
+  openFromGithub: noop,
   importNonKicadProject: noop,
   hasProject: true,
   hasTextFileSelected: true,
@@ -161,37 +162,33 @@ describe('the Tools menu', () => {
   });
 });
 
-describe('File > Clone Project from Repository... (KICAD_MANAGER_ACTIONS::newFromRepository)', () => {
+describe('File > Open Project from GitHub... (#640)', () => {
   const fileLabels = (h: ManagerMenuHandlers) =>
     (buildManagerMenus(h).find((m) => m.label === 'File')?.items ?? []).map((i) => i.label);
 
-  it('sits right after New Project..., in its kicad/menubar.cpp:84-88 slot, before the demos', () => {
-    // newProject, then newFromRepository, then openDemoProject - upstream's order exactly.
-    const labels = fileLabels({ ...handlers, cloneFromRepository: noop });
-    const at = labels.indexOf('Clone Project from Repository...');
+  it("sits in KICAD_MANAGER_ACTIONS::newFromRepository's slot, before Open Demo Project", () => {
+    // kicad/menubar.cpp:85-88: newFromRepository, then openDemoProject.
+    const labels = fileLabels(handlers);
+    const at = labels.indexOf('Open Project from GitHub...');
     expect(at).toBe(labels.indexOf('New Project...') + 1);
     expect(labels[at + 1]).toBe('Open Demo Project');
   });
 
-  it('took over "Open Project from GitHub...": the File menu no longer has that row of ours', () => {
-    // Its dialog takes a GitHub link now; a row of our own beside it said the same thing twice.
-    expect(fileLabels({ ...handlers, cloneFromRepository: noop })).not.toContain(
-      'Open Project from GitHub...',
-    );
-    expect(fileLabels(handlers)).not.toContain('Open Project from GitHub...');
-  });
-
-  it('runs the clone', () => {
+  it('opens its dialog', () => {
     let asked = 0;
-    buildManagerMenus({ ...handlers, cloneFromRepository: () => asked++ })
+    const item = buildManagerMenus({ ...handlers, openFromGithub: () => asked++ })
       .find((m) => m.label === 'File')
-      ?.items.find((i) => i.label === 'Clone Project from Repository...')
-      ?.action?.();
+      ?.items.find((i) => i.label === 'Open Project from GitHub...');
+    item?.action?.();
     expect(asked).toBe(1);
   });
 
-  it('is not there when the host has no clone to offer (m_Git.enableGit off)', () => {
-    expect(fileLabels(handlers)).not.toContain('Clone Project from Repository...');
+  it('is the only GitHub row: there is no "Clone Project from Repository..." in the File menu', () => {
+    // Upstream's clone row has no counterpart here: what it would do - one of your repositories,
+    // linked - is in Open Project from GitHub...'s dialog.
+    const labels = fileLabels(handlers);
+    expect(labels).not.toContain('Clone Project from Repository...');
+    expect(labels.filter((l) => l?.includes('GitHub'))).toEqual(['Open Project from GitHub...']);
   });
 });
 

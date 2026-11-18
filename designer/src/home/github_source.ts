@@ -30,7 +30,13 @@ import { isListedFile } from '../fs/allowlist.js';
 import { githubIdFor, type GithubSpec } from './github_id.js';
 import { projectFileText } from './files.js';
 
-export { githubIdFor, githubSpecFromId, githubSpecFromUrl, isGithubId } from './github_id.js';
+export {
+  githubIdFor,
+  githubLinkView,
+  githubSpecFromId,
+  githubSpecFromUrl,
+  isGithubId,
+} from './github_id.js';
 export type { GithubSpec } from './github_id.js';
 
 /** One entry of the git tree. */

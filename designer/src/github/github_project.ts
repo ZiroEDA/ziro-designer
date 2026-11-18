@@ -49,6 +49,7 @@
  */
 import { isToolingPath } from '../home/project_picker.js';
 import { kicadProjectsIn } from '../home/github_source.js';
+import { treeFileType } from '../home/file_activation.js';
 import { mapLimit } from '../map_limit.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { wxFormat } from '@ziroeda/wx/wxstring.js';
@@ -483,7 +484,7 @@ export async function pushNewRepository(
 /**
  * Push to GitHub... > Use an existing repository: one the App may use, and only an EMPTY one. A
  * repository with commits holds somebody's history; pushing a project over it would need a force
- * push, and joining the two is what Clone Project from Repository... is for.
+ * push, and joining the two is what File > Open Project from GitHub... is for.
  */
 export async function pushToExistingRepository(
   f: GithubFetch,
@@ -498,7 +499,7 @@ export async function pushToExistingRepository(
     throw new GitSyncError(
       wxFormat(
         _(
-          '%s already has commits, and Push to GitHub... fills only an empty repository. Choose an empty one or create a new repository; to work on the project that is in it, use Clone Project from Repository... instead.',
+          '%s already has commits, and Push to GitHub... fills only an empty repository. Choose an empty one or create a new repository; to work on the project that is in it, open it with File > Open Project from GitHub... instead.',
         ),
         full,
       ),
@@ -753,75 +754,108 @@ export async function addBranch(f: GithubFetch, link: GitLink, name: string): Pr
 
 // --- which repositories hold a KiCad project ------------------------------------
 
-/** The `.kicad_pro` files of a repository tree, likeliest first, never in a tooling folder. */
+/** A path without its extension: the stem a project and its root schematic share. */
+const stemOf = (path: string): string => {
+  const dot = path.lastIndexOf('.');
+  return dot > path.lastIndexOf('/') ? path.slice(0, dot) : path;
+};
+
+/**
+ * The projects of a repository tree, likeliest first, never in a tooling folder:
+ *
+ *  - every `.kicad_pro` (`kicadProjectsIn`, the order the GitHub open already uses);
+ *  - then every KiCad 4/5 project: a file the project tree classes `LEGACY_PROJECT` (`.pro`) with a
+ *    `LEGACY_SCHEMATIC` (`.sch`) of the same stem beside it - the root sheet KiCad opens with it -
+ *    unless a `.kicad_pro` of that stem says it has been migrated already. A `.pro` with no sheet
+ *    is some other program's (Qt's, among others).
+ */
 export function projectsInTree(tree: readonly GitTreeItem[]): string[] {
-  return kicadProjectsIn(
-    tree
-      .filter((e) => e.type === 'blob' && !isToolingPath(e.path))
-      .map((e) => ({ path: e.path, type: 'blob' as const })),
-  );
+  const blobs = tree.filter((e) => e.type === 'blob' && !isToolingPath(e.path)).map((e) => e.path);
+  const modern = kicadProjectsIn(blobs.map((path) => ({ path, type: 'blob' as const })));
+  const migrated = new Set(modern.map(stemOf));
+  const sheets = new Set(blobs.filter((p) => treeFileType(p) === 'LEGACY_SCHEMATIC').map(stemOf));
+  const depth = (p: string): number => p.split('/').length;
+  const legacy = blobs
+    .filter((p) => treeFileType(p) === 'LEGACY_PROJECT')
+    .filter((p) => sheets.has(stemOf(p)) && !migrated.has(stemOf(p)))
+    .sort((a, b) => depth(a) - depth(b) || byCodepoint(a, b));
+  return [...modern, ...legacy];
 }
 
 /**
- * What is known about which repositories hold a project, for this session: by repository, its
- * default branch and when it was last pushed, so a push since makes it ask again.
+ * What is known about which projects each repository holds, for this session: by repository, its
+ * default branch and when it was last pushed, so a push since makes it ask again. `null` is a
+ * repository GitHub would not list.
  */
-export type KicadScanCache = Map<string, boolean>;
+export type KicadScanCache = Map<string, readonly string[] | null>;
 export const sessionKicadScan: KicadScanCache = new Map();
+
+type ScannedRepo = Pick<
+  GithubRepo,
+  'name' | 'full_name' | 'owner' | 'default_branch' | 'pushed_at'
+>;
 
 const scanKey = (r: Pick<GithubRepo, 'full_name' | 'default_branch' | 'pushed_at'>): string =>
   `${r.full_name}#${r.default_branch ?? ''}#${r.pushed_at ?? ''}`;
 
 /**
- * Whether a repository's default branch holds a `.kicad_pro`. An empty repository holds none. One
- * GitHub would not list (too large, or refused) cannot be ruled out, so it counts as holding one:
- * hiding a person's project is worse than showing a repository that turns out to have none.
+ * The KiCad projects on a repository's default branch (`projectsInTree`). An empty repository has
+ * none. One GitHub would not list - `truncated`, or refused - is `null`: it cannot be ruled out,
+ * and hiding a person's project is worse than showing a repository that turns out to have none.
+ * A project on another branch is not looked for; a branch's link opens it.
  */
-export async function hasKicadProject(
+export async function kicadProjectsOf(
   f: GithubFetch,
-  repo: Pick<GithubRepo, 'name' | 'full_name' | 'owner' | 'default_branch' | 'pushed_at'>,
+  repo: ScannedRepo,
   cache: KicadScanCache = sessionKicadScan,
-): Promise<boolean> {
+): Promise<readonly string[] | null> {
   const key = scanKey(repo);
-  const known = cache.get(key);
-  if (known !== undefined) return known;
-  let found: boolean;
+  if (cache.has(key)) return cache.get(key)!;
+  let projects: readonly string[] | null;
   try {
-    found =
-      projectsInTree(await getTree(f, repo.owner.login, repo.name, repo.default_branch || 'HEAD'))
-        .length > 0;
+    projects = projectsInTree(
+      await getTree(f, repo.owner.login, repo.name, repo.default_branch || 'HEAD'),
+    );
   } catch (e) {
     if (!(e instanceof GithubApiError)) throw e;
-    found = !(e.status === 404 || e.status === 409);
+    projects = e.status === 404 || e.status === 409 ? [] : null;
   }
-  cache.set(key, found);
-  return found;
+  cache.set(key, projects);
+  return projects;
+}
+
+/** A repository that holds KiCad projects (or may: `projects` null), and which. */
+export interface RepoProjects<R extends ScannedRepo = GithubRepo> {
+  repo: R;
+  projects: readonly string[] | null;
 }
 
 /** How many repositories are looked into at once: a person with hundreds waits, GitHub is spared. */
 export const KICAD_SCAN_CONCURRENCY = 4;
 
 /**
- * The repositories, in their order, that hold a KiCad project. `onEach` reports each one as it is
- * answered (from the cache or from GitHub), so a list can grow while the rest are looked into.
+ * The repositories, in their order, that hold a KiCad project, each with its projects. `onEach`
+ * reports each repository as it is answered (from the cache or from GitHub) - with what it holds,
+ * or null for none - so a list can grow while the rest are looked into.
  */
-export async function findKicadRepos<R extends Parameters<typeof hasKicadProject>[1]>(
+export async function findKicadProjects<R extends ScannedRepo>(
   f: GithubFetch,
   repos: readonly R[],
-  onEach?: (done: number, total: number, repo: R, holdsProject: boolean) => void,
+  onEach?: (done: number, total: number, found: RepoProjects<R> | null) => void,
   cache: KicadScanCache = sessionKicadScan,
-): Promise<R[]> {
+): Promise<RepoProjects<R>[]> {
   let done = 0;
-  const found = await mapLimit(repos, KICAD_SCAN_CONCURRENCY, async (r) => {
-    const yes = await hasKicadProject(f, r, cache);
+  const found = await mapLimit(repos, KICAD_SCAN_CONCURRENCY, async (repo) => {
+    const projects = await kicadProjectsOf(f, repo, cache);
+    const hit = projects === null || projects.length > 0 ? { repo, projects } : null;
     done += 1;
-    onEach?.(done, repos.length, r, yes);
-    return yes;
+    onEach?.(done, repos.length, hit);
+    return hit;
   });
-  return repos.filter((_r, i) => found[i]);
+  return found.filter((x): x is RepoProjects<R> => x !== null);
 }
 
-// --- Clone Project from Repository... -----------------------------------------
+// --- Open Project from GitHub...: one of the person's repositories ----------------
 
 /** More files than this is not a project; it is a monorepo, and one fetch per file. */
 export const MAX_CLONE_FILES = 2000;
@@ -850,20 +884,27 @@ export async function cloneRepository(
    * as Clone did, made a person wait through every file to be told no (end-to-end test, 11-19).
    */
   refuse?: (aProjectName: string) => string | null,
+  /**
+   * The project to open, by its path in the repository, when the person chose it already (a row
+   * of the repository's projects): no "Open which one?". It has to be one the tree still holds.
+   */
+  project?: string,
 ): Promise<{ files: ProjectFile[]; link: GitLink; project: string } | null> {
   const owner = repo.owner.login;
   const branch = repo.default_branch || 'main';
   const head = await getBranchHead(f, owner, repo.name, branch);
   if (!head)
     throw new GitSyncError(
-      wxFormat(_('%s is empty: there is nothing to clone yet.'), `${owner}/${repo.name}`),
+      wxFormat(_('%s is empty: there is no project in it yet.'), `${owner}/${repo.name}`),
     );
   const commit = await getCommit(f, owner, repo.name, head);
   const tree = await getTree(f, owner, repo.name, commit.tree.sha);
   const projects = projectsInTree(tree);
   if (projects.length === 0)
     throw new GitSyncError(_('No project files were found in the repository.'));
-  const pro = projects.length > 1 ? await choose(projects) : projects[0]!;
+  if (project !== undefined && !projects.includes(project))
+    throw new GitSyncError(wxFormat(_('%s is no longer in %s.'), project, `${owner}/${repo.name}`));
+  const pro = project ?? (projects.length > 1 ? await choose(projects) : projects[0]!);
   if (!pro) return null;
   const refusal = refuse?.(pro.slice(pro.lastIndexOf('/') + 1).replace(/\.kicad_pro$/i, ''));
   if (refusal) throw new GitSyncError(refusal);
@@ -873,7 +914,7 @@ export async function cloneRepository(
   if (view.size > MAX_CLONE_FILES)
     throw new GitSyncError(
       wxFormat(
-        _('That project has %d files; more than %d cannot be cloned from GitHub yet.'),
+        _('That project has %d files; more than %d cannot be opened from GitHub yet.'),
         view.size,
         MAX_CLONE_FILES,
       ),

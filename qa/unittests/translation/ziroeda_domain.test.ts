@@ -85,6 +85,7 @@ describe('the committed ziroeda catalogs', () => {
     for (const lang of linguas.filter((l) => l !== 'en')) {
       const { messages } = JSON.parse(readFileSync(join(DOMAIN, `${lang}.json`), 'utf8'));
       expect(messages['Open Demo Project'], lang).toBeTruthy();
+      expect(messages['Open Project from GitHub...'], lang).toBeTruthy();
     }
   });
 

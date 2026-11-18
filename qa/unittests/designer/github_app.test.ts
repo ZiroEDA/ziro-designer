@@ -34,11 +34,14 @@ import {
   GithubAccessError,
   type KicadScanCache,
   type ProjectFile,
-  findKicadRepos,
-  hasKicadProject,
+  cloneRepository,
+  findKicadProjects,
+  kicadProjectsOf,
+  projectsInTree,
   pushNewRepository,
   pushToExistingRepository,
 } from '@ziroeda/designer/src/github/github_project.js';
+import { githubLinkView, githubSpecFromUrl } from '@ziroeda/designer/src/home/github_id.js';
 import { FakeGithub } from './fake_github.js';
 
 const enc = new TextEncoder();
@@ -242,13 +245,13 @@ describe('the repositories the App may use', () => {
   });
 });
 
-describe('which repositories hold a KiCad project', () => {
+describe('which KiCad projects each repository holds', () => {
   async function world() {
     const gh = new FakeGithub();
     const amp = gh.addRepo('amp');
     gh.commitFiles(amp, 'main', { 'hw/amp.kicad_pro': '{}', 'hw/amp.kicad_sch': '' });
     const fw = gh.addRepo('firmware');
-    gh.commitFiles(fw, 'main', { 'main.c': 'int main;' });
+    gh.commitFiles(fw, 'main', { 'main.c': 'int main;', 'app.pro': 'QT += core' });
     const ci = gh.addRepo('ci');
     gh.commitFiles(ci, 'main', { '.github/old.kicad_pro': '{}' });
     gh.addRepo('blank');
@@ -256,31 +259,83 @@ describe('which repositories hold a KiCad project', () => {
     return { gh, amp, repos };
   }
 
-  it('keeps those whose default branch has a .kicad_pro, never one in a tooling folder', async () => {
+  it('keeps the repositories whose default branch has a project, with its path, never in a tooling folder', async () => {
     const { gh, repos } = await world();
     const progress: number[] = [];
-    const found = await findKicadRepos(gh.fetch, repos, (done) => progress.push(done), new Map());
-    expect(found.map((r) => r.name)).toEqual(['amp']);
+    const found = await findKicadProjects(
+      gh.fetch,
+      repos,
+      (done) => progress.push(done),
+      new Map(),
+    );
+    // firmware's app.pro is Qt's: a .pro with no .sch beside it is no KiCad project.
+    expect(found.map((f) => [f.repo.name, f.projects])).toEqual([['amp', ['hw/amp.kicad_pro']]]);
     expect(progress.sort()).toEqual([1, 2, 3, 4]);
+  });
+
+  it('counts a KiCad 4/5 project: a .pro with its .sch beside it, unless already migrated', () => {
+    const blob = (path: string) => ({ path, mode: '100644', type: 'blob' as const, sha: 'x' });
+    expect(
+      projectsInTree([
+        blob('old/amp.pro'),
+        blob('old/amp.sch'),
+        blob('old/amp.kicad_pcb'),
+        blob('psu/psu.pro'),
+        blob('psu/psu.kicad_pro'),
+        blob('psu/psu.sch'),
+        blob('qt/app.pro'),
+      ]),
+    ).toEqual(['psu/psu.kicad_pro', 'old/amp.pro']);
+  });
+
+  it("lists a legacy project's repository", async () => {
+    const gh = new FakeGithub();
+    const r = gh.addRepo('kicad5');
+    gh.commitFiles(r, 'main', { 'board.pro': '[general]', 'board.sch': 'EESchema Schematic File' });
+    const found = await findKicadProjects(
+      gh.fetch,
+      (await listAppRepos(gh.fetch)).repos,
+      undefined,
+      new Map(),
+    );
+    expect(found.map((f) => [f.repo.name, f.projects])).toEqual([['kicad5', ['board.pro']]]);
+  });
+
+  it('lists every project of a repository with one per folder', async () => {
+    const gh = new FakeGithub();
+    const r = gh.addRepo('pcb-projects');
+    gh.commitFiles(r, 'main', {
+      'amp/amp.kicad_pro': '{}',
+      'amp/amp.kicad_sch': '',
+      'psu/psu.kicad_pro': '{}',
+      'psu/psu.kicad_pcb': '',
+    });
+    const found = await findKicadProjects(
+      gh.fetch,
+      (await listAppRepos(gh.fetch)).repos,
+      undefined,
+      new Map(),
+    );
+    expect(found[0]!.projects).toEqual(['amp/amp.kicad_pro', 'psu/psu.kicad_pro']);
   });
 
   it('asks GitHub once per repository per push: the cache answers until the repository moves', async () => {
     const { gh, amp, repos } = await world();
     const cache: KicadScanCache = new Map();
-    await findKicadRepos(gh.fetch, repos, undefined, cache);
+    await findKicadProjects(gh.fetch, repos, undefined, cache);
     gh.log.length = 0;
-    await findKicadRepos(gh.fetch, repos, undefined, cache);
+    await findKicadProjects(gh.fetch, repos, undefined, cache);
     expect(gh.log).toEqual([]);
 
     gh.commitFiles(amp, 'main', { 'readme.md': 'project moved out' });
     const after = (await listAppRepos(gh.fetch)).repos;
     gh.log.length = 0;
-    const found = await findKicadRepos(gh.fetch, after, undefined, cache);
-    expect(found.map((r) => r.name)).toEqual([]);
+    const found = await findKicadProjects(gh.fetch, after, undefined, cache);
+    expect(found).toEqual([]);
     expect(gh.log.filter((l) => l.path.includes('/git/trees/'))).toHaveLength(1);
   });
 
-  it('counts a repository GitHub would not list as possibly holding one', async () => {
+  it('lists a repository GitHub answered with a truncated tree: it cannot be ruled out', async () => {
     const repo: GithubRepo = {
       name: 'huge',
       full_name: 'octo/huge',
@@ -290,7 +345,50 @@ describe('which repositories hold a KiCad project', () => {
     };
     const truncated = (async () =>
       new Response(JSON.stringify({ tree: [], truncated: true }), { status: 200 })) as typeof fetch;
-    expect(await hasKicadProject(truncated, repo, new Map())).toBe(true);
+    expect(await kicadProjectsOf(truncated, repo, new Map())).toBeNull();
+    const found = await findKicadProjects(truncated, [repo], undefined, new Map());
+    expect(found).toEqual([{ repo, projects: null }]);
+  });
+});
+
+describe('opening a project chosen in the list', () => {
+  it('opens that project, linked to its own folder only, with no "Open which one?"', async () => {
+    const gh = new FakeGithub();
+    const r = gh.addRepo('pcb-projects');
+    gh.commitFiles(r, 'main', {
+      'amp/amp.kicad_pro': '{}\n',
+      'amp/amp.kicad_sch': 'amp\n',
+      'psu/psu.kicad_pro': '{}\n',
+      'psu/psu.kicad_sch': 'psu\n',
+    });
+    const repo = (await listAppRepos(gh.fetch)).repos[0]!;
+    let asked = 0;
+    const got = await cloneRepository(
+      gh.fetch,
+      repo,
+      async () => {
+        asked += 1;
+        return null;
+      },
+      undefined,
+      undefined,
+      'psu/psu.kicad_pro',
+    );
+    expect(asked).toBe(0);
+    expect(got!.link.dir).toBe('psu/');
+    expect(got!.project).toBe('psu.kicad_pro');
+    expect(got!.files.map((f) => f.name).sort()).toEqual(['psu.kicad_pro', 'psu.kicad_sch']);
+  });
+
+  it('a project that is no longer there is said so, nothing fetched', async () => {
+    const gh = new FakeGithub();
+    const r = gh.addRepo('pcb-projects');
+    gh.commitFiles(r, 'main', { 'amp/amp.kicad_pro': '{}', 'amp/amp.kicad_sch': '' });
+    const repo = (await listAppRepos(gh.fetch)).repos[0]!;
+    await expect(
+      cloneRepository(gh.fetch, repo, async () => null, undefined, undefined, 'psu/psu.kicad_pro'),
+    ).rejects.toThrow('psu/psu.kicad_pro is no longer in octo/pcb-projects.');
+    expect(gh.log.some((l) => l.path.includes('/git/blobs/'))).toBe(false);
   });
 });
 
@@ -441,5 +539,15 @@ describe('a connection made through the retired OAuth app', () => {
     expect(await loadTokens('me', store)).toBeNull();
     await saveTokens('me', { accessToken: 'ghu_from_the_app' }, store);
     expect((await loadTokens('me', store))?.accessToken).toBe('ghu_from_the_app');
+  });
+});
+
+describe("a pasted link's editor", () => {
+  it('a schematic link opens in the Schematic Editor, a board link in the PCB Editor, else the manager', () => {
+    const view = (u: string) => githubLinkView(githubSpecFromUrl(u)!);
+    expect(view('https://github.com/o/r/blob/main/hw/top.kicad_sch')).toBe('schematic');
+    expect(view('https://github.com/o/r/blob/main/hw/board.kicad_pcb')).toBe('pcb');
+    expect(view('https://github.com/o/r/tree/main/hw')).toBeUndefined();
+    expect(view('https://github.com/o/r')).toBeUndefined();
   });
 });

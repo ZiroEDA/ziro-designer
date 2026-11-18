@@ -341,6 +341,7 @@ const managerHandlers = {
   showAbout: noop,
   showHotkeys: noop,
   openDemo: noop,
+  openFromGithub: noop,
   importNonKicadProject: noop,
   hasProject: true,
   hasTextFileSelected: true,

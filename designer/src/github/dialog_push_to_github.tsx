@@ -188,7 +188,7 @@ export function DialogPushToGithub({
                   <StaticText
                     wrap={NOTE_WRAP}
                     label={_(
-                      'Only an empty repository can take the project; one that has commits is cloned instead.',
+                      'Only an empty repository can take the project; one that has commits is opened with Open Project from GitHub... instead.',
                     )}
                   />
                 </SizerItem>

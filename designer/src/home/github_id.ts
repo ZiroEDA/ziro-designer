@@ -77,3 +77,13 @@ export function githubSpecFromUrl(text: string): GithubSpec | null {
   if (parts[2] === 'blob') parts[2] = 'tree';
   return githubSpecFromId(['gh', ...parts].join('/'));
 }
+
+/**
+ * The editor a link opens its project in: a schematic's link in the Schematic Editor, a board's in
+ * the PCB Editor, anything else in the project manager.
+ */
+export function githubLinkView(spec: GithubSpec): 'schematic' | 'pcb' | undefined {
+  if (spec.path?.endsWith('.kicad_sch')) return 'schematic';
+  if (spec.path?.endsWith('.kicad_pcb')) return 'pcb';
+  return undefined;
+}
