@@ -2229,8 +2229,10 @@ export function SchematicEditor({
     pendingProjectChange.current = [];
     pendingPersist.current = false;
     pendingIsMine.current = false;
-    onProjectChange?.(files, { push: mine });
-    if (persist) onPersistFiles?.(files);
+    // Never the placeholder sheet - see serializeSheets.
+    const real = files.filter((f) => f.name !== DEFAULT_FILE);
+    if (real.length > 0) onProjectChange?.(real, { push: mine });
+    if (persist && real.length > 0) onPersistFiles?.(real);
   });
 
   /** A sheet an undo asked to be shown (page settings), navigated to after. */
@@ -3871,6 +3873,10 @@ export function SchematicEditor({
     docs.set(currentFile, doc);
     const files: PickedFile[] = [];
     for (const [file, d] of docs) {
+      // The placeholder of a schematic with no file is no project file. The host dropped every
+      // name it did not know until it learnt to take a new sheet's file (U-6); since then this
+      // one arrived as a stray untitled.kicad_sch in the project (end-to-end test, 11-19).
+      if (file === DEFAULT_FILE) continue;
       try {
         files.push({ name: file, text: serializeSchematic(d) });
       } catch {

@@ -86,6 +86,14 @@ export interface GithubProjectHost {
   setLoading: (aLoading: Loading) => void;
   /** Re-read a project from the store into the tree (and open it, for a new clone). */
   openStored: (aId: string) => Promise<void>;
+  /**
+   * Every open editor's unsaved work into the store, settled once written. A pull, commit or
+   * branch switch reads the project from the store; without this an edit still held by an editor
+   * was neither committed nor protected from the pull, and was written back over it later.
+   */
+  flushEditors: () => Promise<void>;
+  /** After a pull rewrote the files: re-read the tree AND reload the editors that hold them. */
+  reloadOpenProject: (aId: string) => Promise<void>;
   /** Files of the open project changed in the store without a re-read: patch the tree's copy. */
   patchOpenFiles: (aWrites: readonly { name: string; bytes: Uint8Array }[]) => void;
   /** A project's record was written: refresh the list and push it to the account. */
@@ -272,6 +280,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   }, []);
 
   const filesOf = async (aId: string) => {
+    await hostRef.current.flushEditors();
     const loaded = await loadProject(aId);
     if (!loaded) throw new Error(_('The project is no longer in this browser.'));
     return loaded.files;
@@ -367,9 +376,10 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       for (const path of deletes) await deleteProjectPath(id, path);
       await updateProjectFiles(id, [{ name: GIT_LINK_FILE, bytes: gitLinkBytes(next) }]);
       hostRef.current.onStoreWritten(id);
-      // Upstream's editors reload the files the pull changed on disk; re-reading the project is
-      // this app's version of that, as Restore from Local History does it.
-      await hostRef.current.openStored(id);
+      // Upstream's editors reload the files the pull changed on disk. Re-reading the manager's
+      // tree alone left the open editors on their pre-pull files, and they wrote them back over
+      // the pull at the next save (end-to-end test 11-19): they reload too.
+      await hostRef.current.reloadOpenProject(id);
       if (aSwitching) showFeedback(wxFormat(_('Switched to branch %s.'), next.branch));
       else if (aPlan.upToDate)
         showFeedback(wxFormat(_('Already up to date with %s.'), upstreamOf(next)));
@@ -517,6 +527,15 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
           );
         },
         (done, total) => setLoading({ title, label: { message, value: total ? done / total : 0 } }),
+        (name) =>
+          hostRef.current.takenNames.has(name.toLowerCase())
+            ? wxFormat(
+                _(
+                  'A project named %s already exists. Rename or delete it first, then clone again.',
+                ),
+                name,
+              )
+            : null,
       );
       if (!got) return;
       const name = got.project.slice(got.project.lastIndexOf('/') + 1).replace(/\.kicad_pro$/i, '');

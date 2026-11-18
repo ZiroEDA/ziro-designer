@@ -221,6 +221,8 @@ const DEFAULT_TEMPLATE_ID = 'default';
 export function HomePage({
   onOpenSchematic,
   onOpenProject,
+  flushEditors,
+  onProjectReloaded,
   onOpenPcb,
   onImportNonKicadBoard,
   onOpenSymbolEditor,
@@ -241,6 +243,10 @@ export function HomePage({
   projectWrites,
 }: {
   onOpenSchematic: () => void;
+  /** Every open editor's work into the store, settled once written (App's flushSaves). */
+  flushEditors?: () => Promise<void>;
+  /** A project's files changed in the store under the editors (a Git pull): they reload. */
+  onProjectReloaded?: (files: PickedHomeFile[]) => void;
   onOpenProject?: (
     files: PickedHomeFile[],
     startFile?: string,
@@ -1547,7 +1553,9 @@ export function HomePage({
      * switch, on the same file, the moment the project it lives in is loaded.
      */
     activateRel?: string,
-  ): Promise<void> => {
+  ): Promise<PickedHomeFile[] | null> => {
+    /** What was opened, for a caller that reloads the editors from it (a Git pull). */
+    let openedFiles: PickedHomeFile[] | null = null;
     setLoading({ title: 'Open Project', label: _('Opening project...') });
     await nextPaint();
     /** Whether what failed was fetching it from the account, which leaves nothing in this browser. */
@@ -1575,6 +1583,7 @@ export function HomePage({
           .filter((f) => !isToolingPath(f.name))
           .map((f) => ({ name: f.name, text: projectFileText(f.bytes), bytes: f.bytes }));
         setPicked(opened);
+        openedFiles = opened;
       }
       await touchOpened(id); // resurface in Recent (ordered by last opened)
       refreshSaved();
@@ -1610,6 +1619,7 @@ export function HomePage({
     } finally {
       setLoading(null);
     }
+    return openedFiles;
   };
 
   /**
@@ -2124,7 +2134,14 @@ export function HomePage({
     enableGit: common.git.enableGit,
     takenNames: takenProjectNames,
     setLoading,
-    openStored: (id) => openStored(id),
+    openStored: async (id) => {
+      await openStored(id);
+    },
+    flushEditors: () => flushEditors?.() ?? Promise.resolve(),
+    reloadOpenProject: async (id) => {
+      const opened = await openStored(id);
+      if (opened) onProjectReloaded?.(opened);
+    },
     patchOpenFiles: (writes) =>
       setPicked((prev) =>
         prev

@@ -1204,12 +1204,13 @@ export function App(): JSX.Element {
 
   /** Whether the queued local write contains anything this user authored. */
   const needsCloudPush = useRef(false);
-  const writePending = useCallback(() => {
+  /** Write the queued edits to this device's store; settles when they are written. */
+  const writePending = useCallback((): Promise<void> => {
     const cur = projectFilesRef.current;
-    if (!cur || pendingWrite.current.size === 0 || !storageAvailable()) return;
+    if (!cur || pendingWrite.current.size === 0 || !storageAvailable()) return Promise.resolve();
     const files = [...pendingWrite.current].map(([name, bytes]) => ({ name, bytes }));
     pendingWrite.current = new Map();
-    void (async () => {
+    return (async () => {
       try {
         const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
         if (rec) {
@@ -1317,18 +1318,24 @@ export function App(): JSX.Element {
       }
     }
   }, []);
-  const flushSaves = useCallback(() => {
+  /**
+   * Every editor's latest work into the store, now. Settles once it is written, which a Git
+   * pull, commit or branch switch waits on: they read the project from the store, and an edit
+   * still held by an editor would otherwise be neither committed nor protected from the pull.
+   */
+  const flushSaves = useCallback((): Promise<void> => {
     flushEditors(); // push each editor's latest serialization into the queue
     clearTimeout(saveTimer.current);
     for (const [name, bytes] of pendingWrite.current)
       liveEdits.current.set(name, dec.decode(bytes));
-    writePending();
+    const written = writePending();
     // And do not sit out the cloud timer: `hidden` is the last callback a page
     // is guaranteed, so a scheduled push that has not fired yet has to be given
     // its chance here or the session's last edits reach the account only if the
     // user comes back.
     clearTimeout(cloudTimer.current);
     pushNow();
+    return written;
   }, [writePending, pushNow, flushEditors]);
 
   // Autosave is debounced. That is right while someone types and wrong at the
@@ -2025,6 +2032,15 @@ export function App(): JSX.Element {
         /* `/demo/<id>`, applied. Only this frame has the demo list and the
            handler that opens one, so the address is delivered to it. */
         openDemoRequest={demoRequest}
+        flushEditors={flushSaves}
+        // A Git pull (or branch switch) rewrote this project's files in the store: the editors
+        // that hold it reload, as KiCad's do from disk - not merely the manager's tree. Without it
+        // the open schematic kept its pre-pull sheet and wrote it back over the pull at the next
+        // save or tab switch (end-to-end test 11-19, bugs A and B).
+        onProjectReloaded={(files) => {
+          const cur = projectFilesRef.current;
+          if (cur && projectNameOf(cur) === projectNameOf(files)) openProjectFiles(files);
+        }}
         onOpenProject={(files, start, demo) => {
           raiseOrOpen(files, start);
           setDemoProject(!!demo);
