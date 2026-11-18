@@ -21,6 +21,7 @@ const load = async (name: string): Promise<Record<string, unknown>> =>
 
 const { createCallbackHandler } = (await load('callback')) as { createCallbackHandler: Factory };
 const { createRefreshHandler } = (await load('refresh')) as { createRefreshHandler: Factory };
+const { createRevokeHandler } = (await load('revoke')) as { createRevokeHandler: Factory };
 
 class FakeRes {
   statusCode = 200;
@@ -42,7 +43,7 @@ class FakeRes {
   }
 }
 
-const SECRET_ENV = { GITHUB_CLIENT_SECRET: 'test-secret-not-real' };
+const SECRET_ENV = { GITHUB_APP_CLIENT_SECRET: 'test-secret-not-real' };
 const STATE = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
 
 /** A fake GitHub token endpoint that records what it was sent. */
@@ -81,7 +82,7 @@ describe('GET /api/github/callback', () => {
       {
         url: 'https://github.com/login/oauth/access_token',
         body: {
-          client_id: 'Ov23liGnKwht1kDri6zX',
+          client_id: 'Iv23liWBsV0BNxfsmQQ8',
           client_secret: 'test-secret-not-real',
           code: 'c0de',
           redirect_uri: 'https://designer.ziroeda.com/api/github/callback',
@@ -202,7 +203,7 @@ describe('POST /api/github/refresh', () => {
       {
         url: 'https://github.com/login/oauth/access_token',
         body: {
-          client_id: 'Ov23liGnKwht1kDri6zX',
+          client_id: 'Iv23liWBsV0BNxfsmQQ8',
           client_secret: 'test-secret-not-real',
           grant_type: 'refresh_token',
           refresh_token: 'ghr_old',
@@ -293,6 +294,204 @@ describe('POST /api/github/refresh', () => {
     expect(res.statusCode).toBe(405);
     const res2 = new FakeRes();
     await createRefreshHandler({ fetch: gh.f, env: SECRET_ENV })(post({}, SAME), res2);
+    expect(res2.statusCode).toBe(400);
+    expect(gh.calls).toEqual([]);
+  });
+});
+
+describe('GET /api/github/callback, as the GitHub App sends people back', () => {
+  it('an install with sign-in: trades the code, and says it was an install, of which installation', async () => {
+    const gh = tokenEndpoint({
+      access_token: 'ghu_fake',
+      refresh_token: 'ghr_fake',
+      expires_in: 28800,
+    });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get(`code=c0de&installation_id=4242&setup_action=install&state=${STATE}`),
+      res,
+    );
+    expect(gh.calls).toHaveLength(1);
+    expect(gh.calls[0]!.body.code).toBe('c0de');
+    expect(res.pageData()).toMatchObject({
+      type: 'ziroeda-github',
+      state: STATE,
+      setup_action: 'install',
+      installation_id: 4242,
+      access_token: 'ghu_fake',
+    });
+  });
+
+  it('"Redirect on update" with no code: says access was updated, trades nothing, tells the app', async () => {
+    const gh = tokenEndpoint({ access_token: 'x' });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get('installation_id=4242&setup_action=update'),
+      res,
+    );
+    expect(gh.calls).toEqual([]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('Repository access updated.');
+    expect(res.pageData()).toEqual({
+      type: 'ziroeda-github',
+      event: 'access-updated',
+      installation_id: 4242,
+    });
+  });
+
+  it('an update that does carry a code but no state of ours is still only an update', async () => {
+    const gh = tokenEndpoint({ access_token: 'x' });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get('code=c0de&installation_id=7&setup_action=update'),
+      res,
+    );
+    expect(gh.calls).toEqual([]);
+    expect(res.pageData()).toEqual({
+      type: 'ziroeda-github',
+      event: 'access-updated',
+      installation_id: 7,
+    });
+  });
+
+  it('an install that lost its state trades nothing and sends the person back to connect', async () => {
+    const gh = tokenEndpoint({ access_token: 'x' });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get('code=c0de&installation_id=7&setup_action=install'),
+      res,
+    );
+    expect(gh.calls).toEqual([]);
+    expect(res.body).toContain('Go back to ZiroEDA and choose Connect GitHub... again.');
+    expect(res.pageData()).not.toHaveProperty('access_token');
+  });
+
+  it("an organization member's install request: nothing to hand over, said in words", async () => {
+    const gh = tokenEndpoint({ access_token: 'x' });
+    const res = new FakeRes();
+    await createCallbackHandler({ fetch: gh.f, env: SECRET_ENV })(
+      get(`setup_action=request&state=${STATE}`),
+      res,
+    );
+    expect(gh.calls).toEqual([]);
+    expect(res.pageData()).toBeNull();
+    expect(res.body).toContain("sent to the organization's owners");
+  });
+
+  it("uses the App's client id and secret, never the retired OAuth app's variables", async () => {
+    const gh = tokenEndpoint({ access_token: 'ghu_fake' });
+    const res = new FakeRes();
+    const oldOnly = { GITHUB_CLIENT_ID: 'Ov23liOLD', GITHUB_CLIENT_SECRET: 'old-secret-not-real' };
+    await createCallbackHandler({ fetch: gh.f, env: oldOnly })(get(`code=c&state=${STATE}`), res);
+    expect(gh.calls).toEqual([]);
+    expect(res.pageData()).toMatchObject({ error: 'not_configured' });
+
+    const both = { ...oldOnly, ...SECRET_ENV };
+    await createCallbackHandler({ fetch: gh.f, env: both })(
+      get(`code=c&state=${STATE}`),
+      new FakeRes(),
+    );
+    expect(gh.calls[0]!.body).toMatchObject({
+      client_id: 'Iv23liWBsV0BNxfsmQQ8',
+      client_secret: 'test-secret-not-real',
+    });
+  });
+});
+
+describe('POST /api/github/revoke', () => {
+  /** A fake api.github.com that answers the revoke with `status`. */
+  function github(status: number, body: unknown = {}) {
+    const calls: { url: string; method: string; auth: string; body: unknown }[] = [];
+    const f = (async (url: string, init: RequestInit = {}) => {
+      calls.push({
+        url,
+        method: String(init.method),
+        auth: new Headers(init.headers).get('Authorization') ?? '',
+        body: JSON.parse(String(init.body)),
+      });
+      return status === 204
+        ? new Response(null, { status })
+        : new Response(JSON.stringify(body), { status });
+    }) as typeof fetch;
+    return { f, calls };
+  }
+
+  it("revokes this one token with the App's own Basic credentials", async () => {
+    const gh = github(204);
+    const res = new FakeRes();
+    await createRevokeHandler({ fetch: gh.f, env: SECRET_ENV })(
+      post({ access_token: 'ghu_fake' }, SAME),
+      res,
+    );
+    expect(gh.calls).toEqual([
+      {
+        // /token, not /grant: /grant would sign every other device out of GitHub too.
+        url: 'https://api.github.com/applications/Iv23liWBsV0BNxfsmQQ8/token',
+        method: 'DELETE',
+        auth: `Basic ${Buffer.from('Iv23liWBsV0BNxfsmQQ8:test-secret-not-real').toString('base64')}`,
+        body: { access_token: 'ghu_fake' },
+      },
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ revoked: true });
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('a token GitHub no longer knows is revoked already', async () => {
+    for (const status of [404, 422]) {
+      const res = new FakeRes();
+      await createRevokeHandler({
+        fetch: github(status, { message: 'Not Found' }).f,
+        env: SECRET_ENV,
+      })(post({ access_token: 'ghu_old' }, SAME), res);
+      expect(res.json(), String(status)).toEqual({ revoked: true });
+    }
+  });
+
+  it("any other answer is a failure, in GitHub's words", async () => {
+    const res = new FakeRes();
+    await createRevokeHandler({
+      fetch: github(500, { message: 'Server Error' }).f,
+      env: SECRET_ENV,
+    })(post({ access_token: 'ghu_fake' }, SAME), res);
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toEqual({ error: 'revoke_failed', error_description: 'Server Error' });
+  });
+
+  it('answers only its own origin, and without the secret says GitHub is not set up here', async () => {
+    const gh = github(204);
+    const foreign = new FakeRes();
+    await createRevokeHandler({ fetch: gh.f, env: SECRET_ENV })(
+      post(
+        { access_token: 'ghu_fake' },
+        { origin: 'https://evil.example', host: 'designer.ziroeda.com' },
+      ),
+      foreign,
+    );
+    expect(foreign.statusCode).toBe(403);
+    const unset = new FakeRes();
+    await createRevokeHandler({ fetch: gh.f, env: { GITHUB_CLIENT_SECRET: 'old' } })(
+      post({ access_token: 'ghu_fake' }, SAME),
+      unset,
+    );
+    expect(unset.statusCode).toBe(503);
+    expect(unset.json()).toEqual({
+      error: 'not_configured',
+      error_description: 'GitHub is not set up on this server yet.',
+    });
+    expect(gh.calls).toEqual([]);
+  });
+
+  it('refuses a GET and a body with no token', async () => {
+    const gh = github(204);
+    const res = new FakeRes();
+    await createRevokeHandler({ fetch: gh.f, env: SECRET_ENV })(
+      { method: 'GET', headers: SAME, url: '/api/github/revoke' },
+      res,
+    );
+    expect(res.statusCode).toBe(405);
+    const res2 = new FakeRes();
+    await createRevokeHandler({ fetch: gh.f, env: SECRET_ENV })(post({}, SAME, true), res2);
     expect(res2.statusCode).toBe(400);
     expect(gh.calls).toEqual([]);
   });

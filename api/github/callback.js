@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * GET /api/github/callback?code=...&state=...
+ * GET /api/github/callback?code=...&state=...[&installation_id=...&setup_action=...]
  *
- * Where GitHub sends the person back after "Authorize" in the OAuth app's web
- * flow. The code is traded for tokens HERE, because the trade needs the
- * client secret and the secret must never reach a browser
- * (`GITHUB_CLIENT_SECRET`, set in the Vercel project's environment).
+ * Where GitHub sends the person back from the ZiroEDA GitHub App: after
+ * "Authorize" (the web flow), after installing it - "Request user
+ * authorization (OAuth) during installation" is on, so an install ends here
+ * with a `code` too, and `setup_action=install` - and, with "Redirect on
+ * update", after they change which repositories it may use
+ * (`setup_action=update`). The code is traded for tokens HERE, because the
+ * trade needs the client secret and the secret must never reach a browser
+ * (`GITHUB_APP_CLIENT_SECRET`, set in the Vercel project's environment).
  *
  * The answer is a page that hands the tokens - or GitHub's error - to the app
  * window that opened it, and closes:
@@ -20,15 +24,26 @@
  * `state` is passed back unchanged; the app accepts the answer only for the
  * state it sent (designer/src/github/github_auth.ts, acceptCallbackMessage).
  * Here it is only checked for shape, so nothing hostile is echoed into the
- * page, and a malformed one is not even traded.
+ * page, and a malformed one is not even traded. The install URL carries the
+ * app's state as well ("To preserve a state, add it to the installation URL",
+ * GitHub's "Sharing your GitHub App").
+ *
+ * An arrival with no state of ours - repository access changed from GitHub's
+ * own settings page, which ZiroEDA did not open with one - trades nothing. It
+ * only says so, and tells any open ZiroEDA window (`event: 'access-updated'`)
+ * so it lists the repositories again.
  *
  * Plain ESM with no dependencies (Node 20's fetch). Tokens are never logged.
  */
 
 const TOKEN_URL = 'https://github.com/login/oauth/access_token';
-/** The OAuth app's client id: public, and the default when the environment does not set one. */
-const DEFAULT_CLIENT_ID = 'Ov23liGnKwht1kDri6zX';
-/** The callback URL registered with the OAuth app (the exchange must name the same one). */
+/**
+ * The ZiroEDA GitHub App's client id: public, and the default when the environment does not set
+ * one. Deliberately NOT `GITHUB_CLIENT_ID`: that variable still holds the retired OAuth app's id,
+ * and paired with the App's secret every exchange would fail.
+ */
+const DEFAULT_CLIENT_ID = 'Iv23liWBsV0BNxfsmQQ8';
+/** The callback URL registered with the App (the exchange names the same one). */
 const DEFAULT_REDIRECT_URI = 'https://designer.ziroeda.com/api/github/callback';
 
 export const MESSAGE_TYPE = 'ziroeda-github';
@@ -104,7 +119,37 @@ export function createCallbackHandler(options = {}) {
       res.end();
       return;
     }
+    const setup = query.get('setup_action');
+    const installation = /^\d{1,20}$/.test(query.get('installation_id') ?? '')
+      ? Number(query.get('installation_id'))
+      : undefined;
+    const accessUpdated = (text) =>
+      sendPage(res, 200, text, {
+        type: MESSAGE_TYPE,
+        event: 'access-updated',
+        ...(installation === undefined ? {} : { installation_id: installation }),
+      });
+
+    // A member of an organization asked its owners to install the App: nothing is installed yet.
+    if (setup === 'request') {
+      sendPage(
+        res,
+        200,
+        "Your request to install ZiroEDA was sent to the organization's owners. Once one of them approves it, connect GitHub again from ZiroEDA.",
+      );
+      return;
+    }
     if (!STATE_RE.test(state)) {
+      if (setup === 'update') {
+        accessUpdated('Repository access updated. You can close this window.');
+        return;
+      }
+      if (setup === 'install') {
+        accessUpdated(
+          'ZiroEDA is installed on GitHub. Go back to ZiroEDA and choose Connect GitHub... again.',
+        );
+        return;
+      }
       sendPage(
         res,
         400,
@@ -126,12 +171,17 @@ export function createCallbackHandler(options = {}) {
       fail(200, denied, query.get('error_description') || denied);
       return;
     }
-    const secret = env.GITHUB_CLIENT_SECRET;
+    const code = query.get('code');
+    // "Redirect on update" with no sign-in to finish: the selection changed, nothing to trade.
+    if (setup === 'update' && !code) {
+      accessUpdated('Repository access updated. You can close this window.');
+      return;
+    }
+    const secret = env.GITHUB_APP_CLIENT_SECRET;
     if (!secret) {
       fail(503, 'not_configured', NOT_CONFIGURED);
       return;
     }
-    const code = query.get('code');
     if (!code) {
       fail(400, 'missing_code', 'GitHub sent no authorization code.');
       return;
@@ -144,7 +194,7 @@ export function createCallbackHandler(options = {}) {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_id: env.GITHUB_CLIENT_ID || DEFAULT_CLIENT_ID,
+          client_id: env.GITHUB_APP_CLIENT_ID || DEFAULT_CLIENT_ID,
           client_secret: secret,
           code,
           redirect_uri: env.GITHUB_REDIRECT_URI || DEFAULT_REDIRECT_URI,
@@ -168,6 +218,8 @@ export function createCallbackHandler(options = {}) {
     sendPage(res, 200, 'GitHub is connected. You can close this window.', {
       type: MESSAGE_TYPE,
       state,
+      ...(setup === 'install' || setup === 'update' ? { setup_action: setup } : {}),
+      ...(installation === undefined ? {} : { installation_id: installation }),
       access_token: answer.access_token,
       refresh_token: answer.refresh_token,
       expires_in: answer.expires_in,

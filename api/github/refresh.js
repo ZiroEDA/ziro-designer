@@ -3,7 +3,7 @@
 /**
  * POST /api/github/refresh  { "refresh_token": "..." }  ->  a new token pair
  *
- * The OAuth app's user tokens expire after eight hours; a refresh token trades
+ * The GitHub App's user tokens expire after eight hours; a refresh token trades
  * for a new pair (`grant_type=refresh_token`), and that trade needs the client
  * secret too, so it happens here and not in the browser.
  *
@@ -18,7 +18,8 @@
  */
 
 const TOKEN_URL = 'https://github.com/login/oauth/access_token';
-const DEFAULT_CLIENT_ID = 'Ov23liGnKwht1kDri6zX';
+/** The ZiroEDA GitHub App's (see callback.js for why not `GITHUB_CLIENT_ID`). */
+const DEFAULT_CLIENT_ID = 'Iv23liWBsV0BNxfsmQQ8';
 const DEFAULT_APP_ORIGIN = 'https://designer.ziroeda.com';
 export const NOT_CONFIGURED = 'GitHub is not set up on this server yet.';
 
@@ -68,7 +69,7 @@ export function createRefreshHandler(options = {}) {
       });
       return;
     }
-    const secret = env.GITHUB_CLIENT_SECRET;
+    const secret = env.GITHUB_APP_CLIENT_SECRET;
     if (!secret) {
       sendJson(res, 503, { error: 'not_configured', error_description: NOT_CONFIGURED });
       return;
@@ -95,7 +96,7 @@ export function createRefreshHandler(options = {}) {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_id: env.GITHUB_CLIENT_ID || DEFAULT_CLIENT_ID,
+          client_id: env.GITHUB_APP_CLIENT_ID || DEFAULT_CLIENT_ID,
           client_secret: secret,
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
