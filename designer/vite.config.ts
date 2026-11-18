@@ -67,6 +67,14 @@ export default defineConfig({
   build: {
     sourcemap: uploadMaps ? 'hidden' : false,
     /**
+     * Maps without the sources inside them, on the one build that makes maps (Vercel's, which has
+     * the Sentry token). `sourcesContent` is most of a map's weight, and with it the build ran the
+     * container out of memory: on 11-18 one deploy shipped half a dist (site down an hour) and a
+     * later one was stopped by vercel.json's output check. Sentry still maps every frame to its
+     * file, line and function from `mappings` and `names`; it loses only the code shown beside it.
+     */
+    rollupOptions: { output: { sourcemapExcludeSources: uploadMaps } },
+    /**
      * Bitmaps are files, as KiCad's are.
      *
      * Vite's default inlines any asset under 4 KB as a data: URI, and the
