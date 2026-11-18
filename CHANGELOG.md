@@ -12,6 +12,10 @@ the engineering detail (3,700+ commits since 29 June 2026).
 ## [Unreleased]
 
 ### Added
+- **GitHub**: connect your GitHub account, push a project to a new
+  repository, then commit, pull and switch branches from the project's
+  right-click menu (Version Control), as in KiCad 10. File > Clone Project
+  from Repository... opens one of your repositories, private ones too.
 - **The interface in your language**: ZiroEDA uses KiCad's own translations,
   in every language KiCad ships, and follows the browser's language until you
   pick one in Preferences > Set Language. ZiroEDA's own additions (accounts,
