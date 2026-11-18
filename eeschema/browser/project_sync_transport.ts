@@ -54,7 +54,9 @@ export interface PresenceInfo {
  * halves separable at all.
  */
 export type ProjectSyncPayload =
-  | { kind: 'model-changed'; sheetPath: string; text: string }
+  // `root`: the hierarchy's root file the sheet belongs to (project_sync_guard.ts). Optional only
+  // so an older tab's message still parses; a receiver does not apply one without it.
+  | { kind: 'model-changed'; sheetPath: string; text: string; root?: string }
   /**
    * The catch-up a newly-joined peer needs (requirement: joining or
    * reconnecting has to bring you up to date automatically, not show a
@@ -82,7 +84,7 @@ export type ProjectSyncPayload =
    * writer takes the header and every residual structural node from there
    * and no item patch can describe it. Rare, and honest about it.
    */
-  | { kind: 'sheet-patch'; sheetPath: string; patch: SchematicPatch }
+  | { kind: 'sheet-patch'; sheetPath: string; patch: SchematicPatch; root?: string }
   | { kind: 'selection'; refs: string[] }
   | { kind: 'cursor'; x: number; y: number }
   /**

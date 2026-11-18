@@ -94,6 +94,8 @@ the engineering detail (3,700+ commits since 29 June 2026).
   with the in-app privacy setting, and they never include which project.
 
 ### Fixed
+- A second browser tab (or another device) with the same project open could
+  replace the schematic open in the first with an empty sheet.
 - A failed cloud save is tried again by itself (after 15 seconds, backing off
   to five minutes, and at once when the connection returns) instead of
   waiting for the next edit.

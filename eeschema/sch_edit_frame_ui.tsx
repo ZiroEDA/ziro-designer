@@ -447,6 +447,7 @@ import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/wx/menu.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/wx/filefn.js';
+import { mayApplyRemoteSheet, mayPublishSheet } from './browser/project_sync_guard.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
 import { _ } from '@ziroeda/wx/translation.js';
@@ -948,10 +949,24 @@ export function SchematicEditor({
       } else if (payload.kind === 'selection' || payload.kind === 'cursor') {
         // Peers' cursors and selections were drawn by the record canvas, which is gone; they come
         // back as an overlay on KiCad's canvas. Until then they are received and not shown.
-      } else if (payload.kind === 'model-changed') {
-        setPendingRemoteChange({ sheetPath: payload.sheetPath, text: payload.text });
-      } else if (payload.kind === 'sheet-patch') {
-        setPendingRemoteChange({ sheetPath: payload.sheetPath, patch: payload.patch });
+      } else if (payload.kind === 'model-changed' || payload.kind === 'sheet-patch') {
+        // Only a sheet of THIS hierarchy, from a tab that has it open, into a frame that has it
+        // open (project_sync_guard.ts): a hidden frame's blank placeholder once landed on the
+        // root sheet here and was autosaved over it.
+        if (
+          !mayApplyRemoteSheet(
+            payload.root,
+            project.current.root,
+            currentFileRef.current,
+            DEFAULT_FILE,
+          )
+        )
+          return;
+        setPendingRemoteChange(
+          payload.kind === 'model-changed'
+            ? { sheetPath: payload.sheetPath, text: payload.text }
+            : { sheetPath: payload.sheetPath, patch: payload.patch },
+        );
       } else if (payload.kind === 'self-role') {
         // Locally synthesized, not peer-authored — see PcbEditor.tsx's own
         // copy of this branch and the payload's own doc comment.
@@ -994,7 +1009,9 @@ export function SchematicEditor({
   // remote peer (lastKnownText already matches it) — otherwise applying a
   // remote change would immediately echo it straight back out.
   useEffect(() => {
-    if (!doc) return undefined;
+    // A frame that has not opened the project holds the blank placeholder: it never publishes.
+    if (!doc || !mayPublishSheet(currentFile, DEFAULT_FILE)) return undefined;
+    const root = project.current.root;
     const timer = setTimeout(() => {
       let text: string;
       try {
@@ -1015,13 +1032,18 @@ export function SchematicEditor({
       // as items — see sch_diff.ts.
       const patch = base ? diffSchematic(base, doc) : null;
       if (patch && !schematicPatchIsEmpty(patch)) {
-        syncTransport.current?.publish({ kind: 'sheet-patch', sheetPath: currentPath, patch });
+        syncTransport.current?.publish({
+          kind: 'sheet-patch',
+          sheetPath: currentPath,
+          patch,
+          root,
+        });
         return;
       }
-      syncTransport.current?.publish({ kind: 'model-changed', sheetPath: currentPath, text });
+      syncTransport.current?.publish({ kind: 'model-changed', sheetPath: currentPath, text, root });
     }, 400);
     return () => clearTimeout(timer);
-  }, [doc, currentPath]);
+  }, [doc, currentPath, currentFile]);
   /**
    * The selection a right-click made just to have something to aim the menu at
    * — `SELECTION::SetIsHover`.

@@ -263,6 +263,8 @@ export const TREE_EXCEPTIONS: Record<string, string> = {
     "browser-only: the off-screen PCB_EDIT_FRAME's MAIL_PCB_GET_NETLIST answer, as pcbnew/browser/headless_netlist.ts is the schematic's",
   'eeschema/browser/global_sym_lib_table.ts':
     "browser-only: the app's half of the editor, no KiCad counterpart by design (browser/ subfolders, agreed 10-10)",
+  'eeschema/browser/project_sync_guard.ts':
+    "Browser-only: which schematic sheets may cross between a project's tabs over that sync - upstream has one process per project and no tabs to keep apart.",
   'eeschema/browser/project_sync_transport.ts':
     "browser-only: the app's half of the editor, no KiCad counterpart by design (browser/ subfolders, agreed 10-10)",
   'eeschema/browser/repair_source.ts':
