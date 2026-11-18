@@ -5,7 +5,7 @@
  * `DIALOG_FIND_BASE` (pcbnew/dialogs/dialog_find_base.cpp): the sizer tree, Add() for Add(). The
  * members are props; the behaviour is DIALOG_FIND's (dialog_find.tsx). The dialog is modeless.
  */
-import type { JSX, KeyboardEvent } from 'react';
+import { type JSX, type KeyboardEvent, useRef } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { TextCombo } from '@ziroeda/wx/combobox.js';
 import {
@@ -58,8 +58,19 @@ export interface DIALOG_FIND_BASE_PROPS {
 }
 
 export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
+  // DIALOG_FIND focuses the search combo as it opens (m_searchCombo->SetFocus()). `autoFocus`
+  // fired while DialogShim still held the window hidden for placement, and a browser does not
+  // focus a hidden element, so typing straight after Ctrl+F went nowhere (uartbridge, U-11).
+  // DialogShim's initialFocus runs once the window is shown.
+  const searchRef = useRef<HTMLInputElement | null>(null);
   return (
-    <DialogShim title={_('Find')} onClose={p.OnCloseButtonClick} modeless onCharHook={p.onCharHook}>
+    <DialogShim
+      title={_('Find')}
+      onClose={p.OnCloseButtonClick}
+      modeless
+      onCharHook={p.onCharHook}
+      initialFocus={searchRef}
+    >
       {/* bSizer10 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -82,7 +93,7 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                         onEnter={p.onTextEnter}
                         title={_('Text with optional wildcards')}
                         ariaLabel={_('Search for')}
-                        autoFocus
+                        inputRef={searchRef}
                       />
                     </SizerItem>
                   </BoxSizer>
