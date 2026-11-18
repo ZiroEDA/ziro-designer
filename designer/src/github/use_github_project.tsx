@@ -54,7 +54,7 @@ import {
   saveTokens,
 } from './github_auth.js';
 import {
-  type CommitPlan,
+  type LocalCommitPlan,
   GIT_LINK_FILE,
   type GitLink,
   GithubAccessError,
@@ -71,12 +71,14 @@ import {
   remoteFilesOf,
   syncedFilesOf,
   isValidBranchName,
-  planCommit,
+  pendingOf,
+  planLocalCommit,
   planPull,
   pushNewRepository,
   pushToExistingRepository,
   repoNameFor,
-  runCommit,
+  pushPending,
+  recordLocalCommit,
   upstreamOf,
 } from './github_project.js';
 import { DialogPushToGithub, type PushToGithubAnswer } from './dialog_push_to_github.js';
@@ -164,7 +166,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   const hostRef = useRef(host);
   hostRef.current = host;
 
-  const [account, setAccount] = useState<{ connected: boolean; login?: string }>({
+  const [account, setAccount] = useState<{ connected: boolean; login?: string; userId?: number }>({
     connected: false,
   });
   /** Where the App is installed for this person: what "Change repository access" opens. */
@@ -173,7 +175,9 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
   const [feedback, setFeedback] = useState<string | null>(null);
   /** Push to GitHub... is up, with the repositories it offers as existing ones. */
   const [pushRepos, setPushRepos] = useState<GithubRepo[] | null>(null);
-  const [commitPlan, setCommitPlan] = useState<CommitPlan | null>(null);
+  const [commitPlan, setCommitPlan] = useState<{ link: GitLink; plan: LocalCommitPlan } | null>(
+    null,
+  );
   const [conflict, setConflict] = useState<PullPlan | null>(null);
   const [switchList, setSwitchList] = useState<string[] | null>(null);
   /** Open Project from GitHub... is up, and its list of the person's projects. */
@@ -215,7 +219,13 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
     void loadTokens(userKey).then((t) => {
       if (live)
         setAccount(
-          t ? { connected: true, ...(t.login ? { login: t.login } : {}) } : { connected: false },
+          t
+            ? {
+                connected: true,
+                ...(t.login ? { login: t.login } : {}),
+                ...(t.userId !== undefined ? { userId: t.userId } : {}),
+              }
+            : { connected: false },
         );
     });
     return () => {
@@ -420,20 +430,30 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
             save: async () => {},
             clear: () => {},
           });
-          let info: { login: string; installations: GithubInstallation[] } | null = null;
+          let info: { login: string; id?: number; installations: GithubInstallation[] } | null =
+            null;
           try {
             info = await connectionInfo(once.fetch);
           } catch {
             info = null;
           }
           try {
-            await saveTokens(userKey, info ? { ...t, login: info.login } : t);
+            await saveTokens(
+              userKey,
+              info
+                ? { ...t, login: info.login, ...(info.id !== undefined ? { userId: info.id } : {}) }
+                : t,
+            );
           } catch (e) {
             DisplayErrorMessage(_('Could not connect GitHub.'), why(e));
             return;
           }
           appReposRef.current = null;
-          setAccount({ connected: true, ...(info ? { login: info.login } : {}) });
+          setAccount({
+            connected: true,
+            ...(info ? { login: info.login } : {}),
+            ...(info?.id !== undefined ? { userId: info.id } : {}),
+          });
           if (info) setInstallations(info.installations);
           setAccessNonce((n) => n + 1);
           const next = afterSignIn(info ? info.installations : null, aHow);
@@ -596,6 +616,10 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
 
   // --- Commit Project... --------------------------------------------------------
 
+  /**
+   * `onGitCommit`: the changes against HEAD, in DIALOG_GIT_COMMIT, then a commit recorded in the
+   * project - not on GitHub; Push sends it.
+   */
   const commitProject = (): void =>
     withGithub(async () => {
       const id = hostRef.current.projectId;
@@ -604,36 +628,65 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       const { setLoading } = hostRef.current;
       setLoading({ title: _('Commit Changes'), label: _('Comparing the project with GitHub...') });
       try {
-        const plan = await planCommit(session.fetch, l, await filesOf(id));
+        const plan = await planLocalCommit(
+          l,
+          await syncedFilesOf(session.fetch, l),
+          await filesOf(id),
+        );
         setLoading(null);
         if (plan.changes.length === 0) {
           await DisplayInfoMessage(_('There are no changes to commit.'));
           return;
         }
-        setCommitPlan(plan);
+        setCommitPlan({ link: l, plan });
       } catch (e) {
         setLoading(null);
-        report(_('Failed to push project'), e);
+        report(wxFormat(_('Failed to create commit: %s'), why(e)), e);
       }
     });
 
   const onCommitResult = async (aMessage: string | null): Promise<void> => {
-    const plan = commitPlan;
+    const pending = commitPlan;
     setCommitPlan(null);
     const id = hostRef.current.projectId;
-    if (aMessage === null || !plan || !id) return;
-    const { setLoading } = hostRef.current;
-    setLoading({ title: _('Commit Changes'), label: _('Pushing to GitHub...') });
+    if (aMessage === null || !pending || !id) return;
     try {
-      const next = await runCommit(session.fetch, plan, aMessage);
+      const next = recordLocalCommit(
+        pending.link,
+        pending.plan,
+        aMessage,
+        {
+          login: account.login ?? '',
+          ...(account.userId !== undefined ? { id: account.userId } : {}),
+        },
+        new Date(),
+      );
       await writeLink(id, next);
-      showFeedback(wxFormat(_('Pushed %s to %s.'), next.branch, upstreamOf(next)));
     } catch (e) {
-      report(_('Failed to push project'), e);
-    } finally {
-      setLoading(null);
+      // `wxMessageBox( wxString::Format( _( "Failed to create commit: %s" ), ... ) )`.
+      DisplayErrorMessage(wxFormat(_('Failed to create commit: %s'), why(e)));
     }
   };
+
+  /** `onGitPushProject`: the commits not pushed yet, to GitHub; "Pushed %s to %s." */
+  const pushProject = (): void =>
+    withGithub(async () => {
+      const id = hostRef.current.projectId;
+      const l = linkRef.current;
+      if (!id || !l || pendingOf(l).length === 0) return;
+      const { setLoading } = hostRef.current;
+      setLoading({ title: _('Fetch Remote'), label: _('Pushing to GitHub...') });
+      try {
+        const next = await pushPending(session.fetch, l, await syncedFilesOf(session.fetch, l));
+        await writeLink(id, next);
+        showFeedback(wxFormat(_('Pushed %s to %s.'), next.branch, upstreamOf(next)));
+      } catch (e) {
+        showFeedback(_('Push failed.'));
+        report(_('Failed to push project'), e);
+      } finally {
+        setLoading(null);
+      }
+    });
 
   // --- Pull / Switch to Branch ----------------------------------------------------
 
@@ -650,6 +703,8 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
         writes,
         deletes,
         link: next,
+        trimmed,
+        dropped,
       } = await fetchPull(session.fetch, aPlan, aUseRemote, (done, total) =>
         setLoading({ title, label: { message, value: total ? done / total : 0 } }),
       );
@@ -661,6 +716,20 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       // tree alone left the open editors on their pre-pull files, and they wrote them back over
       // the pull at the next save (end-to-end test 11-19): they reload too.
       await hostRef.current.reloadOpenProject(id);
+      // Use Remote took files out of commits not pushed yet: never silently.
+      if (trimmed.length > 0 || dropped.length > 0)
+        setNotice({
+          caption: _('Pull Conflict'),
+          message: _(
+            "The commits that are not pushed yet no longer change the files taken from GitHub's version:",
+          ),
+          detail: [
+            ...trimmed.map((t) => `"${t.message}": ${t.paths.join(', ')}`),
+            ...dropped.map((m) =>
+              wxFormat(_('"%s" changed nothing else, and is no longer a commit.'), m),
+            ),
+          ].join('\n'),
+        });
       if (aSwitching) showFeedback(wxFormat(_('Switched to branch %s.'), next.branch));
       else if (aPlan.upToDate)
         showFeedback(wxFormat(_('Already up to date with %s.'), upstreamOf(next)));
@@ -886,6 +955,9 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       case 'gitCommitProject':
         commitProject();
         return;
+      case 'gitPush':
+        pushProject();
+        return;
       case 'gitPull':
         pull();
         return;
@@ -905,7 +977,14 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
         enableGit: host.enableGit,
         connected: account.connected,
         linked: !!link,
-        ...(link ? { branch: link.branch, upstream: upstreamOf(link), branches } : {}),
+        ...(link
+          ? {
+              branch: link.branch,
+              upstream: upstreamOf(link),
+              branches,
+              pendingCommits: pendingOf(link).length,
+            }
+          : {}),
       }
     : null;
 
@@ -922,7 +1001,7 @@ export function useGithubProject(host: GithubProjectHost): GithubProject {
       )}
       {commitPlan && (
         <DIALOG_GIT_COMMIT
-          files={commitPlan.changes}
+          files={commitPlan.plan.changes}
           author={account.login ?? ''}
           onResult={(m) => void onCommitResult(m)}
         />

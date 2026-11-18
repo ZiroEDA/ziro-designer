@@ -327,6 +327,7 @@ describe('Version Control (project_tree_pane.cpp:1029-1112), over GitHub', () =>
       'connectGithub',
       'pushToGithub',
       'gitCommitProject',
+      'gitPush',
       'gitPull',
       '--',
       'gitSwitchToBranch',
@@ -411,5 +412,40 @@ describe('Version Control (project_tree_pane.cpp:1029-1112), over GitHub', () =>
     const m = sub(projectTreeMenu([sel('TXT')], vcs({ connected: true, linked: true })));
     expect(row(m, 'gitPull')?.label).toBe('Pull');
     expect(row(m, 'gitPull')?.noTranslate).toBeUndefined();
+  });
+});
+
+describe("Version Control's Push (onRight :1061-1063)", () => {
+  const vcs = (over: Partial<VcsMenuState> = {}): VcsMenuState => ({
+    enableGit: true,
+    connected: true,
+    linked: true,
+    branch: 'main',
+    upstream: 'origin/main',
+    ...over,
+  });
+  const push = (state: VcsMenuState) =>
+    entry(entry(projectTreeMenu([sel('TXT')], state), 'versionControl')!.submenu!, 'gitPush');
+
+  it('sits between Commit Project... and Pull, as upstream appends it', () => {
+    const rows = ids(entry(projectTreeMenu([sel('TXT')], vcs()), 'versionControl')!.submenu!);
+    expect(rows.indexOf('gitPush')).toBe(rows.indexOf('gitCommitProject') + 1);
+    expect(rows.indexOf('gitPull')).toBe(rows.indexOf('gitPush') + 1);
+  });
+
+  it('is greyed with nothing to push, live with commits waiting (vcs_can_push = HasLocalCommits())', () => {
+    expect(push(vcs({ pendingCommits: 0 }))?.disabled).toBe(true);
+    expect(push(vcs())?.disabled).toBe(true);
+    expect(push(vcs({ pendingCommits: 2 }))?.disabled).toBeUndefined();
+    expect(push(vcs({ linked: false, pendingCommits: 2 }))?.disabled).toBe(true);
+  });
+
+  it('reads "Push %s to %s" once the branch and upstream are known, else "Push"', () => {
+    expect(push(vcs({ pendingCommits: 1 }))).toMatchObject({
+      label: 'Push main to origin/main',
+      help: 'Push committed local changes to remote repository',
+      noTranslate: true,
+    });
+    expect(push(vcs({ branch: undefined, upstream: undefined }))?.label).toBe('Push');
   });
 });

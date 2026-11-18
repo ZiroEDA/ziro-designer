@@ -37,9 +37,10 @@
  *   pushed to it, since there is no local repository to initialise first.
  *   Before it, `Connect GitHub...` while the account has not connected GitHub
  *   on this device, and `Disconnect GitHub` once it has.
- * - `Commit Project...` commits and pushes in one step, so upstream's separate
- *   `Push` row - enabled only with local commits to push, which never exist
- *   here - is left out rather than drawn greyed forever.
+ * - `Commit Project...` records a commit in the project (the account is the
+ *   local repository), and `Push` - or `Push <branch> to <upstream>` - sends
+ *   the commits not pushed yet, enabled only when there are some, upstream's
+ *   `vcs_can_push = vcs_can_fetch && HasLocalCommits()`.
  * - `Pull`, and `Switch to Branch` with its quick rows and `Other...`.
  * - Not built yet, and left out: "Configure Default Remote...", "Amend Last
  *   Commit...", "Commit File...", "Disable Git Integration".
@@ -76,6 +77,7 @@ export type TreeMenuEntryId =
   | 'disconnectGithub'
   | 'pushToGithub'
   | 'gitCommitProject'
+  | 'gitPush'
   | 'gitPull'
   | 'gitSwitchToBranch'
   | 'gitSwitchBranch'
@@ -128,6 +130,8 @@ export interface VcsMenuState {
   readonly upstream?: string;
   /** `GitCommon()->GetBranchNames()`: the current branch first. */
   readonly branches?: readonly string[];
+  /** `HasLocalCommits()`: how many commits are waiting to be pushed. */
+  readonly pendingCommits?: number;
 }
 
 /**
@@ -164,17 +168,25 @@ export function versionControlSubmenu(vcs: VcsMenuState): TreeMenu {
     ...off(!vcs.linked),
   });
 
-  // `Enable( vcs_can_commit )`. Upstream's help is "Commit changes to the local repository";
-  // there is no local repository, and this pushes too, so the line says what it does.
+  // `Enable( vcs_can_commit )`. The account is the local repository: the commit waits there for Push.
   rows.push({
     id: 'gitCommitProject',
     label: _HKI('Commit Project...'),
-    help: "Commit the project's changes and push them to GitHub",
+    help: _HKI('Commit changes to the local repository'),
     ...off(vcs.linked),
   });
 
-  // `pullLabel`: "Pull from %s" once there is an upstream and a branch, else "Pull" (:1052-1059).
+  // `pushLabel` / `pullLabel`: "Push %s to %s" and "Pull from %s" once there is an upstream and a
+  // branch, else "Push" and "Pull" (:1052-1059).
   const named = !!vcs.upstream && !!vcs.branch;
+  rows.push({
+    id: 'gitPush',
+    label: named ? wxFormat(_('Push %s to %s'), vcs.branch!, vcs.upstream!) : _HKI('Push'),
+    help: _HKI('Push committed local changes to remote repository'),
+    ...(named ? { noTranslate: true as const } : {}),
+    // `Enable( vcs_can_push )`, `vcs_can_push = vcs_can_fetch && git->HasLocalCommits()`.
+    ...off(vcs.linked && (vcs.pendingCommits ?? 0) > 0),
+  });
   rows.push({
     id: 'gitPull',
     label: named ? wxFormat(_('Pull from %s'), vcs.upstream!) : _HKI('Pull'),

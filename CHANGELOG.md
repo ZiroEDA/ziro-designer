@@ -13,7 +13,7 @@ the engineering detail (3,700+ commits since 29 June 2026).
 
 ### Added
 - **GitHub**: connect your GitHub account, push a project to a new
-  repository, then commit, pull and switch branches from the project's
+  repository, then commit, push, pull and switch branches from the project's
   right-click menu (Version Control), as in KiCad 10.
 - **The interface in your language**: ZiroEDA uses KiCad's own translations,
   in every language KiCad ships, and follows the browser's language until you
@@ -71,6 +71,12 @@ the engineering detail (3,700+ commits since 29 June 2026).
   your repositories, one per folder, and the one you open is saved as your
   project, linked to its repository for Commit and Pull. Links to any public
   project open read-only as before.
+- **Commit and Push are two steps, as in KiCad 10**: Commit Project...
+  records a commit in your project, where it waits (and syncs with your
+  account, so another of your devices can push it), and Push sends the
+  waiting commits to GitHub, each with its own message and time. Pull keeps
+  them, on top of what it brings, and Switch to Branch asks you to push them
+  first.
 - **Git status in the project tree**, as in KiCad 10: a project linked to
   GitHub shows its branch after the project name, and each file shows
   KiCad's Git state image (current, modified, added, ahead, behind,

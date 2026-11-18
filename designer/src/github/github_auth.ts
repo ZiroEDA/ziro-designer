@@ -155,6 +155,8 @@ export interface GithubTokens {
   refreshExpiresAt?: number;
   /** The GitHub account, once asked. */
   login?: string;
+  /** Its number, for the noreply address a commit is signed with. */
+  userId?: number;
 }
 
 /** The person has to connect GitHub (again): no tokens, or none that GitHub will take. */
@@ -361,7 +363,11 @@ export class GithubSession {
           this.now(),
           this.deps.refreshEndpoint,
         );
-        const merged: GithubTokens = t.login ? { ...next, login: t.login } : next;
+        const merged: GithubTokens = {
+          ...next,
+          ...(t.login ? { login: t.login } : {}),
+          ...(t.userId !== undefined ? { userId: t.userId } : {}),
+        };
         await this.deps.save(merged);
         return merged;
       } catch (e) {

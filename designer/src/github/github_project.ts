@@ -51,6 +51,8 @@ import { isToolingPath } from '../home/project_picker.js';
 import { kicadProjectsIn } from '../home/github_source.js';
 import { treeFileType } from '../home/file_activation.js';
 import { mapLimit } from '../map_limit.js';
+import { base64ToBytes, bytesToBase64 } from '../cloud/crypto.js';
+import { headFiles } from './git_status.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import {
@@ -569,78 +571,209 @@ export async function pushToExistingRepository(
   }
 }
 
-// --- Commit Project... --------------------------------------------------------
+// --- Commit Project... and Push ----------------------------------------------------
 
-export interface CommitPlan {
-  link: GitLink;
-  /** The branch head the commit goes on: the link's own commit. */
-  head: string;
+/**
+ * KiCad's Commit and Push are two steps, and so are these. Commit Project... records a commit
+ * HERE - the account is the local repository - with its message, author, time and the content
+ * of every file it changes, on top of the commits not pushed yet (or the synced commit). Push
+ * then writes them to GitHub, oldest first, each as itself, and moves the branch once.
+ *
+ * They are kept in the link file (`pending`): it syncs with the project to the account, so a
+ * commit made on one device can be pushed from another, and it is neither in the tree nor ever
+ * pushed as a file. A commit stores only the files it changes, as text when they are text.
+ */
+
+/** At most this much file content (bytes) waits in commits not pushed yet: push to commit more. */
+export const MAX_PENDING_BYTES = 16 * 1024 * 1024;
+
+/** The commits not pushed yet. */
+export const pendingOf = (link: Pick<GitLink, 'pending'>): readonly PendingCommit[] =>
+  link.pending ?? [];
+
+const changeBytes = (c: PendingChange): number =>
+  c.text !== undefined ? utf8.encode(c.text).length : c.base64 ? (c.base64.length * 3) / 4 : 0;
+
+/** The bytes a pending change holds. */
+function bytesOfChange(c: PendingChange): Uint8Array {
+  if (c.text !== undefined) return utf8.encode(c.text);
+  return base64ToBytes(c.base64 ?? '');
+}
+
+/** What Commit Project... would record: the project's changes against HEAD. */
+export interface LocalCommitPlan {
   changes: Change[];
   local: ReadonlyMap<string, LocalEntry>;
-  base: ReadonlyMap<string, RemoteEntry>;
 }
 
 /**
- * The branch moved on GitHub since the project last synced: committing on the
- * old head would need a force push, which is not what Commit asks for. `git
- * push`'s own answer - pull first.
+ * The changes a commit would record, against HEAD - the synced commit's files with the commits
+ * not pushed yet laid over them. `synced` is the synced commit's files (`syncedFilesOf`).
+ */
+export async function planLocalCommit(
+  link: GitLink,
+  synced: ReadonlyMap<string, string>,
+  files: readonly ProjectFile[],
+): Promise<LocalCommitPlan> {
+  const { head } = headFiles(synced, link.pending);
+  const local = await localView(files);
+  const base = new Map([...head].map(([p, sha]) => [p, { sha }]));
+  return { changes: changesBetween(local, base), local };
+}
+
+/**
+ * Record the plan as a commit not pushed yet: the link with it at the end of `pending`. Nothing
+ * reaches GitHub. Refused with nothing to record, and when the waiting commits would hold more
+ * than {@link MAX_PENDING_BYTES}.
+ */
+export function recordLocalCommit(
+  link: GitLink,
+  plan: LocalCommitPlan,
+  message: string,
+  author: PendingCommit['author'],
+  at: Date,
+): GitLink {
+  if (plan.changes.length === 0) throw new GitSyncError(_('There are no changes to commit.'));
+  const changes: PendingChange[] = plan.changes.map((c) => {
+    if (c.status === 'deleted') return { path: c.path, sha: null };
+    const e = plan.local.get(c.path)!;
+    const text = inlineText(e.bytes);
+    return text !== null
+      ? { path: c.path, sha: e.sha, text }
+      : { path: c.path, sha: e.sha, base64: bytesToBase64(e.bytes) };
+  });
+  const commit: PendingCommit = { message, author, at: at.toISOString(), changes };
+  const pending = [...pendingOf(link), commit];
+  const held = pending.reduce((n, p) => n + p.changes.reduce((m, c) => m + changeBytes(c), 0), 0);
+  if (held > MAX_PENDING_BYTES)
+    throw new GitSyncError(
+      wxFormat(
+        _('The commits not pushed yet would hold more than %d MB of files. Push them first.'),
+        MAX_PENDING_BYTES / (1024 * 1024),
+      ),
+    );
+  return { ...link, pending };
+}
+
+/**
+ * The branch moved on GitHub since the project last synced: pushing over it would need a force
+ * push, which is not what Push asks for. `git push`'s own answer - pull first.
  */
 export class GitBehindError extends GitSyncError {}
 
-/** What a commit would contain. Throws {@link GitBehindError} when the branch moved. */
-export async function planCommit(
-  f: GithubFetch,
-  link: GitLink,
-  files: readonly ProjectFile[],
-): Promise<CommitPlan> {
-  const head = await getBranchHead(f, link.owner, link.repo, link.branch);
-  if (head !== link.commit) throw new GitBehindError(behindMessage(link));
-  const base = remoteView(await getTree(f, link.owner, link.repo, link.tree), link.dir);
-  const local = await localView(files);
-  return { link, head, changes: changesBetween(local, base), local, base };
-}
-
 const behindMessage = (link: GitLink): string =>
   wxFormat(
-    _('%s has commits on %s that this project does not have yet. Pull them first, then commit.'),
+    _('%s has commits on %s that this project does not have yet. Pull them first, then push.'),
     `${link.owner}/${link.repo}`,
     link.branch,
   );
 
-/** Commit the plan's changes on its head and move the branch: the new link. */
-export async function runCommit(
+/** A commit's author as GitHub takes it: the account's noreply address, and the commit's time. */
+const commitAuthor = (
+  c: PendingCommit,
+): { name: string; email: string; date: string } | undefined =>
+  c.author.id === undefined
+    ? undefined
+    : {
+        name: c.author.login,
+        email: `${c.author.id}+${c.author.login}@users.noreply.github.com`,
+        date: c.at,
+      };
+
+/**
+ * Push: every commit not pushed yet, oldest first, each with its own message, author and time,
+ * on the synced commit; then the branch moves to the last one, without force. Every tree is read
+ * back before anything points at it. The new link has no pending commits.
+ */
+export async function pushPending(
   f: GithubFetch,
-  plan: CommitPlan,
-  message: string,
+  link: GitLink,
+  synced: ReadonlyMap<string, string>,
 ): Promise<GitLink> {
-  const { link } = plan;
-  if (plan.changes.length === 0) throw new GitSyncError(_('There are no changes to commit.'));
-  const tree = await writeTree(
-    f,
-    link.owner,
-    link.repo,
-    plan.changes.map((c) => ({
-      path: link.dir + c.path,
-      bytes: c.status === 'deleted' ? null : plan.local.get(c.path)!.bytes,
-    })),
-    link.tree,
-  );
-  const expected = new Map([...plan.base].map(([p, e]) => [p, e.sha]));
-  for (const c of plan.changes) {
-    if (c.status === 'deleted') expected.delete(c.path);
-    else expected.set(c.path, plan.local.get(c.path)!.sha);
+  const pending = pendingOf(link);
+  if (pending.length === 0) throw new GitSyncError(_('There are no commits to push.'));
+  const head = await getBranchHead(f, link.owner, link.repo, link.branch);
+  if (head !== link.commit) throw new GitBehindError(behindMessage(link));
+  let parent = link.commit;
+  let tree = link.tree;
+  const files = new Map(synced);
+  for (const c of pending) {
+    const writes: TreeWrite[] = [];
+    for (const ch of c.changes) {
+      if (ch.sha === null) {
+        writes.push({ path: link.dir + ch.path, bytes: null });
+        files.delete(ch.path);
+        continue;
+      }
+      const bytes = bytesOfChange(ch);
+      if ((await gitBlobSha(bytes)) !== ch.sha)
+        throw new GitSyncError(
+          wxFormat(_('The commit "%s" holds a damaged copy of %s.'), c.message, ch.path),
+        );
+      writes.push({ path: link.dir + ch.path, bytes });
+      files.set(ch.path, ch.sha);
+    }
+    tree = await writeTree(f, link.owner, link.repo, writes, tree);
+    await verifyTree(f, link.owner, link.repo, tree, link.dir, files);
+    parent = await createCommit(
+      f,
+      link.owner,
+      link.repo,
+      c.message,
+      tree,
+      [parent],
+      commitAuthor(c),
+    );
   }
-  await verifyTree(f, link.owner, link.repo, tree, link.dir, expected);
-  const commit = await createCommit(f, link.owner, link.repo, message, tree, [plan.head]);
   try {
-    await updateBranch(f, link.owner, link.repo, link.branch, commit, false);
+    await updateBranch(f, link.owner, link.repo, link.branch, parent, false);
   } catch (e) {
-    // Someone pushed between the plan and here: not a fast-forward any more.
+    // Someone pushed between the check and here: not a fast-forward any more.
     if (e instanceof GithubApiError && e.status === 422)
       throw new GitBehindError(behindMessage(link));
     throw e;
   }
-  return { ...link, commit, tree, files: Object.fromEntries(expected) };
+  const { pending: _sent, ...rest } = link;
+  return { ...rest, commit: parent, tree, files: Object.fromEntries(files) };
+}
+
+/**
+ * The commits not pushed yet, moved onto a new synced commit (a pull's): each change that the new
+ * base - with the commits before it - already holds as it is falls away, as does each change to a
+ * path in `drop` (Use Remote's conflicting files). A commit left with nothing is dropped. Returns
+ * the commits, and what was taken out of which commit, so nothing goes unsaid.
+ */
+export function rebasePending(
+  pending: readonly PendingCommit[],
+  newBase: ReadonlyMap<string, string>,
+  drop: ReadonlySet<string> = new Set(),
+): {
+  pending: PendingCommit[];
+  trimmed: { message: string; paths: string[] }[];
+  dropped: string[];
+} {
+  const state = new Map(newBase);
+  const out: PendingCommit[] = [];
+  const trimmed: { message: string; paths: string[] }[] = [];
+  const dropped: string[] = [];
+  for (const c of pending) {
+    const kept: PendingChange[] = [];
+    const gone: string[] = [];
+    for (const ch of c.changes) {
+      if (drop.has(ch.path)) {
+        gone.push(ch.path);
+        continue;
+      }
+      if ((state.get(ch.path) ?? null) === ch.sha) continue;
+      kept.push(ch);
+      if (ch.sha === null) state.delete(ch.path);
+      else state.set(ch.path, ch.sha);
+    }
+    if (gone.length > 0) trimmed.push({ message: c.message, paths: gone });
+    if (kept.length === 0) dropped.push(c.message);
+    else out.push(kept.length === c.changes.length ? c : { ...c, changes: kept });
+  }
+  return { pending: out, trimmed, dropped };
 }
 
 // --- the tree's Git status --------------------------------------------------------
@@ -704,6 +837,14 @@ export async function planPull(
   files: readonly ProjectFile[],
   branch: string = link.branch,
 ): Promise<PullPlan> {
+  // GIT_BRANCH_HANDLER refuses to switch over work it would lose; commits not pushed yet are that
+  // work here (they belong to this branch), so they go first.
+  if (branch !== link.branch && pendingOf(link).length > 0)
+    throw new GitSyncError(
+      _(
+        'This project has commits that are not pushed yet. Push them first, then switch to another branch.',
+      ),
+    );
   const head = await getBranchHead(f, link.owner, link.repo, branch);
   if (!head)
     throw new GitSyncError(
@@ -731,10 +872,20 @@ export async function planPull(
   const drop: string[] = [];
   const conflicts: string[] = [];
   const paths = [...new Set([...base.keys(), ...target.keys()])].sort(byCodepoint);
+  // HEAD: what the commits not pushed yet made of each file. One of them that changed a file GitHub
+  // changed too, to something else, is as much a collision as an edit not committed.
+  const { head: headMap, ahead } = headFiles(
+    new Map([...base].map(([p, e]) => [p, e.sha])),
+    link.pending,
+  );
   for (const path of paths) {
     const b = base.get(path)?.sha;
     const t = target.get(path)?.sha;
     if (b === t) continue; // not changed on GitHub
+    if (ahead.has(path)) {
+      if (headMap.get(path) !== t) conflicts.push(path);
+      continue;
+    }
     const l = local.get(path)?.sha;
     if (l === t) continue; // the project already has it as GitHub does
     if (l !== b) conflicts.push(path);
@@ -767,7 +918,14 @@ export async function fetchPull(
   plan: PullPlan,
   useRemote: boolean,
   onProgress?: (done: number, total: number) => void,
-): Promise<{ writes: ProjectFile[]; deletes: string[]; link: GitLink }> {
+): Promise<{
+  writes: ProjectFile[];
+  deletes: string[];
+  link: GitLink;
+  /** What Use Remote took out of the commits not pushed yet, and the ones left empty. */
+  trimmed: { message: string; paths: string[] }[];
+  dropped: string[];
+}> {
   if (plan.conflicts.length > 0 && !useRemote)
     throw new GitSyncError(
       _(
@@ -778,9 +936,18 @@ export async function fetchPull(
   const deletes = [...plan.drop];
   if (useRemote)
     for (const path of plan.conflicts) (plan.target.has(path) ? take : deletes).push(path);
-  const { link } = plan;
-  const writes = await fetchBlobs(f, link, take, plan.target, onProgress);
-  return { writes, deletes, link };
+  const writes = await fetchBlobs(f, plan.link, take, plan.target, onProgress);
+  // The commits not pushed yet go on top of the pulled commit (a rebase): none of them touches a
+  // file GitHub changed, or the pull would have been refused - except, under Use Remote, the
+  // conflicting files, whose changes come out of them.
+  const rebased = rebasePending(
+    pendingOf(plan.link),
+    new Map([...plan.target].map(([p, e]) => [p, e.sha])),
+    useRemote ? new Set(plan.conflicts) : new Set(),
+  );
+  const { pending: _old, ...rest } = plan.link;
+  const link: GitLink = rebased.pending.length > 0 ? { ...rest, pending: rebased.pending } : rest;
+  return { writes, deletes, link, trimmed: rebased.trimmed, dropped: rebased.dropped };
 }
 
 const FETCH_CONCURRENCY = 6;

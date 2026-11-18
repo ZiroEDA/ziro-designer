@@ -91,6 +91,8 @@ async function call<T>(f: GithubFetch, method: string, path: string, body?: unkn
 
 export interface GithubUser {
   login: string;
+  /** The account's number, which its noreply commit address is made from. */
+  id?: number;
   name?: string | null;
 }
 
@@ -174,9 +176,9 @@ export async function listInstallationRepos(
  */
 export async function connectionInfo(
   f: GithubFetch,
-): Promise<{ login: string; installations: GithubInstallation[] }> {
+): Promise<{ login: string; id?: number; installations: GithubInstallation[] }> {
   const [user, installations] = await Promise.all([getAuthenticatedUser(f), listInstallations(f)]);
-  return { login: user.login, installations };
+  return { login: user.login, ...(user.id === undefined ? {} : { id: user.id }), installations };
 }
 
 /**
@@ -347,11 +349,14 @@ export async function createCommit(
   message: string,
   tree: string,
   parents: readonly string[],
+  /** Who wrote it and when; absent, GitHub writes the token's account and the time now. */
+  author?: { name: string; email: string; date: string },
 ): Promise<string> {
   const c = await call<{ sha: string }>(f, 'POST', `${repoPath(owner, repo)}/git/commits`, {
     message,
     tree,
     parents,
+    ...(author ? { author } : {}),
   });
   return c.sha;
 }

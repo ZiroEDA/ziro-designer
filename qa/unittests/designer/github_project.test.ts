@@ -29,12 +29,14 @@ import {
   isValidBranchName,
   isValidRepoName,
   parseGitLink,
-  planCommit,
+  MAX_PENDING_BYTES,
+  planLocalCommit,
+  pushPending,
+  recordLocalCommit,
   planPull,
   pushNewRepository,
   remoteFilesOf,
   repoNameFor,
-  runCommit,
   syncedFilesOf,
 } from '@ziroeda/designer/src/github/github_project.js';
 import { FakeGithub, gitBlobId } from './fake_github.js';
@@ -285,78 +287,371 @@ async function linked(extraRemote: Record<string, string> = {}) {
   return { gh, r, link, files };
 }
 
-describe('Commit Project... on a linked project', () => {
-  it('commits only what changed, on the branch head, with base_tree, and moves the branch', async () => {
-    const { gh, r, link, files } = await linked({ '.github/workflows/ci.yml': 'ci\n' });
+const AUTHOR = { login: 'octo', id: 7 };
+const AT = new Date('2026-11-19T10:00:00Z');
+
+/** Commit Project... then Push, as a person does to get a change onto GitHub. */
+async function commitAndPush(
+  f: typeof fetch,
+  link: GitLink,
+  files: readonly ProjectFile[],
+  message: string,
+): Promise<GitLink> {
+  const synced = await syncedFilesOf(f, link);
+  const committed = recordLocalCommit(
+    link,
+    await planLocalCommit(link, synced, files),
+    message,
+    AUTHOR,
+    AT,
+  );
+  return pushPending(f, committed, synced);
+}
+
+describe('Commit Project... records a commit here', () => {
+  it('with what changed against HEAD, and asks nothing of GitHub', async () => {
+    const { gh, link, files } = await linked();
     const edited = [
+      ...files.filter((f) => f.name !== 'board.kicad_sch' && f.name !== 'notes.txt'),
+      file('board.kicad_sch', 'sch v2\n'),
+      file('new.bin', new Uint8Array([0, 1, 2, 255])),
+    ];
+    const synced = await syncedFilesOf(gh.fetch, link);
+    gh.log.length = 0;
+    const plan = await planLocalCommit(link, synced, edited);
+    expect(plan.changes).toEqual([
+      { path: 'board.kicad_sch', status: 'modified' },
+      { path: 'new.bin', status: 'new' },
+      { path: 'notes.txt', status: 'deleted' },
+    ]);
+    const next = recordLocalCommit(link, plan, 'Rev B', AUTHOR, AT);
+    expect(gh.log).toEqual([]);
+    expect(next.commit).toBe(link.commit);
+    expect(next.pending).toEqual([
+      {
+        message: 'Rev B',
+        author: AUTHOR,
+        at: '2026-11-19T10:00:00.000Z',
+        changes: [
+          { path: 'board.kicad_sch', sha: gitBlobId(enc.encode('sch v2\n')), text: 'sch v2\n' },
+          {
+            path: 'new.bin',
+            sha: gitBlobId(new Uint8Array([0, 1, 2, 255])),
+            base64: Buffer.from([0, 1, 2, 255]).toString('base64'),
+          },
+          { path: 'notes.txt', sha: null },
+        ],
+      },
+    ]);
+  });
+
+  it('a second commit records only what changed since the first', async () => {
+    const { gh, link, files } = await linked();
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const v2 = [...files.filter((f) => f.name !== 'notes.txt'), file('notes.txt', 'v2\n')];
+    const one = recordLocalCommit(link, await planLocalCommit(link, synced, v2), 'one', AUTHOR, AT);
+    const v3 = [
+      ...v2.filter((f) => f.name !== 'board.kicad_pcb'),
+      file('board.kicad_pcb', 'pcb v3\n'),
+    ];
+    const plan = await planLocalCommit(one, synced, v3);
+    expect(plan.changes).toEqual([{ path: 'board.kicad_pcb', status: 'modified' }]);
+  });
+
+  it('has nothing to commit when nothing changed since HEAD', async () => {
+    const { gh, link, files } = await linked();
+    const plan = await planLocalCommit(link, await syncedFilesOf(gh.fetch, link), files);
+    expect(plan.changes).toEqual([]);
+    expect(() => recordLocalCommit(link, plan, 'x', AUTHOR, AT)).toThrow(GitSyncError);
+  });
+
+  it(`keeps at most ${MAX_PENDING_BYTES / (1024 * 1024)} MB waiting: then push first`, async () => {
+    const { gh, link, files } = await linked();
+    const big = file('big.txt', 'a'.repeat(MAX_PENDING_BYTES + 1));
+    const plan = await planLocalCommit(link, await syncedFilesOf(gh.fetch, link), [...files, big]);
+    expect(() => recordLocalCommit(link, plan, 'big', AUTHOR, AT)).toThrow('Push them first.');
+  });
+});
+
+describe('Push', () => {
+  it('sends the commits in order, each with its message, author and time, then moves the branch without force', async () => {
+    const { gh, r, link, files } = await linked({ '.github/workflows/ci.yml': 'ci\n' });
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const v2 = [
       ...files.filter((f) => f.name !== 'board.kicad_sch' && f.name !== 'notes.txt'),
       file('board.kicad_sch', 'sch v2\n'),
       file('new.kicad_sch', 'sub sheet\n'),
     ];
-    const plan = await planCommit(gh.fetch, link, edited);
-    expect(plan.changes).toEqual([
-      { path: 'board.kicad_sch', status: 'modified' },
-      { path: 'new.kicad_sch', status: 'new' },
-      { path: 'notes.txt', status: 'deleted' },
-    ]);
+    const one = recordLocalCommit(
+      link,
+      await planLocalCommit(link, synced, v2),
+      'Rev B',
+      AUTHOR,
+      AT,
+    );
+    const v3 = [
+      ...v2.filter((f) => f.name !== 'board.kicad_pcb'),
+      file('board.kicad_pcb', 'pcb v3\n'),
+    ];
+    const later = new Date('2026-11-19T11:00:00Z');
+    const two = recordLocalCommit(
+      one,
+      await planLocalCommit(one, synced, v3),
+      'Route it',
+      AUTHOR,
+      later,
+    );
     gh.log.length = 0;
-    const next = await runCommit(gh.fetch, plan, 'Rev B');
+    const next = await pushPending(gh.fetch, two, synced);
 
-    const tree = gh.writes().find((w) => w.path.endsWith('/git/trees'))!.body as {
-      base_tree: string;
-      tree: { path: string; sha?: string | null; content?: string }[];
-    };
-    expect(tree.base_tree).toBe(link.tree);
-    expect(tree.tree.map((e) => e.path).sort()).toEqual([
-      'board.kicad_sch',
-      'new.kicad_sch',
-      'notes.txt',
-    ]);
-    expect(tree.tree.find((e) => e.path === 'notes.txt')!.sha).toBeNull();
-    const commit = gh.writes().find((w) => w.path.endsWith('/git/commits'))!.body as {
-      parents: string[];
-      message: string;
-    };
-    expect(commit).toMatchObject({ parents: [link.commit], message: 'Rev B' });
-    const ref = gh.writes().find((w) => w.method === 'PATCH')!;
-    expect(ref.path).toBe('/repos/octo/board/git/refs/heads/main');
-    expect(ref.body).toMatchObject({ force: false });
-
+    const trees = gh.writes().filter((w) => w.path.endsWith('/git/trees'));
+    expect((trees[0]!.body as { base_tree: string }).base_tree).toBe(link.tree);
+    expect(
+      (trees[0]!.body as { tree: { path: string; sha?: string | null }[] }).tree.find(
+        (e) => e.path === 'notes.txt',
+      )!.sha,
+    ).toBeNull();
+    const commits = gh
+      .writes()
+      .filter((w) => w.path.endsWith('/git/commits'))
+      .map(
+        (w) =>
+          w.body as {
+            message: string;
+            parents: string[];
+            author: { name: string; email: string; date: string };
+          },
+      );
+    expect(commits.map((c) => c.message)).toEqual(['Rev B', 'Route it']);
+    expect(commits[0]!.parents).toEqual([link.commit]);
+    expect(commits[0]!.author).toEqual({
+      name: 'octo',
+      email: '7+octo@users.noreply.github.com',
+      date: '2026-11-19T10:00:00.000Z',
+    });
+    expect(commits[1]!.author.date).toBe('2026-11-19T11:00:00.000Z');
+    const head = r.refs.get('main')!;
+    expect(r.commits.get(head)!.parents).toEqual([r.commits.get(head)!.parents[0]]);
+    expect(r.commits.get(r.commits.get(head)!.parents[0]!)!.message).toBe('Rev B');
+    expect(
+      gh
+        .writes()
+        .filter((w) => w.method === 'PATCH')
+        .map((w) => w.body),
+    ).toEqual([{ sha: head, force: false }]);
     expect(gh.filesAt(r, 'main')).toEqual({
       'board.kicad_pro': '{}\n',
       'board.kicad_sch': 'sch v2\n',
-      'board.kicad_pcb': 'pcb v1\n',
+      'board.kicad_pcb': 'pcb v3\n',
       'new.kicad_sch': 'sub sheet\n',
       // Not the project's, so untouched: it rides along on base_tree.
       '.github/workflows/ci.yml': 'ci\n',
     });
-    expect(next.commit).toBe(r.refs.get('main'));
-    expect(next.tree).toBe(r.commits.get(next.commit)!.tree);
+    expect(next.commit).toBe(head);
+    expect(next.tree).toBe(r.commits.get(head)!.tree);
+    expect(next.pending).toBeUndefined();
   });
 
-  it('has nothing to commit when nothing changed', async () => {
-    const { gh, link, files } = await linked();
-    const plan = await planCommit(gh.fetch, link, files);
-    expect(plan.changes).toEqual([]);
-    await expect(runCommit(gh.fetch, plan, 'x')).rejects.toBeInstanceOf(GitSyncError);
+  it('the commits survive a reload: what the link file holds is enough to push them', async () => {
+    const { gh, r, link, files } = await linked();
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const edited = [...files, file('bin.dat', new Uint8Array([9, 0, 9])), file('t.txt', 'text\n')];
+    const committed = recordLocalCommit(
+      link,
+      await planLocalCommit(link, synced, edited),
+      'add',
+      AUTHOR,
+      AT,
+    );
+    const reloaded = parseGitLink(gitLinkBytes(committed))!;
+    expect(reloaded.pending).toEqual(committed.pending);
+    await pushPending(gh.fetch, reloaded, synced);
+    expect(gh.filesAt(r, 'main')['t.txt']).toBe('text\n');
+    const tree = r.trees.get(r.commits.get(r.refs.get('main')!)!.tree)!;
+    expect(tree.get('bin.dat')).toBe(gitBlobId(new Uint8Array([9, 0, 9])));
   });
 
   it('refuses, writing nothing, when the branch moved on GitHub: pull first', async () => {
     const { gh, r, link, files } = await linked();
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const committed = recordLocalCommit(
+      link,
+      await planLocalCommit(link, synced, [...files, file('a.txt', 'a')]),
+      'a',
+      AUTHOR,
+      AT,
+    );
     gh.commitFiles(r, 'main', { 'board.kicad_pro': '{}\n', 'other.txt': 'x' });
     gh.log.length = 0;
-    await expect(planCommit(gh.fetch, link, [...files, file('a.txt', 'a')])).rejects.toBeInstanceOf(
-      GitBehindError,
+    await expect(pushPending(gh.fetch, committed, synced)).rejects.toBeInstanceOf(GitBehindError);
+    expect(gh.writes()).toEqual([]);
+  });
+
+  it('refuses when someone pushes between the check and the move (not a fast-forward)', async () => {
+    const { gh, r, link, files } = await linked();
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const committed = recordLocalCommit(
+      link,
+      await planLocalCommit(link, synced, [...files, file('a.txt', 'a')]),
+      'a',
+      AUTHOR,
+      AT,
+    );
+    let theirs = '';
+    const racing = (async (u: string | URL | Request, init: RequestInit = {}) => {
+      const res = await gh.fetch(u, init);
+      if (!theirs && String(init.method) === 'POST' && String(u).endsWith('/git/commits'))
+        theirs = gh.commitFiles(r, 'main', { 'board.kicad_pro': '{}\n' });
+      return res;
+    }) as typeof fetch;
+    await expect(pushPending(racing, committed, synced)).rejects.toBeInstanceOf(GitBehindError);
+    expect(r.refs.get('main')).toBe(theirs);
+  });
+
+  it('refuses a commit whose stored content no longer matches its blob id, writing nothing', async () => {
+    const { gh, link, files } = await linked();
+    const synced = await syncedFilesOf(gh.fetch, link);
+    const committed = recordLocalCommit(
+      link,
+      await planLocalCommit(link, synced, [...files, file('a.txt', 'a\n')]),
+      'a',
+      AUTHOR,
+      AT,
+    );
+    const tampered = {
+      ...committed,
+      pending: committed.pending!.map((c) => ({
+        ...c,
+        changes: c.changes.map((ch) => ({ ...ch, text: 'b\n' })),
+      })),
+    };
+    gh.log.length = 0;
+    await expect(pushPending(gh.fetch, tampered, synced)).rejects.toThrow(
+      'The commit "a" holds a damaged copy of a.txt.',
     );
     expect(gh.writes()).toEqual([]);
   });
 
-  it('refuses when someone pushes between the plan and the push (not a fast-forward)', async () => {
-    const { gh, r, link, files } = await linked();
-    const plan = await planCommit(gh.fetch, link, [...files, file('a.txt', 'a')]);
-    const theirs = gh.commitFiles(r, 'main', { 'board.kicad_pro': '{}\n' });
-    await expect(runCommit(gh.fetch, plan, 'mine')).rejects.toBeInstanceOf(GitBehindError);
-    expect(r.refs.get('main')).toBe(theirs);
+  it('with nothing waiting there is nothing to push', async () => {
+    const { gh, link } = await linked();
+    await expect(pushPending(gh.fetch, link, await syncedFilesOf(gh.fetch, link))).rejects.toThrow(
+      'There are no commits to push.',
+    );
+  });
+});
+
+describe('Pull and Switch to Branch with commits not pushed yet', () => {
+  async function withPending(path: string, text: string) {
+    const w = await linked();
+    const synced = await syncedFilesOf(w.gh.fetch, w.link);
+    const edited = [...w.files.filter((f) => f.name !== path), file(path, text)];
+    const committed = recordLocalCommit(
+      w.link,
+      await planLocalCommit(w.link, synced, edited),
+      `edit ${path}`,
+      AUTHOR,
+      AT,
+    );
+    return { ...w, synced, edited, committed };
+  }
+
+  it('the remote did not move: up to date, the commits still waiting', async () => {
+    const { gh, edited, committed } = await withPending('notes.txt', 'mine\n');
+    const plan = await planPull(gh.fetch, committed, edited);
+    expect(plan.upToDate).toBe(true);
+    expect(plan.link.pending).toHaveLength(1);
+  });
+
+  it('the remote moved elsewhere: the commits go on top of it (rebased), still waiting, and push onto it', async () => {
+    const { gh, r, edited, committed } = await withPending('notes.txt', 'mine\n');
+    const theirs = gh.commitFiles(r, 'main', {
+      'board.kicad_pro': '{}\n',
+      'board.kicad_sch': 'sch theirs\n',
+      'board.kicad_pcb': 'pcb v1\n',
+      'notes.txt': 'notes v1\n',
+    });
+    const plan = await planPull(gh.fetch, committed, edited);
+    expect(plan.conflicts).toEqual([]);
+    const got = await fetchPull(gh.fetch, plan, false);
+    expect(got.link.commit).toBe(theirs);
+    expect(got.link.pending).toEqual(committed.pending);
+    expect(got).toMatchObject({ trimmed: [], dropped: [] });
+
+    const pulled = [...edited.filter((f) => f.name !== 'board.kicad_sch'), ...got.writes];
+    const pushed = await pushPending(gh.fetch, got.link, await syncedFilesOf(gh.fetch, got.link));
+    expect(r.commits.get(pushed.commit)!.parents).toEqual([theirs]);
+    expect(gh.filesAt(r, 'main')).toMatchObject({
+      'board.kicad_sch': 'sch theirs\n',
+      'notes.txt': 'mine\n',
+    });
+    expect(pulled.length).toBeGreaterThan(0);
+  });
+
+  it('a committed file the remote changed too is a conflict - even with the edit undone since', async () => {
+    const { gh, r, files, committed } = await withPending('notes.txt', 'mine\n');
+    gh.commitFiles(r, 'main', {
+      'board.kicad_pro': '{}\n',
+      'board.kicad_sch': 'sch v1\n',
+      'board.kicad_pcb': 'pcb v1\n',
+      'notes.txt': 'theirs\n',
+    });
+    // The working copy is back to the synced version; the commit still changes it.
+    const plan = await planPull(gh.fetch, committed, files);
+    expect(plan.conflicts).toEqual(['notes.txt']);
+    await expect(fetchPull(gh.fetch, plan, false)).rejects.toThrow('conflict');
+  });
+
+  it("Use Remote takes GitHub's file and takes it out of the commit, saying so; an emptied commit goes, named", async () => {
+    const w = await linked();
+    const synced = await syncedFilesOf(w.gh.fetch, w.link);
+    const v2 = [...w.files.filter((f) => f.name !== 'notes.txt'), file('notes.txt', 'mine\n')];
+    const one = recordLocalCommit(
+      w.link,
+      await planLocalCommit(w.link, synced, v2),
+      'notes only',
+      AUTHOR,
+      AT,
+    );
+    const v3 = [
+      ...v2.filter((f) => f.name !== 'board.kicad_sch' && f.name !== 'board.kicad_pcb'),
+      file('board.kicad_sch', 'sch mine\n'),
+      file('board.kicad_pcb', 'pcb mine\n'),
+    ];
+    const two = recordLocalCommit(
+      one,
+      await planLocalCommit(one, synced, v3),
+      'sch and pcb',
+      AUTHOR,
+      AT,
+    );
+    w.gh.commitFiles(w.r, 'main', {
+      'board.kicad_pro': '{}\n',
+      'board.kicad_sch': 'sch theirs\n',
+      'board.kicad_pcb': 'pcb v1\n',
+      'notes.txt': 'theirs\n',
+    });
+    const plan = await planPull(w.gh.fetch, two, v3);
+    expect(plan.conflicts).toEqual(['board.kicad_sch', 'notes.txt']);
+    const got = await fetchPull(w.gh.fetch, plan, true);
+    expect(got.dropped).toEqual(['notes only']);
+    expect(got.trimmed).toEqual([
+      { message: 'notes only', paths: ['notes.txt'] },
+      { message: 'sch and pcb', paths: ['board.kicad_sch'] },
+    ]);
+    expect(got.link.pending!.map((c) => [c.message, c.changes.map((ch) => ch.path)])).toEqual([
+      ['sch and pcb', ['board.kicad_pcb']],
+    ]);
+    expect(got.writes.map((x) => x.name).sort()).toEqual(['board.kicad_sch', 'notes.txt']);
+  });
+
+  it('Switch to Branch is refused while commits wait: push them first', async () => {
+    const { gh, r, edited, committed, link } = await withPending('notes.txt', 'mine\n');
+    r.refs.set('rev-b', link.commit);
+    gh.log.length = 0;
+    await expect(planPull(gh.fetch, committed, edited, 'rev-b')).rejects.toThrow(
+      'This project has commits that are not pushed yet. Push them first, then switch to another branch.',
+    );
+    expect(gh.log).toEqual([]);
   });
 });
 
@@ -608,7 +903,7 @@ describe('Clone Project from Repository...', () => {
       async () => null,
     ))!;
     const edited = got.files.map((f) => (f.name === 'a.kicad_sch' ? file(f.name, 'v2\n') : f));
-    await runCommit(gh.fetch, await planCommit(gh.fetch, got.link, edited), 'edit');
+    await commitAndPush(gh.fetch, got.link, edited, 'edit');
     expect(gh.filesAt(r, 'main')).toEqual({
       'hw/a.kicad_pro': '{}\n',
       'hw/a.kicad_sch': 'v2\n',
@@ -677,7 +972,7 @@ describe("the link remembers the synced commit's files, for the tree's Git statu
       ...PROJECT.filter((f) => f.name !== 'board.kicad_sch'),
       file('board.kicad_sch', 'v2\n'),
     ];
-    const second = await runCommit(gh.fetch, await planCommit(gh.fetch, first, edited), 'v2');
+    const second = await commitAndPush(gh.fetch, first, edited, 'v2');
     expect(second.files?.['board.kicad_sch']).toBe(await gitBlobSha(enc.encode('v2\n')));
 
     const r = gh.repo('octo', 'board');
