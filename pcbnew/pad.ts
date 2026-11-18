@@ -2427,7 +2427,11 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     const frame = aFrame as MSG_PANEL_FRAME;
     let msg: string;
-    const parentFootprint = this.m_parent as FOOTPRINT | null;
+    // Upstream static_casts m_parent, which is only ever a FOOTPRINT there. A pad here has been
+    // seen under another parent, and the cast then threw on GetOrientation in the footprint
+    // editor's message panel (Sentry JAVASCRIPT-REACT-20). KiCad's own accessor is the same
+    // answer under a footprint and none under anything else.
+    const parentFootprint = this.GetParentFootprint();
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
       if (parentFootprint)

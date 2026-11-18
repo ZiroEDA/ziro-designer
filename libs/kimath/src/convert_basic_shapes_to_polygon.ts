@@ -275,6 +275,10 @@ function cornerListToPolygon(
   aErrorLoc: ErrorLoc,
 ): VECTOR2I[] {
   const outline: VECTOR2I[] = [];
+  // A trapezoid whose four corners are one point (a 0 x 0 pad) leaves CornerListRemoveDuplicates
+  // nothing; upstream then reads aCorners[0] of an empty vector. Pad Properties' OK on such a pad
+  // threw here instead of saying "(Pad must have a positive size)" (Sentry JAVASCRIPT-REACT-21).
+  if (aCorners.length === 0) return outline;
   const last = aCorners[aCorners.length - 1]!;
   let incoming: VECTOR2I = {
     x: aCorners[0]!.m_position.x - last.m_position.x,
