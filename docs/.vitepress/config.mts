@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitepress';
+import { defineConfig, type HeadConfig } from 'vitepress';
 
 // Ziro Designer documentation site.
 // Layout follows the EasyEDA docs model: a persistent, nested left sidebar
@@ -16,12 +16,28 @@ export default defineConfig({
   srcExclude: ['CLAUDE.md'],
   appearance: 'dark', // brand is dark-first; toggle still available
 
-  // Standalone docs site, its own Vercel project + subdomain (e.g.
-  // docs.designer.ziroeda.com), served from that project's root.
+  // Standalone docs site at docs.ziroeda.com (Cloudflare Pages project ziroeda-docs), served
+  // from that project's root.
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#08080a' }],
+    // Anonymous usage counts, the same as every ZiroEDA site: www.ziroeda.com/stats.js says what
+    // is sent. The key comes from the build environment, as the designer's does; a build without
+    // it (a fork, a local preview) adds nothing.
+    ...(process.env.VITE_POSTHOG_KEY
+      ? [
+          [
+            'script',
+            {
+              src: 'https://www.ziroeda.com/stats.js',
+              'data-key': process.env.VITE_POSTHOG_KEY,
+              'data-site': 'docs',
+              defer: '',
+            },
+          ] as HeadConfig,
+        ]
+      : []),
   ],
 
   themeConfig: {

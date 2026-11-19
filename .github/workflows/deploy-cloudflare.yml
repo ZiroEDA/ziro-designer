@@ -84,6 +84,9 @@ jobs:
 
       - name: Build and publish the docs
         if: steps.gate.outputs.ready == 'true'
+        env:
+          # The docs pages load www.ziroeda.com/stats.js with this key; unset, they count nothing.
+          VITE_POSTHOG_KEY: ${{ vars.VITE_POSTHOG_KEY }}
         run: |
           pnpm -C docs build
           # Outside the repository: wrangler would otherwise bundle the designer's functions/
