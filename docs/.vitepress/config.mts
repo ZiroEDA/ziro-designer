@@ -22,8 +22,8 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#08080a' }],
-    // Anonymous usage counts, the same as every ZiroEDA site: www.ziroeda.com/stats.js says what
-    // is sent. The key comes from the build environment, as the designer's does; a build without
+    // Site analytics, the same as every ZiroEDA website: www.ziroeda.com/stats.js says what is
+    // collected. The key comes from the build environment, as the designer's does; a build without
     // it (a fork, a local preview) adds nothing.
     ...(process.env.VITE_POSTHOG_KEY
       ? [
