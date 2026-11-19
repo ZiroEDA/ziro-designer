@@ -59,6 +59,9 @@ the engineering detail (3,700+ commits since 29 June 2026).
   dialog set to Gerber (the row was greyed).
 
 ### Changed
+- **ZiroEDA and its documentation are served from Cloudflare**: the same
+  addresses, the same app. Nothing to do on your side; an open tab picks up the
+  new version on its next reload.
 - **GitHub connects as an app you can limit to chosen repositories**: when
   you connect, GitHub asks whether ZiroEDA may use all your repositories or
   only the ones you select, and you can change that later on GitHub. If you
