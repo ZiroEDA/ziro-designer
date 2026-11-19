@@ -1,0 +1,5 @@
+# Cloudflare Pages: designer.ziroeda.com. The site is designer/dist (pnpm -C designer build);
+# functions/ holds the GitHub sign-in routes. Deploy: wrangler pages deploy
+name = "ziroeda-designer"
+pages_build_output_dir = "designer/dist"
+compatibility_date = "2026-11-01"

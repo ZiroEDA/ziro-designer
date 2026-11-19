@@ -1,0 +1,16 @@
+# Cloudflare Pages response headers (the same rules vercel.json gives Vercel).
+# Hashed build output never changes under its name: cache it for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/workbox-*
+  Cache-Control: public, max-age=31536000, immutable
+# The service worker, its loader, the manifest and the page must be checked on every load,
+# or a new deploy never reaches anyone.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/registerSW.js
+  Cache-Control: public, max-age=0, must-revalidate
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
