@@ -22,3 +22,6 @@ tools/libraries/out/
 # Supabase CLI scratch (project ref, pooler url, gotrue version)
 supabase/.temp/
 tools/demos/index.json*.bak
+
+# Cloudflare wrangler local state
+.wrangler/
