@@ -12,7 +12,9 @@
  *  - `load_timing`: once per page load, how long the page took and what it ran on
  *    (cores, memory class, connection type, whether WebGL 2 works);
  *  - `phone_gate`: the small-screen card was shown, and which of its two buttons
- *    (copy the link, email it) was used.
+ *    (copy the link, email it) was used;
+ *  - `welcome_card`: the project manager's welcome card was shown, and which way in was
+ *    taken (`demo:<id>`, `open`, `zip`, `github`, `new`).
  *
  * Kept apart from usage.ts, which reads the build's key and the browser at load, so this
  * logic can be tested with a fake sender and clock.
@@ -24,6 +26,7 @@ export class UsageEvents {
   private readonly firstEditSeen = new Set<string>();
   private edits = 0;
   private gateShown = false;
+  private welcomeShown = false;
 
   constructor(
     private readonly send: SendUsage,
@@ -35,6 +38,7 @@ export class UsageEvents {
   onCommonEvent(aEvent: string, aProps: Record<string, string | number | boolean>): void {
     if (aEvent === 'edit') this.onEdit(String(aProps.frame ?? 'unknown'));
     else if (aEvent === 'phone_gate') this.onGate(String(aProps.action ?? 'shown'));
+    else if (aEvent === 'welcome') this.onWelcome(String(aProps.action ?? 'shown'));
   }
 
   onEdit(aFrame: string): void {
@@ -58,6 +62,15 @@ export class UsageEvents {
       this.gateShown = true;
     }
     this.send('phone_gate', { action: aAction });
+  }
+
+  /** As onGate: the card counted once per page load, every way in each time it is taken. */
+  onWelcome(aAction: string): void {
+    if (aAction === 'shown') {
+      if (this.welcomeShown) return;
+      this.welcomeShown = true;
+    }
+    this.send('welcome_card', { action: aAction });
   }
 }
 

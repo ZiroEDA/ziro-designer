@@ -163,6 +163,7 @@ import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/widgets/tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { type MgrAction, MGR_TOOLS, TILES, tileIcon } from './launcher_tiles.js';
+import { WelcomeCard } from './WelcomeCard.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
 import {
   deleteProjectHistory,
@@ -2471,7 +2472,18 @@ export function HomePage({
         <div className="ze-splitter" onMouseDown={startResize} title={_('Drag to resize')} />
 
         {/* launcher tiles (fixed) with the Recent Projects list scrolling below */}
-        <div className="ze-launchers">
+        <div className={picked ? 'ze-launchers' : 'ze-launchers ze-launchers-welcome'}>
+          {/* ZiroEDA only: with no project open, the three ways in (WelcomeCard.tsx). */}
+          {!picked && (
+            <WelcomeCard
+              available={new Set(demos.filter(isListedDemo).map((d) => d.id))}
+              onDemo={(id) => void openDemoProject(id, 'pcb')}
+              onOpenProject={() => setOpenPrjOpen(true)}
+              onOpenZip={() => zipInputRef.current?.click()}
+              onOpenGithub={github.openFromGithub}
+              onNewProject={openNewProjectDialog}
+            />
+          )}
           <div className="ze-tiles">
             {TILES.map((t) => {
               // Every tile is lit, always. `addLauncher`'s `enabled` defaults to

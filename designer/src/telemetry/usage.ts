@@ -14,7 +14,7 @@
  *    `utm_*` tags, so a post or a README badge can be told apart;
  *  - `first_edit` (the editor kind and seconds since load), the number of edits
  *    on each `active_minute`, `load_timing` (page timings, cores, memory class,
- *    connection type, WebGL 2) and `phone_gate` - see `usage_events.ts`.
+ *    connection type, WebGL 2), `phone_gate` and `welcome_card` - see `usage_events.ts`.
  * The id is a random one per browser, kept in localStorage and linked to no
  * account; the session id is random per tab and renewed after 30 idle minutes.
  *

@@ -1,0 +1,118 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+
+   The project manager's welcome card (WelcomeCard.tsx). ZiroEDA only, with no KiCad
+   counterpart: the colours and fonts are the shell's tokens (common/widgets/shell.css),
+   so the card follows the theme like everything around it; the spacing literals are this
+   card's own layout, since there is no upstream sizer to measure. */
+
+/* With the card above them the launcher tiles may not fit a short window: the pane
+   scrolls instead of clipping the last tiles, which .ze-launchers' own overflow would. */
+.ze-launchers.ze-launchers-welcome {
+  overflow-y: auto;
+}
+
+.ze-welcome {
+  flex: 0 0 auto;
+  max-width: 980px;
+  margin: 0 0 10px;
+  padding: 16px 20px 18px;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  color: var(--chrome-fg);
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
+}
+
+.ze-welcome-title {
+  margin: 0 0 4px;
+  font-size: calc(var(--ui-font-size) * 1.5);
+  font-weight: 600;
+}
+
+.ze-welcome-lead {
+  margin: 0 0 14px;
+  color: var(--chrome-fg-muted);
+}
+
+.ze-welcome-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 24px;
+}
+
+/* A narrow pane stacks the columns rather than squeezing the pictures. */
+@container (max-width: 640px) {
+  .ze-welcome-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ze-launchers.ze-launchers-welcome {
+  container-type: inline-size;
+}
+
+.ze-welcome-head {
+  margin: 0 0 8px;
+  font-size: var(--ui-font-size);
+  font-weight: 600;
+}
+.ze-welcome-col > .ze-welcome-head:not(:first-child) {
+  margin-top: 16px;
+}
+
+.ze-welcome-demos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ze-welcome-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 0 8px;
+  background: var(--content-bg);
+  border: 1px solid var(--chrome-border);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The launcher's own hover: outlined in the highlight colour. */
+.ze-welcome-demo:hover,
+.ze-welcome-demo:focus-visible {
+  border-color: var(--chrome-active);
+  outline: none;
+}
+.ze-welcome-demo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  margin-bottom: 6px;
+}
+.ze-welcome-demo .name {
+  padding: 0 8px;
+  font-weight: 600;
+}
+.ze-welcome-demo .desc {
+  padding: 0 8px;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+}
+
+.ze-welcome-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  max-width: 260px;
+}
+
+.ze-welcome-hint {
+  margin: 8px 0 0;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+}
