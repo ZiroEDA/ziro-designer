@@ -207,6 +207,8 @@ export const TREE_EXCEPTIONS: Record<string, string> = {
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   'common/transline_calculations/tc_common.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
+  'common/usage_hooks.ts':
+    'browser-only, no KiCad counterpart: KiCad collects no usage counts; the seam through which an edit on any frame (EDA_BASE_FRAME::PushCommandToUndoList) reaches the anonymous counts in designer/src/telemetry, sending nothing itself',
   'common/use_document_title.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   'common/use_file_history.ts':
