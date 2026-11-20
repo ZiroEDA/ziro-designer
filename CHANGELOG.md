@@ -12,6 +12,10 @@ the engineering detail (3,700+ commits since 29 June 2026).
 ## [Unreleased]
 
 ### Added
+- **A welcome card on the home screen**: with no project open, the project manager offers
+  three demo boards to try (each opens straight into the PCB editor), opening your own KiCad
+  project (a folder, a .zip, from GitHub, or dropped on the window) and starting a new one.
+  KiCad's launcher stays underneath, and the card goes away once a project is open.
 - **GitHub**: connect your GitHub account, push a project to a new
   repository, then commit, push, pull and switch branches from the project's
   right-click menu (Version Control), as in KiCad 10.
@@ -59,6 +63,10 @@ the engineering detail (3,700+ commits since 29 June 2026).
   dialog set to Gerber (the row was greyed).
 
 ### Changed
+- **The anonymous usage counts** also note how long the app took to load on your device
+  (with its broad class: cores, memory, connection type, whether WebGL 2 works) and how many
+  edits you make, never what you edit. The off switch is unchanged: Preferences, or your
+  browser's Global Privacy Control.
 - **ZiroEDA and its documentation are served from Cloudflare**: the same
   addresses, the same app. Nothing to do on your side; an open tab picks up the
   new version on its next reload.
