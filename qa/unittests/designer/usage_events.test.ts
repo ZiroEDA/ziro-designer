@@ -10,7 +10,12 @@ import { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PICKED_ITEMS_LIST } from '@ziroeda/common/undo_redo_container.js';
-import { NoteUsage, SetUsageListener, type UsageProps } from '@ziroeda/common/usage_hooks.js';
+import {
+  NoteUsage,
+  SetUsageListener,
+  type UsageProps,
+  WithoutUsage,
+} from '@ziroeda/common/usage_hooks.js';
 import {
   loadTiming,
   type NavTiming,
@@ -64,6 +69,27 @@ describe('the common/ seam', () => {
     const frame = new PCB_LIKE_FRAME();
     expect(() => frame.PushCommandToUndoList(new PICKED_ITEMS_LIST())).not.toThrow();
     expect(frame.GetUndoCommandCount()).toBe(1);
+  });
+});
+
+describe('WithoutUsage', () => {
+  it('silences reports inside, nested or not, and comes back afterwards, even after a throw', () => {
+    const got: string[] = [];
+    SetUsageListener((e) => got.push(e));
+    expect(WithoutUsage(() => 7)).toBe(7);
+    WithoutUsage(() => {
+      NoteUsage('a');
+      WithoutUsage(() => NoteUsage('b'));
+      NoteUsage('c');
+    });
+    expect(got).toEqual([]);
+    expect(() =>
+      WithoutUsage(() => {
+        throw new Error('x');
+      }),
+    ).toThrow('x');
+    NoteUsage('after');
+    expect(got).toEqual(['after']);
   });
 });
 

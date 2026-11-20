@@ -15,6 +15,8 @@ import {
 } from '@ziroeda/3d-viewer/3d_cache/model_substitution_helpers.js';
 import { mountHostedLibrary, SetHosted3DCatalog } from '@ziroeda/3d-viewer/component3d.js';
 import { PATHS } from '@ziroeda/common/paths.js';
+import { PICKED_ITEMS_LIST } from '@ziroeda/common/undo_redo_container.js';
+import { SetUsageListener } from '@ziroeda/common/usage_hooks.js';
 import { wxFileExists } from '@ziroeda/wx/filefn.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
@@ -122,6 +124,22 @@ describe('AutoMigrateByFilename', () => {
     );
     expect(f.GetUndoCommandCount()).toBe(1);
     expect(DIALOG_MIGRATE_3D_MODELS.CountUnresolvedWrlReferences(f)).toBe(1);
+  });
+
+  it("is not reported as the person's edit to the usage counts, though it stays undoable", () => {
+    const heard: string[] = [];
+    SetUsageListener((e) => heard.push(e));
+    try {
+      const { f } = frame([R_WRL]);
+      expect(DIALOG_MIGRATE_3D_MODELS.AutoMigrateByFilename(f)).toBe(1);
+      expect(f.GetUndoCommandCount()).toBe(1);
+      expect(heard).toEqual([]);
+      // ...while an edit the person makes afterwards is heard as usual
+      f.PushCommandToUndoList(new PICKED_ITEMS_LIST());
+      expect(heard).toEqual(['edit']);
+    } finally {
+      SetUsageListener(null);
+    }
   });
 
   it('leaves a board with nothing to match alone', () => {

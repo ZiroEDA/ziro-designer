@@ -15,6 +15,7 @@ export type UsageProps = Record<string, string | number | boolean>;
 export type UsageListener = (aEvent: string, aProps: UsageProps) => void;
 
 let listener: UsageListener | null = null;
+let quiet = 0;
 
 /** Install (or, with null, remove) the one listener. */
 export function SetUsageListener(aListener: UsageListener | null): void {
@@ -23,10 +24,25 @@ export function SetUsageListener(aListener: UsageListener | null): void {
 
 /** Report that `aEvent` happened. A listener that throws never disturbs the caller. */
 export function NoteUsage(aEvent: string, aProps: UsageProps = {}): void {
-  if (!listener) return;
+  if (!listener || quiet > 0) return;
   try {
     listener(aEvent, aProps);
   } catch {
     /* counting must never break editing */
+  }
+}
+
+/**
+ * Run `aFn` without reporting anything: for the few commits a frame makes by itself rather
+ * than for the person, such as the 3D model migration pcbnew runs when a board opens. An
+ * edit made in here is still an edit (it lands on the undo list as in KiCad); it is just not
+ * the person's first edit.
+ */
+export function WithoutUsage<T>(aFn: () => T): T {
+  quiet++;
+  try {
+    return aFn();
+  } finally {
+    quiet--;
   }
 }

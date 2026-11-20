@@ -13,6 +13,7 @@
  * folders on one machine).
  */
 import { type JSX, type ReactNode, useMemo, useReducer, useState } from 'react';
+import { WithoutUsage } from '@ziroeda/common/usage_hooks.js';
 import {
   ParentDirName,
   FullName,
@@ -238,7 +239,11 @@ export class DIALOG_MIGRATE_3D_MODELS {
       }
     }
 
-    if (rewritten > 0) commit.Push(wxGetTranslation('Auto-migrate 3D model references'));
+    // ZiroEDA only: this runs by itself when the board opens, so the anonymous usage counts
+    // must not take it for the person's first edit (common/usage_hooks.ts). KiCad's commit,
+    // undo entry included, is unchanged.
+    if (rewritten > 0)
+      WithoutUsage(() => commit.Push(wxGetTranslation('Auto-migrate 3D model references')));
 
     return rewritten;
   }
