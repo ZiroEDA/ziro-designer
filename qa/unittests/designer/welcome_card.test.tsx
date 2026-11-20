@@ -74,6 +74,23 @@ describe('the welcome card', () => {
   });
 });
 
+describe('a demo board is a link to its own address', () => {
+  it("points at the demo in the PCB editor; a plain click opens it here, a Ctrl-click is the browser's", () => {
+    const h = handlers();
+    render(<WelcomeCard available={new Set(['stickhub'])} {...h} />);
+    const link = screen.getByRole('link', { name: /StickHub/ });
+    expect(link.getAttribute('href')).toBe('/demo/stickhub/pcb');
+    const ctrl = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
+    link.dispatchEvent(ctrl);
+    expect(h.onDemo).not.toHaveBeenCalled();
+    expect(ctrl.defaultPrevented).toBe(false);
+    const plain = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(plain);
+    expect(h.onDemo).toHaveBeenCalledWith('stickhub');
+    expect(plain.defaultPrevented).toBe(true);
+  });
+});
+
 describe('welcome_card in the usage counts', () => {
   it('counts the card once per page load and every way in each time', () => {
     const sent: string[] = [];

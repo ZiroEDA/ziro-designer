@@ -9,8 +9,9 @@
  * launcher tiles below it stay exactly as upstream draws them, and the card goes away as
  * soon as a project is open.
  */
-import { useEffect, type JSX } from 'react';
+import { useEffect, type JSX, type MouseEvent } from 'react';
 import { _ } from '@ziroeda/wx/translation.js';
+import { Button } from '@ziroeda/wx/controls.js';
 import { NoteUsage } from '@ziroeda/common/usage_hooks.js';
 import './welcome_card.css';
 
@@ -84,16 +85,22 @@ export function WelcomeCard(p: WelcomeCardProps): JSX.Element {
             <h3 className="ze-welcome-head">{_('Try a demo board')}</h3>
             <div className="ze-welcome-demos">
               {demos.map((d) => (
-                <button
-                  type="button"
+                // A link to the demo's own address, so it can also open in a new tab; a plain click
+                // opens it here, the way File > Open Demo Project does.
+                <a
                   key={d.id}
                   className="ze-welcome-demo"
-                  onClick={act(`demo:${d.id}`, () => p.onDemo(d.id))}
+                  href={`${BASE}demo/${d.id}/pcb`}
+                  onClick={(e: MouseEvent) => {
+                    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+                    e.preventDefault();
+                    act(`demo:${d.id}`, () => p.onDemo(d.id))();
+                  }}
                 >
                   <img src={`${BASE}${d.image}`} alt="" width={240} height={150} loading="lazy" />
                   <span className="name">{d.title}</span>
                   <span className="desc">{d.blurb()}</span>
-                </button>
+                </a>
               ))}
             </div>
           </div>
@@ -102,15 +109,9 @@ export function WelcomeCard(p: WelcomeCardProps): JSX.Element {
         <div className="ze-welcome-col">
           <h3 className="ze-welcome-head">{_('Open your KiCad project')}</h3>
           <div className="ze-welcome-buttons">
-            <button type="button" className="ze-btn primary" onClick={act('open', p.onOpenProject)}>
-              {_('Open Project...')}
-            </button>
-            <button type="button" className="ze-btn" onClick={act('zip', p.onOpenZip)}>
-              {_('Open a .zip...')}
-            </button>
-            <button type="button" className="ze-btn" onClick={act('github', p.onOpenGithub)}>
-              {_('Open from GitHub...')}
-            </button>
+            <Button label={_('Open Project...')} onClick={act('open', p.onOpenProject)} />
+            <Button label={_('Open a .zip...')} onClick={act('zip', p.onOpenZip)} />
+            <Button label={_('Open from GitHub...')} onClick={act('github', p.onOpenGithub)} />
           </div>
           <p className="ze-welcome-hint">
             {_('Or drop a project folder or .zip anywhere on this window.')}
@@ -118,9 +119,7 @@ export function WelcomeCard(p: WelcomeCardProps): JSX.Element {
 
           <h3 className="ze-welcome-head">{_('Start from scratch')}</h3>
           <div className="ze-welcome-buttons">
-            <button type="button" className="ze-btn" onClick={act('new', p.onNewProject)}>
-              {_('New Project...')}
-            </button>
+            <Button label={_('New Project...')} onClick={act('new', p.onNewProject)} />
           </div>
           <p className="ze-welcome-hint">
             {_('Projects are kept in this browser. Sign in to sync them across your devices.')}
