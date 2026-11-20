@@ -18,6 +18,7 @@ import type { MessageDialogIcon } from './confirm_types.js';
 import type { KIWAY } from './kiway.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { FRAME_T } from './frame_type.js';
+import { NoteUsage } from './usage_hooks.js';
 import { Pgm, PgmOrNull } from './pgm_base.js';
 import type { PROJECT } from './project.js';
 import type { TOOL_MANAGER_FRAME_WITH_STATUS_BAR } from './tool/tool_manager.js';
@@ -279,6 +280,9 @@ export abstract class EDA_BASE_FRAME
    */
   PushCommandToUndoList(aNewitem: PICKED_ITEMS_LIST): void {
     this.m_undoList.PushCommand(aNewitem);
+    // ZiroEDA only: every editor's edits arrive here, so the anonymous usage counts learn of
+    // one here (which kind of frame, nothing about the edit). See usage_hooks.ts.
+    NoteUsage('edit', { frame: FRAME_T[this.m_ident] ?? String(this.m_ident) });
 
     // Delete the extra items, if count max reached
     if (this.m_undoRedoCountMax > 0) {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { useDesktopGate } from './useDesktopGate.js';
 import './desktopGate.css';
 import { _ } from '@ziroeda/wx/translation.js';
+import { NoteUsage } from '@ziroeda/common/usage_hooks.js';
 
 /** Copy to clipboard, falling back to a hidden textarea on non-secure origins. */
 async function copyText(text: string): Promise<boolean> {
@@ -32,6 +33,9 @@ async function copyText(text: string): Promise<boolean> {
 
 function GateCard(): JSX.Element {
   const [copied, setCopied] = useState(false);
+  // The anonymous usage counts learn that a small screen was turned away, and which way
+  // out its visitor took (telemetry/usage_events.ts).
+  useEffect(() => NoteUsage('phone_gate', { action: 'shown' }), []);
   const url = window.location.href;
   const mailto =
     `mailto:?subject=${encodeURIComponent('ZiroEDA')}` +
@@ -59,6 +63,7 @@ function GateCard(): JSX.Element {
             type="button"
             className="ze-gate-btn primary"
             onClick={() => {
+              NoteUsage('phone_gate', { action: 'copy' });
               void copyText(url).then((ok) => {
                 if (!ok) return;
                 setCopied(true);
@@ -68,7 +73,11 @@ function GateCard(): JSX.Element {
           >
             {copied ? _('Link copied') : _('Copy link')}
           </button>
-          <a className="ze-gate-btn" href={mailto}>
+          <a
+            className="ze-gate-btn"
+            href={mailto}
+            onClick={() => NoteUsage('phone_gate', { action: 'email' })}
+          >
             {_('Email me the link')}
           </a>
         </div>
